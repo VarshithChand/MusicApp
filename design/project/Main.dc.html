@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Login</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=DM+Sans:wght@400;500;600&display=swap">
+<style>
+body{margin:0;font-family:'DM Sans',system-ui,sans-serif}
+input::placeholder{color:#7C8391}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #0E1014; color: #F4F5F7; font-family: 'DM Sans', system-ui, sans-serif; padding: 96px 24px 40px; display: flex; flex-direction: column; overflow: hidden;">
+<div style="display: flex; flex-direction: column; gap: 20px; flex-grow: 1;">
+<div style="width: 64px; height: 64px; border-radius: 20px; background: #FFC53D; display: flex; align-items: center; justify-content: center; color: #1A1400;">
+<svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 4.5l12 7.5-12 7.5z"/></svg>
+</div>
+<h1 style="margin: 12px 0 0; font-family: 'Bricolage Grotesque', 'DM Sans', sans-serif; font-weight: 700; font-size: 40px; line-height: 1.05; letter-spacing: -0.02em;">Your music,<br>everywhere.</h1>
+<p style="margin: 0; font-size: 16px; line-height: 1.5; color: #A3A9B5;">Log in to pick up where you left off.</p>
+
+<form style="display: flex; flex-direction: column; gap: 16px; margin-top: 16px;" action="Home.dc.html">
+<div style="display: flex; flex-direction: column; gap: 8px;">
+<label for="email" style="font-size: 14px; font-weight: 500; color: #F4F5F7;">Email</label>
+<input id="email" type="email" placeholder="you@example.com" style="height: 52px; box-sizing: border-box; padding: 0 16px; border-radius: 14px; border: 1px solid #2A2F3A; background: #171A21; color: #F4F5F7; font: inherit; font-size: 16px;">
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px;">
+<label for="password" style="font-size: 14px; font-weight: 500; color: #F4F5F7;">Password</label>
+<input id="password" type="password" placeholder="At least 8 characters" style="height: 52px; box-sizing: border-box; padding: 0 16px; border-radius: 14px; border: 1px solid #2A2F3A; background: #171A21; color: #F4F5F7; font: inherit; font-size: 16px;">
+</div>
+<a href="Home.dc.html" style="margin-top: 8px; height: 54px; border-radius: 27px; background: #FFC53D; color: #1A1400; font-weight: 600; font-size: 16px; display: flex; align-items: center; justify-content: center; text-decoration: none;">Log in</a>
+</form>
+</div>
+<div style="display: flex; justify-content: center; gap: 6px; font-size: 15px; color: #A3A9B5; align-items: center; min-height: 44px;">
+<span>New here?</span>
+<a href="Main.dc.html" style="color: #FFC53D; font-weight: 600; text-decoration: none;">Create an account</a>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

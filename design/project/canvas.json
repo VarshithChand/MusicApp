@@ -1,0 +1,19 @@
+{
+  "v": 3,
+  "createdOnFiles": { "v": 1, "at": "2026-10-01T09:00:00Z" },
+  "title": "Music App UI",
+  "launch": { "view": "canvas" },
+  "pages": [],
+  "boards": {
+    "Main.dc.html": { "x": 0, "y": 0, "w": 390, "h": 844, "title": "1 · Login", "is_interactive": true, "radius": 28 },
+    "Home.dc.html": { "x": 470, "y": 0, "w": 390, "h": 844, "title": "2 · Home", "is_interactive": true, "radius": 28 },
+    "Player.dc.html": { "x": 940, "y": 0, "w": 390, "h": 844, "title": "3 · Now playing", "is_interactive": true, "radius": 28 },
+    "Search.dc.html": { "x": 1410, "y": 0, "w": 390, "h": 844, "title": "4 · Search", "is_interactive": true, "radius": 28 },
+    "Library.dc.html": { "x": 1880, "y": 0, "w": 390, "h": 844, "title": "5 · Library", "is_interactive": true, "radius": 28 }
+  },
+  "order": ["Main.dc.html", "Home.dc.html", "Player.dc.html", "Search.dc.html", "Library.dc.html"],
+  "notes": {
+    "t1": { "x": 0, "y": -280, "text": "Music app — mobile screens", "kind": "title1", "maxW": 2270 }
+  },
+  "designSystems": []
+}
