@@ -1,7 +1,8 @@
 import { useNavigate } from "react-router-dom";
 import { useArtists, useRecentlyPlayed, useSongs } from "../api/hooks";
 import { Cover } from "../components/Cover";
-import { APK_URL, isAndroid } from "../config";
+import { DownloadApp } from "../components/DownloadApp";
+import { isAndroid } from "../config";
 import { Icon } from "../components/Icon";
 import { SongRow } from "../components/SongRow";
 import { usePlayer } from "../store/player";
@@ -39,9 +40,9 @@ export function HomeScreen() {
             <b>Get the Android app</b>
             <span className="muted">Listen in the background with lock-screen controls.</span>
           </div>
-          <a className="btn primary" href={APK_URL}>
+          <DownloadApp className="btn primary">
             <Icon name="download" size={18} /> Download
-          </a>
+          </DownloadApp>
         </aside>
       )}
 

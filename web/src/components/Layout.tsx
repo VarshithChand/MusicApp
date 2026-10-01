@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { APK_URL } from "../config";
+import { DownloadApp } from "./DownloadApp";
 import { useAuth } from "../store/auth";
 import { useCurrentSong, usePlayer } from "../store/player";
 import { Cover } from "./Cover";
@@ -73,9 +73,9 @@ export function Layout() {
         </div>
         <Tabs className="side-tabs" />
         <div className="sidebar-foot">
-          <a className="btn" href={APK_URL}>
+          <DownloadApp className="btn">
             <Icon name="download" size={18} /> Android app
-          </a>
+          </DownloadApp>
           <span className="muted">{user?.name}</span>
           <button className="btn ghost" onClick={logout}>
             <Icon name="logout" size={18} /> Log out

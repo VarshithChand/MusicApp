@@ -4,6 +4,7 @@ import cors from "cors";
 import express, { NextFunction, Request, Response } from "express";
 import path from "path";
 import { adminRouter } from "./routes/admin";
+import { appRouter } from "./routes/app";
 import { authRouter } from "./routes/auth";
 import { albumsRouter, artistsRouter, genresRouter, songsRouter } from "./routes/catalog";
 import { playlistsRouter, usersRouter } from "./routes/playlists";
@@ -28,6 +29,7 @@ app.use("/genres", genresRouter);
 app.use("/playlists", playlistsRouter);
 app.use("/users", usersRouter);
 app.use("/admin", adminRouter);
+app.use("/app", appRouter);
 
 app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
   console.error(err);

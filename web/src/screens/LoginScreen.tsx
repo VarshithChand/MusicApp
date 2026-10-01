@@ -1,7 +1,7 @@
 import { FormEvent, useState } from "react";
 import { Icon } from "../components/Icon";
 import { PasswordInput } from "../components/PasswordInput";
-import { APK_URL } from "../config";
+import { DownloadApp } from "../components/DownloadApp";
 import { useAuth } from "../store/auth";
 
 const FEATURES = [
@@ -56,9 +56,9 @@ export function LoginScreen() {
               </li>
             ))}
           </ul>
-          <a className="btn primary hero-download" href={APK_URL}>
+          <DownloadApp className="btn primary hero-download">
             <Icon name="download" size={20} /> Download the Android app
-          </a>
+          </DownloadApp>
         </div>
 
         <div className="hero-art" aria-hidden="true">
@@ -103,9 +103,9 @@ export function LoginScreen() {
             </button>
           </form>
 
-          <a className="apk-link" href={APK_URL}>
+          <DownloadApp className="apk-link">
             <Icon name="download" size={18} /> Get the Android app
-          </a>
+          </DownloadApp>
 
           <p className="switch">
             <span className="muted">{isLogin ? "New here?" : "Already have an account?"}</span>
