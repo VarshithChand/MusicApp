@@ -16,7 +16,17 @@ app.use(cors());
 app.use(express.json());
 
 app.get("/health", (_req, res) =>
-  res.json({ ok: true, commit: process.env.RENDER_GIT_COMMIT?.slice(0, 7), storage: storageStatus }),
+  res.json({
+    ok: true,
+    commit: process.env.RENDER_GIT_COMMIT?.slice(0, 7),
+    storage: storageStatus,
+    // Which optional integrations have their keys set (yes/no only, never the values).
+    integrations: {
+      google: !!process.env.GOOGLE_CLIENT_ID,
+      youtube: !!process.env.YOUTUBE_API_KEY,
+      jamendo: !!process.env.JAMENDO_CLIENT_ID,
+    },
+  }),
 );
 
 // Audio and cover files; express.static supports HTTP range requests, which seeking needs.
