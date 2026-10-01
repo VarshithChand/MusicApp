@@ -560,6 +560,48 @@ input::placeholder {
   }
 }
 
+/* --- app download ------------------------------------------------------- */
+
+.hero-download {
+  margin-top: 28px;
+  text-decoration: none;
+}
+.apk-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: none;
+}
+.apk-link:hover {
+  text-decoration: underline;
+}
+.sidebar-foot .btn {
+  text-decoration: none;
+  color: var(--text);
+}
+.apk-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 20px;
+  border-radius: 20px;
+  background: var(--surface2);
+}
+.apk-banner > div {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.apk-banner .btn {
+  text-decoration: none;
+  flex-shrink: 0;
+}
+
 /* --- modal -------------------------------------------------------------- */
 
 .backdrop {

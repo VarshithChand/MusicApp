@@ -8,6 +8,9 @@ on:
     workflows: ["Build Android APK"]
     types: [completed]
 
+permissions:
+  contents: write # needed to publish the release below
+
 jobs:
   smoke:
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
@@ -45,3 +48,18 @@ jobs:
         with:
           name: smoke-output
           path: smoke-out/
+
+      # Only an APK that stayed alive in the emulator is published, so the download button never serves a broken build.
+      - name: Publish APK as the latest download
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! grep -q '^ALIVE' smoke-out/result.txt; then
+            echo "App did not stay alive in the emulator; not publishing."
+            exit 1
+          fi
+          cp apk/app-release.apk music.apk
+          gh release view latest >/dev/null 2>&1 || gh release create latest \
+            --title "Latest Android build" \
+            --notes "Always the newest APK that passed the launch test. Download music.apk."
+          gh release upload latest music.apk --clobber
