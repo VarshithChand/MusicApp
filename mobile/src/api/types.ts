@@ -76,3 +76,16 @@ export interface DiscoverResponse {
   configured: boolean;
   results: DiscoverTrack[];
 }
+
+/** A music video found on YouTube. It is only ever played in YouTube's own embedded player. */
+export interface YouTubeResult {
+  videoId: string;
+  title: string;
+  channel: string;
+  thumbnail: string | null;
+}
+
+export interface YouTubeResponse {
+  configured: boolean;
+  results: YouTubeResult[];
+}

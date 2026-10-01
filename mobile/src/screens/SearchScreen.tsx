@@ -1,12 +1,14 @@
 import { useNavigation } from '@react-navigation/native';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import TrackPlayer from 'react-native-track-player';
+import { ActivityIndicator, Image, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useDiscover, useImportSong, useSearch } from '../api/hooks';
+import { useDiscover, useImportSong, useSearch, useYouTube } from '../api/hooks';
 import { Chip } from '../components/Chip';
 import { Cover } from '../components/Cover';
 import { Icon } from '../components/Icon';
 import { SongRow } from '../components/SongRow';
+import { YouTubeModal } from '../components/YouTubeModal';
 import { playQueue } from '../player/controls';
 import { colors } from '../theme/theme';
 
@@ -26,6 +28,8 @@ export function SearchScreen() {
   const [kind, setKind] = useState<Kind>('songs');
   const { data, isFetching, isError } = useSearch(q);
   const discover = useDiscover(q);
+  const youtube = useYouTube(q);
+  const [video, setVideo] = useState<{ videoId: string; title: string } | null>(null);
   const importSong = useImportSong();
   const [importingId, setImportingId] = useState<string | null>(null);
 
@@ -139,6 +143,39 @@ export function SearchScreen() {
         </View>
       )}
 
+      {kind === 'songs' && !!q && youtube.data?.configured && (
+        <View style={styles.web}>
+          <Text style={styles.webTitle}>On YouTube</Text>
+          <Text style={styles.muted}>Plays in YouTube's own player. Nothing is saved to your library.</Text>
+          {youtube.isFetching && <ActivityIndicator color={colors.accent} />}
+          {youtube.isError && <Text style={styles.muted}>YouTube search is unavailable right now.</Text>}
+          {!youtube.isFetching && youtube.data.results.length === 0 && <Text style={styles.muted}>No videos found.</Text>}
+          {youtube.data.results.map((v) => (
+            <Pressable
+              key={v.videoId}
+              style={styles.webRow}
+              onPress={() => {
+                TrackPlayer.pause().catch(() => {});
+                setVideo({ videoId: v.videoId, title: v.title });
+              }}
+              accessibilityLabel={`Play ${v.title} on YouTube`}
+            >
+              {v.thumbnail ? <Image source={{ uri: v.thumbnail }} style={styles.ytThumb} /> : <View style={styles.ytThumb} />}
+              <View style={styles.webText}>
+                <Text style={styles.rowTitle} numberOfLines={2}>
+                  {v.title}
+                </Text>
+                <Text style={styles.rowSub} numberOfLines={1}>
+                  {v.channel}
+                </Text>
+              </View>
+            </Pressable>
+          ))}
+        </View>
+      )}
+
+      <YouTubeModal videoId={video?.videoId ?? null} title={video?.title ?? ''} onClose={() => setVideo(null)} />
+
       {data && kind === 'artists' &&
         data.artists.map((a) => (
           <Pressable
@@ -204,6 +241,7 @@ const styles = StyleSheet.create({
   webText: { flex: 1, minWidth: 0 },
   webLoading: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 12, backgroundColor: 'rgba(14,16,20,0.62)', alignItems: 'center', justifyContent: 'center' },
   license: { minWidth: 44, height: 32, borderRadius: 16, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+  ytThumb: { width: 96, height: 54, borderRadius: 8, backgroundColor: colors.surface2 },
   licenseText: { color: colors.muted, fontSize: 12, fontWeight: '600' },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 60 },
   rowTitle: { color: colors.text, fontSize: 15, fontWeight: '600' },

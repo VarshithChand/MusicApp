@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './index';
-import { Album, Artist, DiscoverResponse, Playlist, SearchResults, Song } from './types';
+import { Album, Artist, DiscoverResponse, Playlist, SearchResults, Song, YouTubeResponse } from './types';
 
 export const useSongs = (sort?: 'popular') =>
   useQuery({ queryKey: ['songs', sort], queryFn: () => api<Song[]>(`/songs${sort ? `?sort=${sort}` : ''}`) });
@@ -84,5 +84,15 @@ export function useImportSong() {
     onSuccess: () => {
       for (const key of ['songs', 'artists', 'albums', 'search']) qc.invalidateQueries({ queryKey: [key] });
     },
+  });
+}
+
+/** Searches YouTube's Music category (empty until the server has a YouTube key). */
+export function useYouTube(q: string) {
+  return useQuery({
+    queryKey: ['youtube', q],
+    queryFn: () => api<YouTubeResponse>(`/discover/youtube?q=${encodeURIComponent(q)}`),
+    enabled: q.trim().length > 1,
+    staleTime: 10 * 60_000,
   });
 }

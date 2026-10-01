@@ -23,6 +23,7 @@
     "react-native-screens": "^4.28.0",
     "react-native-svg": "^15.15.5",
     "react-native-track-player": "^4.1.2",
+    "react-native-webview": "^14.0.1",
     "zustand": "^5.0.15"
   },
   "devDependencies": {

@@ -144,3 +144,53 @@ discoverRouter.post("/import", async (req, res) => {
   // Don't make the listener wait: they stream from the catalogue immediately while we copy the file.
   if (inserted.length) void mirrorAudio(inserted[0].id, track);
 });
+
+// --- YouTube (official embedded player only: we search, the app plays the video in YouTube's own player) ---
+
+const YT_KEY = process.env.YOUTUBE_API_KEY;
+// A search costs 100 of the 10,000 free daily quota units, so repeat searches are served from memory for 10 minutes.
+const ytCache = new Map<string, { at: number; results: unknown[] }>();
+
+const decode = (s: string) =>
+  s.replace(/&amp;/g, "&").replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+
+discoverRouter.get("/youtube", async (req, res) => {
+  if (!YT_KEY) return res.json({ configured: false, results: [] });
+  const q = String(req.query.q ?? "").trim();
+  if (q.length < 2) return res.json({ configured: true, results: [] });
+
+  const cacheKey = q.toLowerCase();
+  const hit = ytCache.get(cacheKey);
+  if (hit && Date.now() - hit.at < 10 * 60_000) return res.json({ configured: true, results: hit.results });
+
+  const url = new URL("https://www.googleapis.com/youtube/v3/search");
+  url.search = new URLSearchParams({
+    part: "snippet",
+    type: "video",
+    videoCategoryId: "10", // Music
+    videoEmbeddable: "true",
+    videoSyndicated: "true", // plays outside youtube.com
+    maxResults: "8",
+    q,
+    key: YT_KEY,
+  }).toString();
+
+  const response = await fetch(url);
+  const body = (await response.json().catch(() => null)) as
+    | { items?: { id: { videoId: string }; snippet: { title: string; channelTitle: string; thumbnails?: { medium?: { url: string } } } }[]; error?: { message?: string } }
+    | null;
+  if (!response.ok || !body?.items) {
+    console.error("youtube search failed:", response.status, body?.error?.message);
+    return res.status(502).json({ error: "YouTube search is unavailable right now." });
+  }
+
+  const results = body.items.map((i) => ({
+    videoId: i.id.videoId,
+    title: decode(i.snippet.title),
+    channel: decode(i.snippet.channelTitle),
+    thumbnail: i.snippet.thumbnails?.medium?.url ?? null,
+  }));
+  if (ytCache.size > 200) ytCache.clear();
+  ytCache.set(cacheKey, { at: Date.now(), results });
+  res.json({ configured: true, results });
+});

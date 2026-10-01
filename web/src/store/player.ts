@@ -16,6 +16,7 @@ interface PlayerState {
   repeat: boolean;
   playQueue: (songs: Song[], index?: number) => void;
   toggle: () => void;
+  pause: () => void;
   next: () => void;
   prev: () => void;
   seek: (sec: number) => void;
@@ -90,6 +91,7 @@ export const usePlayer = create<PlayerState>((set, get) => {
       set({ queue: songs });
       load(index);
     },
+    pause: () => audio.pause(),
     toggle: () => {
       if (!get().queue.length) return;
       if (audio.paused) audio.play().catch(() => {});

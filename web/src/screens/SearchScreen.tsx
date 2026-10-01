@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useDiscover, useImportSong, useSearch } from "../api/hooks";
+import { useDiscover, useImportSong, useSearch, useYouTube } from "../api/hooks";
 import { Chip } from "../components/Chip";
 import { Cover } from "../components/Cover";
 import { Icon } from "../components/Icon";
 import { SongRow } from "../components/SongRow";
+import { YouTubeModal } from "../components/YouTubeModal";
 import { usePlayer } from "../store/player";
 
 type Kind = "songs" | "artists" | "albums" | "genres";
@@ -26,6 +27,9 @@ export function SearchScreen() {
   const [kind, setKind] = useState<Kind>("songs");
   const { data, isFetching, isError } = useSearch(q);
   const discover = useDiscover(q);
+  const youtube = useYouTube(q);
+  const pausePlayer = usePlayer((s) => s.pause);
+  const [video, setVideo] = useState<{ videoId: string; title: string } | null>(null);
   const importSong = useImportSong();
   const [importingId, setImportingId] = useState<string | null>(null);
 
@@ -122,6 +126,35 @@ export function SearchScreen() {
           ))}
         </section>
       )}
+
+      {kind === "songs" && !!q && youtube.data?.configured && (
+        <section className="web-results">
+          <h2>On YouTube</h2>
+          <p className="muted small">Plays in YouTube's own player. Nothing is saved to your library.</p>
+          {youtube.isFetching && <p className="muted">Searching YouTube…</p>}
+          {youtube.isError && <p className="error">YouTube search is unavailable right now.</p>}
+          {youtube.data.results.length === 0 && !youtube.isFetching && <p className="muted">No videos found.</p>}
+          {youtube.data.results.map((v) => (
+            <button
+              key={v.videoId}
+              className="list-row"
+              onClick={() => {
+                pausePlayer();
+                setVideo({ videoId: v.videoId, title: v.title });
+              }}
+              aria-label={`Play ${v.title} on YouTube`}
+            >
+              {v.thumbnail ? <img className="yt-thumb" src={v.thumbnail} alt="" /> : <span className="yt-thumb" />}
+              <span className="song-text">
+                <span className="song-title">{v.title}</span>
+                <span className="song-sub">{v.channel}</span>
+              </span>
+            </button>
+          ))}
+        </section>
+      )}
+
+      {video && <YouTubeModal videoId={video.videoId} title={video.title} onClose={() => setVideo(null)} />}
 
       {data && kind === "artists" &&
         data.artists.map((a) => (
