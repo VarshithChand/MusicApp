@@ -7,6 +7,14 @@ const { R2_ACCOUNT_ID, R2_BUCKET, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_PUB
 
 const r2Configured = !!(R2_ACCOUNT_ID && R2_BUCKET && R2_ACCESS_KEY_ID && R2_SECRET_ACCESS_KEY && R2_PUBLIC_URL);
 
+/** Which R2 variables are present (names only, never values) — shown on /health to debug deployments. */
+export const storageStatus = {
+  mode: r2Configured ? "r2" : "local",
+  missing: Object.entries({ R2_ACCOUNT_ID, R2_BUCKET, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_PUBLIC_URL })
+    .filter(([, v]) => !v)
+    .map(([k]) => k),
+};
+
 const client = r2Configured
   ? new S3Client({
       region: "auto",

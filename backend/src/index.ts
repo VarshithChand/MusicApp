@@ -7,12 +7,15 @@ import { adminRouter } from "./routes/admin";
 import { authRouter } from "./routes/auth";
 import { albumsRouter, artistsRouter, genresRouter, songsRouter } from "./routes/catalog";
 import { playlistsRouter, usersRouter } from "./routes/playlists";
+import { storageStatus } from "./storage";
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-app.get("/health", (_req, res) => res.json({ ok: true }));
+app.get("/health", (_req, res) =>
+  res.json({ ok: true, commit: process.env.RENDER_GIT_COMMIT?.slice(0, 7), storage: storageStatus }),
+);
 
 // Audio and cover files; express.static supports HTTP range requests, which seeking needs.
 app.use("/media", express.static(path.join(__dirname, "..", "uploads")));
