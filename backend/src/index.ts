@@ -12,6 +12,8 @@ import { playlistsRouter, usersRouter } from "./routes/playlists";
 import { storageStatus } from "./storage";
 
 const app = express();
+// Render terminates HTTPS in front of us; trusting its proxy header makes req.protocol "https" (needed for download links).
+app.set("trust proxy", 1);
 app.use(cors());
 app.use(express.json());
 

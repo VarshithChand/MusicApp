@@ -86,7 +86,7 @@ songsRouter.get("/:id/download", async (req, res) => {
   if (!song) return res.status(404).json({ error: "Song not found" });
   if (!song.downloadable) return res.status(403).json({ error: "This song isn't available for download." });
 
-  const filename = `${song.artist} - ${song.title}.mp3`.replace(/[^w .,'()&-]/g, "_");
+  const filename = `${song.artist} - ${song.title}.mp3`.replace(/[^\w .,'()&-]/g, "_");
   res.setHeader("Content-Type", "audio/mpeg");
   res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
 
