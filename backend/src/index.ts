@@ -7,6 +7,7 @@ import { adminRouter } from "./routes/admin";
 import { appRouter } from "./routes/app";
 import { authRouter } from "./routes/auth";
 import { albumsRouter, artistsRouter, genresRouter, songsRouter } from "./routes/catalog";
+import { discoverRouter } from "./routes/discover";
 import { playlistsRouter, usersRouter } from "./routes/playlists";
 import { storageStatus } from "./storage";
 
@@ -30,6 +31,7 @@ app.use("/playlists", playlistsRouter);
 app.use("/users", usersRouter);
 app.use("/admin", adminRouter);
 app.use("/app", appRouter);
+app.use("/discover", discoverRouter);
 
 app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
   console.error(err);

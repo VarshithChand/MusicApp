@@ -1039,3 +1039,32 @@ button.apk-link:disabled {
     left: 35%;
   }
 }
+
+/* --- web discovery ------------------------------------------------------ */
+
+.web-results {
+  margin-top: 8px;
+  padding-top: 20px;
+  border-top: 1px solid var(--surface2);
+}
+.muted.small {
+  font-size: 13px;
+  margin: 0 0 8px;
+}
+.license {
+  min-width: 36px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.license:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}

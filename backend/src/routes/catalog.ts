@@ -11,7 +11,7 @@ const SONG_SELECT = `
   SELECT s.id, s.title, s.audio_url, s.cover_url, s.duration, s.play_count,
          s.artist_id, ar.name AS artist_name,
          s.album_id, al.title AS album_title,
-         s.genre_id, g.name AS genre_name
+         s.genre_id, g.name AS genre_name, s.license_url, s.source
   FROM songs s
   JOIN artists ar ON ar.id = s.artist_id
   LEFT JOIN albums al ON al.id = s.album_id

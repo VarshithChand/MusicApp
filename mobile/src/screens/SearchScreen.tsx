@@ -1,8 +1,8 @@
 import { useNavigation } from '@react-navigation/native';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useSearch } from '../api/hooks';
+import { useDiscover, useImportSong, useSearch } from '../api/hooks';
 import { Chip } from '../components/Chip';
 import { Cover } from '../components/Cover';
 import { Icon } from '../components/Icon';
@@ -25,6 +25,23 @@ export function SearchScreen() {
   const [q, setQ] = useState('');
   const [kind, setKind] = useState<Kind>('songs');
   const { data, isFetching, isError } = useSearch(q);
+  const discover = useDiscover(q);
+  const importSong = useImportSong();
+  const [importingId, setImportingId] = useState<string | null>(null);
+
+  // Adds the catalogue song to our library, then plays it. The audio is copied into our storage in the background.
+  const playFromWeb = async (externalId: string) => {
+    setImportingId(externalId);
+    try {
+      const song = await importSong.mutateAsync(externalId);
+      await playQueue([song], 0);
+      navigation.navigate('NowPlaying');
+    } catch {
+      // the error line below explains it; stay on the search screen
+    } finally {
+      setImportingId(null);
+    }
+  };
 
   // Wait for a pause in typing before hitting the API.
   useEffect(() => {
@@ -78,6 +95,49 @@ export function SearchScreen() {
             onPress={() => playQueue(data.songs, i).then(() => navigation.navigate('NowPlaying'))}
           />
         ))}
+
+      {kind === 'songs' && !!q && discover.data?.configured && (
+        <View style={styles.web}>
+          <Text style={styles.webTitle}>From the web</Text>
+          <Text style={styles.muted}>Free, Creative Commons music. Tap a song to listen — it's also saved to your library.</Text>
+          {discover.isFetching && <ActivityIndicator color={colors.accent} />}
+          {discover.isError && <Text style={styles.muted}>The web catalogue is unavailable right now.</Text>}
+          {!discover.isFetching && discover.data.results.length === 0 && <Text style={styles.muted}>No free songs found on the web.</Text>}
+          {importSong.isError && <Text style={styles.muted}>Couldn't add that song. Try another.</Text>}
+          {discover.data.results.map((t) => (
+            <View key={t.externalId} style={styles.webRow}>
+              <Pressable
+                style={styles.webMain}
+                onPress={() => playFromWeb(t.externalId)}
+                disabled={importingId !== null}
+                accessibilityLabel={`Play ${t.title}`}
+              >
+                <View>
+                  <Cover id={Number(t.externalId)} uri={t.cover} size={52} radius={12} />
+                  {importingId === t.externalId && (
+                    <View style={styles.webLoading}>
+                      <ActivityIndicator color={colors.accent} />
+                    </View>
+                  )}
+                </View>
+                <View style={styles.webText}>
+                  <Text style={styles.rowTitle} numberOfLines={1}>
+                    {t.title}
+                  </Text>
+                  <Text style={styles.rowSub} numberOfLines={1}>
+                    {[t.artist, t.album].filter(Boolean).join(' · ')}
+                  </Text>
+                </View>
+              </Pressable>
+              {t.licenseUrl && (
+                <Pressable style={styles.license} onPress={() => Linking.openURL(t.licenseUrl!)} accessibilityLabel="Creative Commons licence">
+                  <Text style={styles.licenseText}>CC</Text>
+                </Pressable>
+              )}
+            </View>
+          ))}
+        </View>
+      )}
 
       {data && kind === 'artists' &&
         data.artists.map((a) => (
@@ -137,6 +197,14 @@ const styles = StyleSheet.create({
   },
   chips: { gap: 8 },
   muted: { color: colors.muted, fontSize: 15 },
+  web: { marginTop: 8, paddingTop: 16, borderTopWidth: 1, borderTopColor: colors.surface2, gap: 8 },
+  webTitle: { color: colors.text, fontSize: 18, fontWeight: '600' },
+  webRow: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 60 },
+  webMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12, minWidth: 0 },
+  webText: { flex: 1, minWidth: 0 },
+  webLoading: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 12, backgroundColor: 'rgba(14,16,20,0.62)', alignItems: 'center', justifyContent: 'center' },
+  license: { minWidth: 44, height: 32, borderRadius: 16, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+  licenseText: { color: colors.muted, fontSize: 12, fontWeight: '600' },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 60 },
   rowTitle: { color: colors.text, fontSize: 15, fontWeight: '600' },
   rowSub: { color: colors.muted, fontSize: 13, marginTop: 2 },

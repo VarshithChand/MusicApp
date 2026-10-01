@@ -17,6 +17,9 @@ export interface Song {
   album_title: string | null;
   genre_id: number | null;
   genre_name: string | null;
+  /** Set for songs imported from an outside catalogue (Creative Commons licence link). */
+  license_url?: string | null;
+  source?: string | null;
 }
 
 export interface Artist {
@@ -55,4 +58,21 @@ export interface AuthResponse {
   user: User;
   accessToken: string;
   refreshToken: string;
+}
+
+/** A song found in the free-music catalogue, not yet in our library. */
+export interface DiscoverTrack {
+  externalId: string;
+  title: string;
+  artist: string;
+  album: string | null;
+  cover: string | null;
+  duration: number;
+  streamUrl: string;
+  licenseUrl: string | null;
+}
+
+export interface DiscoverResponse {
+  configured: boolean;
+  results: DiscoverTrack[];
 }

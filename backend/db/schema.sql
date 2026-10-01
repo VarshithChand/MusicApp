@@ -75,3 +75,9 @@ CREATE INDEX IF NOT EXISTS idx_songs_artist ON songs(artist_id);
 CREATE INDEX IF NOT EXISTS idx_songs_album ON songs(album_id);
 CREATE INDEX IF NOT EXISTS idx_albums_artist ON albums(artist_id);
 CREATE INDEX IF NOT EXISTS idx_recent_user ON recently_played(user_id, played_at DESC);
+
+-- Songs imported from an outside catalogue (e.g. Jamendo): where they came from and under which licence.
+ALTER TABLE songs ADD COLUMN IF NOT EXISTS source TEXT;
+ALTER TABLE songs ADD COLUMN IF NOT EXISTS external_id TEXT;
+ALTER TABLE songs ADD COLUMN IF NOT EXISTS license_url TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_songs_external ON songs(source, external_id) WHERE source IS NOT NULL;

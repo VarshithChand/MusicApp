@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './index';
-import { Album, Artist, Playlist, SearchResults, Song } from './types';
+import { Album, Artist, DiscoverResponse, Playlist, SearchResults, Song } from './types';
 
 export const useSongs = (sort?: 'popular') =>
   useQuery({ queryKey: ['songs', sort], queryFn: () => api<Song[]>(`/songs${sort ? `?sort=${sort}` : ''}`) });
@@ -64,4 +64,25 @@ export function usePlaylistMutations() {
       onSuccess: refreshAll,
     }),
   };
+}
+
+/** Searches the free-music catalogue as the user types (empty until a catalogue key is configured). */
+export function useDiscover(q: string) {
+  return useQuery({
+    queryKey: ['discover', q],
+    queryFn: () => api<DiscoverResponse>(`/discover/search?q=${encodeURIComponent(q)}`),
+    enabled: q.trim().length > 1,
+    staleTime: 5 * 60_000,
+  });
+}
+
+/** Adds a catalogue song to our library (and starts copying its audio) and returns the new library song. */
+export function useImportSong() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (externalId: string) => api<Song>('/discover/import', { method: 'POST', body: { externalId } }),
+    onSuccess: () => {
+      for (const key of ['songs', 'artists', 'albums', 'search']) qc.invalidateQueries({ queryKey: [key] });
+    },
+  });
 }

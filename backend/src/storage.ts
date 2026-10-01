@@ -26,20 +26,24 @@ const client = r2Configured
 const LOCAL_DIR = path.join(__dirname, "..", "uploads");
 
 /**
- * Stores an uploaded file and returns the URL to save in the database.
+ * Stores a file's bytes and returns the URL to save in the database.
  * Uses Cloudflare R2 when the R2_* variables are set; otherwise falls back to the local uploads folder
  * (fine for development, but lost on every redeploy on Render's free plan).
  */
-export async function saveUpload(file: Express.Multer.File): Promise<string> {
-  const name = `${crypto.randomUUID()}${path.extname(file.originalname).toLowerCase()}`;
+export async function saveBuffer(body: Buffer, extension: string, contentType: string): Promise<string> {
+  const name = `${crypto.randomUUID()}${extension.toLowerCase()}`;
 
   if (client) {
-    await client.send(
-      new PutObjectCommand({ Bucket: R2_BUCKET, Key: name, Body: file.buffer, ContentType: file.mimetype }),
-    );
+    await client.send(new PutObjectCommand({ Bucket: R2_BUCKET, Key: name, Body: body, ContentType: contentType }));
     return `${R2_PUBLIC_URL!.replace(/\/+$/, "")}/${name}`;
   }
 
-  await fs.writeFile(path.join(LOCAL_DIR, name), file.buffer);
+  await fs.writeFile(path.join(LOCAL_DIR, name), body);
   return `/media/${name}`;
+}
+
+export const usingR2 = r2Configured;
+
+export function saveUpload(file: Express.Multer.File): Promise<string> {
+  return saveBuffer(file.buffer, path.extname(file.originalname), file.mimetype);
 }
