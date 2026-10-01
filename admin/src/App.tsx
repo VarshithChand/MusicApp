@@ -149,6 +149,11 @@ function SongsTab({ onChange }: { onChange: () => void }) {
     audio.onerror = () => URL.revokeObjectURL(url);
   };
 
+  const toggleDownload = async (s: Song) => {
+    await api.setDownloadable(s.id, !s.downloadable);
+    songs.reload();
+  };
+
   const remove = async (s: Song) => {
     if (!confirm(`Delete "${s.title}"?`)) return;
     await api.deleteSong(s.id);
@@ -209,6 +214,10 @@ function SongsTab({ onChange }: { onChange: () => void }) {
               Cover image (optional)
               <input name="cover" type="file" accept="image/*" />
             </label>
+            <label className="check">
+              <input name="downloadable" type="checkbox" value="true" />
+              <span>Let users download this song (only if you own it or are allowed to share it)</span>
+            </label>
             <label>
               Length in seconds
               <input name="duration" type="number" min="0" value={duration} onChange={(e) => setDuration(e.target.value)} />
@@ -234,6 +243,7 @@ function SongsTab({ onChange }: { onChange: () => void }) {
                 <th>Album</th>
                 <th>Genre</th>
                 <th>Length</th>
+                <th>Download</th>
                 <th>Preview</th>
                 <th />
               </tr>
@@ -246,6 +256,11 @@ function SongsTab({ onChange }: { onChange: () => void }) {
                   <td>{s.album_title ?? "—"}</td>
                   <td>{s.genre_name ?? "—"}</td>
                   <td>{fmt(s.duration)}</td>
+                  <td>
+                    <button className="btn" onClick={() => toggleDownload(s)} aria-pressed={s.downloadable}>
+                      {s.downloadable ? "On" : "Off"}
+                    </button>
+                  </td>
                   <td>
                     <audio controls preload="none" src={mediaUrl(s.audio_url)} />
                   </td>

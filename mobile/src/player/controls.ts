@@ -40,6 +40,8 @@ export function toTrack(song: Song): Track {
     album: song.album_title ?? undefined,
     artwork: mediaUrl(song.cover_url),
     duration: song.duration,
+    // Custom field: lets the player screen show a Download button only for songs users may download.
+    downloadable: song.downloadable ?? false,
   };
 }
 

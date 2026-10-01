@@ -26,6 +26,7 @@ const ICONS = {
   back: { d: ['M15 6l-6 6 6 6'] },
   volume: { d: ['M4 9v6h4l5 4V5L8 9z'] },
   queue: { d: ['M4 6h12M4 12h12M4 18h7M18 15v6l4-3z'] },
+  download: { d: ['M12 4v11M7 11l5 5 5-5M5 20h14'] },
   trash: { d: ['M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13'] },
   edit: { d: ['M4 20h4L19 9l-4-4L4 16z'] },
 } as const;

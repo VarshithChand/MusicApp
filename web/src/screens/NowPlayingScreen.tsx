@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { useLikedSongs, useToggleLike } from "../api/hooks";
 import { Cover } from "../components/Cover";
+import { DownloadSong } from "../components/DownloadSong";
 import { Icon } from "../components/Icon";
 import { useCurrentSong, usePlayer } from "../store/player";
 
@@ -43,6 +44,7 @@ export function NowPlayingScreen() {
               <h1>{song.title}</h1>
               <span className="song-sub big">{song.artist_name}</span>
             </div>
+            <DownloadSong song={song} />
             <button
               className={`icon-btn ${isLiked ? "liked" : ""}`}
               aria-pressed={isLiked}

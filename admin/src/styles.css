@@ -224,3 +224,21 @@ audio {
   gap: 14px;
   margin-top: 20px;
 }
+
+label.check {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 10px;
+  grid-column: 1 / -1;
+}
+label.check input {
+  min-height: 0;
+  width: 20px;
+  height: 20px;
+  margin-top: 2px;
+}
+.btn[aria-pressed="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}

@@ -1,4 +1,8 @@
 import { Router } from "express";
+import jwt from "jsonwebtoken";
+import path from "path";
+import { Readable } from "stream";
+import { pipeline } from "stream/promises";
 import { query } from "../db";
 import { AuthedRequest, requireAuth } from "../auth";
 
@@ -11,7 +15,7 @@ const SONG_SELECT = `
   SELECT s.id, s.title, s.audio_url, s.cover_url, s.duration, s.play_count,
          s.artist_id, ar.name AS artist_name,
          s.album_id, al.title AS album_title,
-         s.genre_id, g.name AS genre_name, s.license_url, s.source
+         s.genre_id, g.name AS genre_name, s.license_url, s.source, s.downloadable
   FROM songs s
   JOIN artists ar ON ar.id = s.artist_id
   LEFT JOIN albums al ON al.id = s.album_id
@@ -55,6 +59,49 @@ songsRouter.get("/:id", async (req, res) => {
   const [song] = await query(`${SONG_SELECT} WHERE s.id = $1`, [req.params.id]);
   if (!song) return res.status(404).json({ error: "Song not found" });
   res.json(song);
+});
+
+/** Short-lived link a browser or app can open to download a song (no auth header needed on that request). */
+songsRouter.post("/:id/download-link", requireAuth, async (req: AuthedRequest, res) => {
+  const [song] = await query("SELECT id, downloadable FROM songs WHERE id = $1", [req.params.id]);
+  if (!song) return res.status(404).json({ error: "Song not found" });
+  if (!song.downloadable) return res.status(403).json({ error: "This song isn't available for download." });
+  const token = jwt.sign({ typ: "dl", sid: song.id, sub: req.userId }, process.env.JWT_SECRET!, { expiresIn: "2m" });
+  const base = `${req.protocol}://${req.get("host")}`;
+  res.json({ url: `${base}/songs/${song.id}/download?t=${token}` });
+});
+
+songsRouter.get("/:id/download", async (req, res) => {
+  try {
+    const decoded = jwt.verify(String(req.query.t ?? ""), process.env.JWT_SECRET!) as { typ?: string; sid?: number };
+    if (decoded.typ !== "dl" || String(decoded.sid) !== req.params.id) throw new Error("wrong token");
+  } catch {
+    return res.status(401).json({ error: "This download link has expired. Please try again." });
+  }
+
+  const [song] = await query(
+    "SELECT s.title, s.audio_url, s.downloadable, ar.name AS artist FROM songs s JOIN artists ar ON ar.id = s.artist_id WHERE s.id = $1",
+    [req.params.id],
+  );
+  if (!song) return res.status(404).json({ error: "Song not found" });
+  if (!song.downloadable) return res.status(403).json({ error: "This song isn't available for download." });
+
+  const filename = `${song.artist} - ${song.title}.mp3`.replace(/[^w .,'()&-]/g, "_");
+  res.setHeader("Content-Type", "audio/mpeg");
+  res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+
+  if (song.audio_url.startsWith("/media/")) {
+    return res.sendFile(path.join(__dirname, "..", "..", "uploads", path.basename(song.audio_url)));
+  }
+  const upstream = await fetch(song.audio_url, { redirect: "follow" });
+  if (!upstream.ok || !upstream.body) return res.status(502).json({ error: "The file isn't available right now." });
+  const length = upstream.headers.get("content-length");
+  if (length) res.setHeader("Content-Length", length);
+  try {
+    await pipeline(Readable.fromWeb(upstream.body as any), res);
+  } catch {
+    res.destroy();
+  }
 });
 
 songsRouter.post("/:id/played", requireAuth, async (req: AuthedRequest, res) => {

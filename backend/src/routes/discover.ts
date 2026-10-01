@@ -131,11 +131,11 @@ discoverRouter.post("/import", async (req, res) => {
   const genreId = genre ? await upsertByName("genres", genre.charAt(0).toUpperCase() + genre.slice(1)) : null;
 
   const inserted = await query(
-    `INSERT INTO songs (title, artist_id, album_id, genre_id, audio_url, cover_url, duration, source, external_id, license_url)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, 'jamendo', $8, $9)
+    `INSERT INTO songs (title, artist_id, album_id, genre_id, audio_url, cover_url, duration, source, external_id, license_url, downloadable)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, 'jamendo', $8, $9, $10)
      ON CONFLICT (source, external_id) WHERE source IS NOT NULL DO NOTHING
      RETURNING id`,
-    [track.name, artistId, albumId, genreId, track.audio, track.album_image || track.image || null, track.duration, externalId, track.license_ccurl || null],
+    [track.name, artistId, albumId, genreId, track.audio, track.album_image || track.image || null, track.duration, externalId, track.license_ccurl || null, !!track.audiodownload_allowed],
   );
 
   const [song] = await query(`${SONG_SELECT} WHERE s.source = 'jamendo' AND s.external_id = $1`, [externalId]);

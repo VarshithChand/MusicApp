@@ -2,6 +2,7 @@ import { Song } from "../api/types";
 import { usePlayer } from "../store/player";
 import { useSheet } from "../store/sheet";
 import { Cover } from "./Cover";
+import { DownloadSong } from "./DownloadSong";
 import { Icon } from "./Icon";
 
 interface Props {
@@ -32,6 +33,7 @@ export function SongRow({ song, onPlay, subtitle, onRemove }: Props) {
           <span className="song-sub">{subtitle ?? song.artist_name}</span>
         </span>
       </button>
+      <DownloadSong song={song} />
       <button className="icon-btn" onClick={() => openSheet(song.id)} aria-label={`Add ${song.title} to a playlist`}>
         <Icon name="plus" size={22} />
       </button>

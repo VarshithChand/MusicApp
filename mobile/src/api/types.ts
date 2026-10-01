@@ -20,6 +20,8 @@ export interface Song {
   /** Set for songs imported from an outside catalogue (Creative Commons licence link). */
   license_url?: string | null;
   source?: string | null;
+  /** True when users may download this song (the admin has the right to share it). */
+  downloadable?: boolean;
 }
 
 export interface Artist {

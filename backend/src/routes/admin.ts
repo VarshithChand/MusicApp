@@ -65,6 +65,7 @@ adminRouter.post(
         genreId: z.coerce.number().int().optional(),
         duration: z.coerce.number().int().min(0).default(0),
         audioUrl: z.string().url().optional(), // alternative to uploading a file
+        downloadable: z.enum(["true", "false", "on"]).optional(),
       })
       .safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
@@ -75,13 +76,21 @@ adminRouter.post(
 
     const d = parsed.data;
     const [song] = await query(
-      `INSERT INTO songs (title, artist_id, album_id, genre_id, audio_url, cover_url, duration)
-       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-      [d.title, d.artistId, d.albumId ?? null, d.genreId ?? null, audio, await mediaUrl(files?.cover?.[0]), d.duration],
+      `INSERT INTO songs (title, artist_id, album_id, genre_id, audio_url, cover_url, duration, downloadable)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+      [d.title, d.artistId, d.albumId ?? null, d.genreId ?? null, audio, await mediaUrl(files?.cover?.[0]), d.duration, d.downloadable === "true" || d.downloadable === "on"],
     );
     res.status(201).json(song);
   },
 );
+
+adminRouter.patch("/songs/:id", async (req, res) => {
+  const parsed = z.object({ downloadable: z.boolean() }).safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "downloadable (true/false) required" });
+  const rows = await query("UPDATE songs SET downloadable = $1 WHERE id = $2 RETURNING id, downloadable", [parsed.data.downloadable, req.params.id]);
+  if (!rows.length) return res.status(404).json({ error: "Song not found" });
+  res.json(rows[0]);
+});
 
 adminRouter.delete("/songs/:id", async (req, res) => {
   await query("DELETE FROM songs WHERE id = $1", [req.params.id]);

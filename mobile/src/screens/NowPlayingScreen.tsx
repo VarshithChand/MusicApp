@@ -1,6 +1,6 @@
 import { useNavigation } from '@react-navigation/native';
 import React, { useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import TrackPlayer, {
   RepeatMode,
@@ -9,6 +9,7 @@ import TrackPlayer, {
   usePlaybackState,
   useProgress,
 } from 'react-native-track-player';
+import { api } from '../api';
 import { useLikedSongs, useToggleLike } from '../api/hooks';
 import { Cover } from '../components/Cover';
 import { Icon, IconName } from '../components/Icon';
@@ -36,6 +37,22 @@ export function NowPlayingScreen() {
   const playing = state === State.Playing || loading;
   const songId = track ? Number(track.id) : null;
   const isLiked = !!liked.data?.some((s) => s.id === songId);
+
+  const downloadable = !!(track as { downloadable?: boolean } | undefined)?.downloadable;
+  const [downloading, setDownloading] = useState(false);
+  // Asks the server for a short-lived link and lets the phone's browser download the file.
+  const download = async () => {
+    if (songId == null) return;
+    setDownloading(true);
+    try {
+      const { url } = await api<{ url: string }>(`/songs/${songId}/download-link`, { method: 'POST' });
+      await Linking.openURL(url);
+    } catch {
+      // the button simply becomes available again
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   const toggleRepeat = () => {
     TrackPlayer.setRepeatMode(repeat ? RepeatMode.Off : RepeatMode.Queue);
@@ -83,6 +100,11 @@ export function NowPlayingScreen() {
             {track?.artist ?? ' '}
           </Text>
         </View>
+        {downloadable && (
+          <Pressable style={styles.control} onPress={download} disabled={downloading} accessibilityLabel="Download song">
+            {downloading ? <ActivityIndicator color={colors.muted} /> : <Icon name="download" size={24} color={colors.muted} />}
+          </Pressable>
+        )}
         {songId != null && (
           <Pressable
             style={styles.control}

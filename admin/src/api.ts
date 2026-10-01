@@ -10,6 +10,7 @@ export interface Song {
   album_title: string | null;
   genre_name: string | null;
   play_count: number;
+  downloadable: boolean;
 }
 export interface Artist {
   id: number;
@@ -125,6 +126,12 @@ export const api = {
   genres: () => request<Genre[]>("/genres"),
   createSong: (fd: FormData) => request<Song>("/admin/songs", form(fd)),
   deleteSong: (id: number) => request<void>(`/admin/songs/${id}`, { method: "DELETE" }),
+  setDownloadable: (id: number, downloadable: boolean) =>
+    request<{ id: number; downloadable: boolean }>(`/admin/songs/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ downloadable }),
+    }),
   createArtist: (fd: FormData) => request<Artist>("/admin/artists", form(fd)),
   createAlbum: (fd: FormData) => request<Album>("/admin/albums", form(fd)),
   createGenre: (name: string) => request<Genre>("/admin/genres", json({ name })),
