@@ -3,6 +3,7 @@ import { useEffect, useMemo } from "react";
 import { HashRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AddToPlaylistSheet } from "./components/AddToPlaylistSheet";
 import { Layout } from "./components/Layout";
+import { YouTubeDock } from "./components/YouTubeDock";
 import { HomeScreen } from "./screens/HomeScreen";
 import { AccountScreen } from "./screens/AccountScreen";
 import { LibraryScreen } from "./screens/LibraryScreen";
@@ -37,6 +38,7 @@ export default function App() {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
           <AddToPlaylistSheet />
+          <YouTubeDock />
         </HashRouter>
       ) : (
         <LoginScreen />

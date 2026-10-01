@@ -5,8 +5,8 @@ import { Chip } from "../components/Chip";
 import { Cover } from "../components/Cover";
 import { Icon } from "../components/Icon";
 import { SongRow } from "../components/SongRow";
-import { YouTubeModal } from "../components/YouTubeModal";
 import { usePlayer } from "../store/player";
+import { useVideo } from "../store/video";
 
 type Kind = "songs" | "artists" | "albums" | "genres";
 const KINDS: { key: Kind; label: string }[] = [
@@ -29,7 +29,7 @@ export function SearchScreen() {
   const discover = useDiscover(q);
   const youtube = useYouTube(q);
   const pausePlayer = usePlayer((s) => s.pause);
-  const [video, setVideo] = useState<{ videoId: string; title: string } | null>(null);
+  const openVideo = useVideo((s) => s.open);
   const importSong = useImportSong();
   const [importingId, setImportingId] = useState<string | null>(null);
 
@@ -140,7 +140,7 @@ export function SearchScreen() {
               className="list-row"
               onClick={() => {
                 pausePlayer();
-                setVideo({ videoId: v.videoId, title: v.title });
+                openVideo({ videoId: v.videoId, title: v.title });
               }}
               aria-label={`Play ${v.title} on YouTube`}
             >
@@ -153,8 +153,6 @@ export function SearchScreen() {
           ))}
         </section>
       )}
-
-      {video && <YouTubeModal videoId={video.videoId} title={video.title} onClose={() => setVideo(null)} />}
 
       {data && kind === "artists" &&
         data.artists.map((a) => (
