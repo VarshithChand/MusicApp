@@ -1,6 +1,6 @@
 import { useNavigation } from '@react-navigation/native';
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import TrackPlayer, {
   RepeatMode,
@@ -32,7 +32,8 @@ export function NowPlayingScreen() {
   const [repeat, setRepeat] = useState(false);
   const [volume, setVolume] = useState(1);
 
-  const playing = state === State.Playing || state === State.Buffering || state === State.Loading;
+  const loading = state === State.Buffering || state === State.Loading;
+  const playing = state === State.Playing || loading;
   const songId = track ? Number(track.id) : null;
   const isLiked = !!liked.data?.some((s) => s.id === songId);
 
@@ -112,9 +113,14 @@ export function NowPlayingScreen() {
         <Pressable
           style={styles.play}
           onPress={() => (playing ? TrackPlayer.pause() : TrackPlayer.play())}
-          accessibilityLabel={playing ? 'Pause' : 'Play'}
+          accessibilityLabel={loading ? 'Loading' : playing ? 'Pause' : 'Play'}
+          accessibilityState={{ busy: loading }}
         >
-          <Icon name={playing ? 'pause' : 'play'} size={32} color={colors.onAccent} />
+          {loading ? (
+            <ActivityIndicator size="large" color={colors.onAccent} />
+          ) : (
+            <Icon name={playing ? 'pause' : 'play'} size={32} color={colors.onAccent} />
+          )}
         </Pressable>
         <Control icon="next" label="Next song" onPress={() => TrackPlayer.skipToNext().catch(() => {})} />
         <Control icon="repeat" label="Repeat" size={24} color={repeat ? colors.accent : colors.muted} onPress={toggleRepeat} />

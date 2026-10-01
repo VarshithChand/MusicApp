@@ -8,6 +8,8 @@ interface PlayerState {
   queue: Song[];
   index: number;
   playing: boolean;
+  /** True while a song is loading or buffering (show a spinner). */
+  loading: boolean;
   position: number;
   duration: number;
   volume: number;
@@ -30,9 +32,9 @@ export const usePlayer = create<PlayerState>((set, get) => {
   const load = (i: number) => {
     const song = get().queue[i];
     if (!song) return;
-    set({ index: i, position: 0, duration: song.duration });
+    set({ index: i, position: 0, duration: song.duration, loading: true });
     audio.src = mediaUrl(song.audio_url) ?? "";
-    audio.play().catch(() => set({ playing: false }));
+    audio.play().catch(() => set({ playing: false, loading: false }));
 
     if (useAuth.getState().accessToken) api(`/songs/${song.id}/played`, { method: "POST" }).catch(() => {});
 
@@ -51,6 +53,13 @@ export const usePlayer = create<PlayerState>((set, get) => {
     if (Number.isFinite(audio.duration)) set({ duration: audio.duration });
   });
   audio.addEventListener("play", () => set({ playing: true }));
+  // Loading starts when the browser begins fetching or runs out of data, and ends once playback can continue.
+  audio.addEventListener("loadstart", () => set({ loading: true }));
+  audio.addEventListener("waiting", () => set({ loading: true }));
+  audio.addEventListener("stalled", () => set({ loading: true }));
+  audio.addEventListener("canplay", () => set({ loading: false }));
+  audio.addEventListener("playing", () => set({ loading: false }));
+  audio.addEventListener("error", () => set({ loading: false, playing: false }));
   audio.addEventListener("pause", () => set({ playing: false }));
   audio.addEventListener("ended", () => get().next());
 
@@ -66,6 +75,7 @@ export const usePlayer = create<PlayerState>((set, get) => {
     queue: [],
     index: 0,
     playing: false,
+    loading: false,
     position: 0,
     duration: 0,
     volume: 1,

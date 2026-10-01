@@ -1,6 +1,6 @@
 import { useNavigation } from '@react-navigation/native';
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import TrackPlayer, {
   State,
   useActiveTrack,
@@ -19,7 +19,8 @@ export function MiniPlayer() {
   const { position, duration } = useProgress(500);
 
   if (!track) return null;
-  const playing = state === State.Playing || state === State.Buffering || state === State.Loading;
+  const loading = state === State.Buffering || state === State.Loading;
+  const playing = state === State.Playing || loading;
 
   return (
     <View style={styles.wrap}>
@@ -38,9 +39,14 @@ export function MiniPlayer() {
         <Pressable
           style={styles.play}
           onPress={() => (playing ? TrackPlayer.pause() : TrackPlayer.play())}
-          accessibilityLabel={playing ? 'Pause' : 'Play'}
+          accessibilityLabel={loading ? 'Loading' : playing ? 'Pause' : 'Play'}
+          accessibilityState={{ busy: loading }}
         >
-          <Icon name={playing ? 'pause' : 'play'} size={20} color={colors.onAccent} />
+          {loading ? (
+            <ActivityIndicator color={colors.onAccent} />
+          ) : (
+            <Icon name={playing ? 'pause' : 'play'} size={20} color={colors.onAccent} />
+          )}
         </Pressable>
       </View>
       <ProgressBar value={duration > 0 ? position / duration : 0} />

@@ -78,8 +78,8 @@ export function NowPlayingScreen() {
             <button className="icon-btn" onClick={p.prev} aria-label="Previous song">
               <Icon name="prev" size={30} />
             </button>
-            <button className="play-btn" onClick={p.toggle} aria-label={p.playing ? "Pause" : "Play"}>
-              <Icon name={p.playing ? "pause" : "play"} size={32} />
+            <button className="play-btn" onClick={p.toggle} aria-label={p.loading ? "Loading" : p.playing ? "Pause" : "Play"} aria-busy={p.loading}>
+              {p.loading ? <span className="spinner big" aria-hidden="true" /> : <Icon name={p.playing ? "pause" : "play"} size={32} />}
             </button>
             <button className="icon-btn" onClick={p.next} aria-label="Next song">
               <Icon name="next" size={30} />

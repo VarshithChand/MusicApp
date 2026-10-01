@@ -27,7 +27,7 @@ function Tabs({ className }: { className: string }) {
 function PlayerBar() {
   const navigate = useNavigate();
   const song = useCurrentSong();
-  const { playing, position, duration, toggle, next, prev } = usePlayer();
+  const { playing, loading, position, duration, toggle, next, prev } = usePlayer();
   if (!song) return null;
 
   return (
@@ -43,14 +43,14 @@ function PlayerBar() {
         <button className="icon-btn hide-sm" onClick={prev} aria-label="Previous song">
           <Icon name="prev" />
         </button>
-        <button className="play-btn small" onClick={toggle} aria-label={playing ? "Pause" : "Play"}>
-          <Icon name={playing ? "pause" : "play"} size={20} />
+        <button className="play-btn small" onClick={toggle} aria-label={loading ? "Loading" : playing ? "Pause" : "Play"} aria-busy={loading}>
+          {loading ? <span className="spinner" aria-hidden="true" /> : <Icon name={playing ? "pause" : "play"} size={20} />}
         </button>
         <button className="icon-btn" onClick={next} aria-label="Next song">
           <Icon name="next" />
         </button>
       </div>
-      <div className="playerbar-progress" aria-hidden="true">
+      <div className={`playerbar-progress ${loading ? "loading" : ""}`} aria-hidden="true">
         <div style={{ width: `${duration > 0 ? (position / duration) * 100 : 0}%` }} />
       </div>
     </div>
