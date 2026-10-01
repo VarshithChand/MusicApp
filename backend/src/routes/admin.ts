@@ -1,20 +1,15 @@
 import { Router } from "express";
 import multer from "multer";
-import crypto from "crypto";
-import path from "path";
 import { z } from "zod";
 import { requireAdmin, requireAuth } from "../auth";
 import { query } from "../db";
+import { saveUpload } from "../storage";
 
 export const adminRouter = Router();
 adminRouter.use(requireAuth, requireAdmin);
 
 const upload = multer({
-  storage: multer.diskStorage({
-    destination: path.join(__dirname, "..", "..", "uploads"),
-    filename: (_req, file, cb) =>
-      cb(null, `${crypto.randomUUID()}${path.extname(file.originalname).toLowerCase()}`),
-  }),
+  storage: multer.memoryStorage(),
   limits: { fileSize: 50 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     const ok = file.fieldname === "audio" ? file.mimetype.startsWith("audio/") : file.mimetype.startsWith("image/");
@@ -22,7 +17,7 @@ const upload = multer({
   },
 });
 
-const mediaUrl = (f?: Express.Multer.File) => (f ? `/media/${f.filename}` : null);
+const mediaUrl = async (f?: Express.Multer.File) => (f ? saveUpload(f) : null);
 
 adminRouter.post("/genres", async (req, res) => {
   const parsed = z.object({ name: z.string().trim().min(1) }).safeParse(req.body);
@@ -39,7 +34,7 @@ adminRouter.post("/artists", upload.single("image"), async (req, res) => {
   if (!parsed.success) return res.status(400).json({ error: "name required" });
   const [artist] = await query("INSERT INTO artists (name, image_url) VALUES ($1, $2) RETURNING *", [
     parsed.data.name,
-    mediaUrl(req.file),
+    await mediaUrl(req.file),
   ]);
   res.status(201).json(artist);
 });
@@ -50,7 +45,7 @@ adminRouter.post("/albums", upload.single("cover"), async (req, res) => {
   const [album] = await query("INSERT INTO albums (title, artist_id, cover_url) VALUES ($1, $2, $3) RETURNING *", [
     parsed.data.title,
     parsed.data.artistId,
-    mediaUrl(req.file),
+    await mediaUrl(req.file),
   ]);
   res.status(201).json(album);
 });
@@ -75,14 +70,14 @@ adminRouter.post(
     if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
     const files = req.files as Record<string, Express.Multer.File[]> | undefined;
-    const audio = parsed.data.audioUrl ?? mediaUrl(files?.audio?.[0]);
+    const audio = parsed.data.audioUrl ?? (await mediaUrl(files?.audio?.[0]));
     if (!audio) return res.status(400).json({ error: "audio file or audioUrl required" });
 
     const d = parsed.data;
     const [song] = await query(
       `INSERT INTO songs (title, artist_id, album_id, genre_id, audio_url, cover_url, duration)
        VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-      [d.title, d.artistId, d.albumId ?? null, d.genreId ?? null, audio, mediaUrl(files?.cover?.[0]), d.duration],
+      [d.title, d.artistId, d.albumId ?? null, d.genreId ?? null, audio, await mediaUrl(files?.cover?.[0]), d.duration],
     );
     res.status(201).json(song);
   },
