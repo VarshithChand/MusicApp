@@ -1,17 +1,19 @@
 name: Build Android APK
 
+# Builds the APK, launches it in an emulator, and only if it opens without crashing publishes it as the
+# "latest" download used by the web app. Everything happens in one job so the APK never has to be re-downloaded.
 on:
   push:
     branches: [main]
-    paths: ["mobile/**", ".github/workflows/android.yml"]
+    paths: ["mobile/**", ".github/workflows/android.yml", ".github/scripts/smoke.sh"]
   workflow_dispatch:
+
+permissions:
+  contents: write # needed to publish the release at the end
 
 jobs:
   apk:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: mobile
     steps:
       - uses: actions/checkout@v4
 
@@ -31,9 +33,11 @@ jobs:
           packages: "" # runner already ships the SDK; the default "tools" package no longer exists
 
       - name: Install dependencies
+        working-directory: mobile
         run: npm ci
 
       - name: Typecheck
+        working-directory: mobile
         run: npx tsc --noEmit
 
       - name: Build release APK
@@ -42,8 +46,44 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleRelease --no-daemon
 
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Launch test in an emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          script: bash .github/scripts/smoke.sh mobile/android/app/build/outputs/apk/release/app-release.apk
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: smoke-output
+          path: smoke-out/
+
       - uses: actions/upload-artifact@v4
         with:
           name: music-app-release
           path: mobile/android/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
+
+      # Only an APK that stayed alive in the emulator is published, so the download button never serves a broken build.
+      - name: Publish APK as the latest download
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "$(tail -n 1 smoke-out/result.txt | tr -d '\r')" != "ALIVE" ]; then
+            echo "App crashed in the emulator; not publishing. The previously published APK stays available."
+            exit 1
+          fi
+          cp mobile/android/app/build/outputs/apk/release/app-release.apk music.apk
+          gh release view latest >/dev/null 2>&1 || gh release create latest \
+            --title "Latest Android build" \
+            --notes "Always the newest APK that passed the launch test. Download music.apk."
+          gh release upload latest music.apk --clobber
