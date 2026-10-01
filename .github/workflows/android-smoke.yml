@@ -54,8 +54,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if ! grep -q '^ALIVE' smoke-out/result.txt; then
-            echo "App did not stay alive in the emulator; not publishing."
+          if [ "$(tail -n 1 smoke-out/result.txt | tr -d '\r')" != "ALIVE" ]; then
+            echo "App crashed in the emulator; removing any published APK so nobody downloads a broken build."
+            gh release delete latest --cleanup-tag --yes || true
             exit 1
           fi
           cp apk/app-release.apk music.apk
