@@ -1,24 +1,28 @@
 name: Android smoke test
 
-# Installs the latest built APK in an emulator, launches it, and uploads the log and a screenshot.
+# Installs the APK in an emulator, launches it, and uploads the log and a screenshot.
+# Runs automatically after every successful "Build Android APK", and can be started by hand.
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - ".github/workflows/android-smoke.yml"
-      - ".github/scripts/smoke.sh"
+  workflow_run:
+    workflows: ["Build Android APK"]
+    types: [completed]
 
 jobs:
   smoke:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download the latest successful APK
+      - name: Download the APK
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          id=$(gh run list --workflow android.yml --status success --limit 1 --json databaseId -q '.[0].databaseId')
+          id="${{ github.event.workflow_run.id }}"
+          if [ -z "$id" ]; then
+            id=$(gh run list --workflow android.yml --status success --limit 1 --json databaseId -q '.[0].databaseId')
+          fi
           echo "Using APK from run $id"
           gh run download "$id" -n music-app-release -D apk
 
