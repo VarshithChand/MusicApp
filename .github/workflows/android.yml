@@ -27,6 +27,8 @@ jobs:
           java-version: 17
 
       - uses: android-actions/setup-android@v3
+        with:
+          packages: "" # runner already ships the SDK; the default "tools" package no longer exists
 
       - name: Install dependencies
         run: npm ci
