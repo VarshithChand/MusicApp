@@ -1068,3 +1068,30 @@ button.apk-link:disabled {
   color: var(--accent);
   border-color: var(--accent);
 }
+
+/* --- 5 second skip ------------------------------------------------------ */
+
+.skip-row {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+.skip-btn {
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: 22px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.skip-btn:hover {
+  background: var(--surface2);
+}
+.flip {
+  display: inline-flex;
+  transform: scaleX(-1);
+}

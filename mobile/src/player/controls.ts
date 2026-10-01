@@ -14,7 +14,17 @@ export function setupPlayer(): Promise<void> {
     }
     await TrackPlayer.updateOptions({
       android: { appKilledPlaybackBehavior: AppKilledPlaybackBehavior.StopPlaybackAndRemoveNotification },
-      capabilities: [Capability.Play, Capability.Pause, Capability.SkipToNext, Capability.SkipToPrevious, Capability.SeekTo],
+      forwardJumpInterval: 5,
+      backwardJumpInterval: 5,
+      capabilities: [
+        Capability.Play,
+        Capability.Pause,
+        Capability.SkipToNext,
+        Capability.SkipToPrevious,
+        Capability.SeekTo,
+        Capability.JumpForward,
+        Capability.JumpBackward,
+      ],
       compactCapabilities: [Capability.Play, Capability.Pause, Capability.SkipToNext],
     });
   })();

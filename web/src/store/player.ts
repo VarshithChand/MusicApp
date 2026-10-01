@@ -19,6 +19,8 @@ interface PlayerState {
   next: () => void;
   prev: () => void;
   seek: (sec: number) => void;
+  /** Jumps forward (positive) or back (negative) by `sec` seconds, staying inside the song. */
+  skipBy: (sec: number) => void;
   setVolume: (v: number) => void;
   toggleRepeat: () => void;
   shuffleUpNext: () => void;
@@ -68,6 +70,8 @@ export const usePlayer = create<PlayerState>((set, get) => {
     navigator.mediaSession.setActionHandler("pause", () => audio.pause());
     navigator.mediaSession.setActionHandler("nexttrack", () => get().next());
     navigator.mediaSession.setActionHandler("previoustrack", () => get().prev());
+    navigator.mediaSession.setActionHandler("seekbackward", () => get().skipBy(-5));
+    navigator.mediaSession.setActionHandler("seekforward", () => get().skipBy(5));
     navigator.mediaSession.setActionHandler("seekto", (d) => d.seekTime != null && get().seek(d.seekTime));
   }
 
@@ -105,6 +109,10 @@ export const usePlayer = create<PlayerState>((set, get) => {
     seek: (sec) => {
       audio.currentTime = sec;
       set({ position: sec });
+    },
+    skipBy: (sec) => {
+      const max = Number.isFinite(audio.duration) ? audio.duration : get().duration;
+      get().seek(Math.min(Math.max(audio.currentTime + sec, 0), max || 0));
     },
     setVolume: (v) => {
       audio.volume = v;

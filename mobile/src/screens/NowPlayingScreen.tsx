@@ -126,6 +126,15 @@ export function NowPlayingScreen() {
         <Control icon="repeat" label="Repeat" size={24} color={repeat ? colors.accent : colors.muted} onPress={toggleRepeat} />
       </View>
 
+      <View style={styles.skipRow}>
+        <Pressable style={styles.skipBtn} onPress={() => TrackPlayer.seekBy(-5)} accessibilityLabel="Back 5 seconds">
+          <Text style={styles.skipText}>⟲ 5s</Text>
+        </Pressable>
+        <Pressable style={styles.skipBtn} onPress={() => TrackPlayer.seekBy(5)} accessibilityLabel="Forward 5 seconds">
+          <Text style={styles.skipText}>5s ⟳</Text>
+        </Pressable>
+      </View>
+
       <View style={styles.volume}>
         <Icon name="volume" size={20} color={colors.muted} />
         <View style={styles.flex}>
@@ -153,5 +162,8 @@ const styles = StyleSheet.create({
   time: { color: colors.muted, fontSize: 12 },
   controls: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 12 },
   play: { width: 76, height: 76, borderRadius: 38, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' },
+  skipRow: { flexDirection: 'row', justifyContent: 'center', gap: 12, marginTop: 12 },
+  skipBtn: { minHeight: 44, paddingHorizontal: 20, borderRadius: 22, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+  skipText: { color: colors.text, fontSize: 15, fontWeight: '600' },
   volume: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 'auto' },
 });

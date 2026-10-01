@@ -89,6 +89,15 @@ export function NowPlayingScreen() {
             </button>
           </div>
 
+          <div className="skip-row">
+            <button className="skip-btn" onClick={() => p.skipBy(-5)} aria-label="Back 5 seconds">
+              <Icon name="back" size={18} /> 5s
+            </button>
+            <button className="skip-btn" onClick={() => p.skipBy(5)} aria-label="Forward 5 seconds">
+              5s <span className="flip"><Icon name="back" size={18} /></span>
+            </button>
+          </div>
+
           <div className="volume">
             <Icon name="volume" size={20} />
             <input
