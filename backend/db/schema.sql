@@ -81,3 +81,7 @@ ALTER TABLE songs ADD COLUMN IF NOT EXISTS source TEXT;
 ALTER TABLE songs ADD COLUMN IF NOT EXISTS external_id TEXT;
 ALTER TABLE songs ADD COLUMN IF NOT EXISTS license_url TEXT;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_songs_external ON songs(source, external_id) WHERE source IS NOT NULL;
+
+-- "Continue with Google": the Google account id, so the same person always maps to the same user.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_google_id ON users(google_id) WHERE google_id IS NOT NULL;

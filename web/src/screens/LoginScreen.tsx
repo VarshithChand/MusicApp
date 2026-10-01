@@ -1,7 +1,8 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useCallback, useState } from "react";
 import { Icon } from "../components/Icon";
 import { PasswordInput } from "../components/PasswordInput";
 import { DownloadApp } from "../components/DownloadApp";
+import { GoogleButton } from "../components/GoogleButton";
 import { useAuth } from "../store/auth";
 
 const FEATURES = [
@@ -16,6 +17,7 @@ export function LoginScreen() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const isLogin = mode === "login";
+  const showError = useCallback((message: string) => setError(message), []);
 
   const submit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -102,6 +104,8 @@ export function LoginScreen() {
               {busy ? "Please wait…" : isLogin ? "Log in" : "Create account"}
             </button>
           </form>
+
+          <GoogleButton onError={showError} />
 
           <DownloadApp className="apk-link">
             <Icon name="download" size={18} /> Get the Android app
