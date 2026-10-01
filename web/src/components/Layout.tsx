@@ -76,7 +76,9 @@ export function Layout() {
           <DownloadApp className="btn">
             <Icon name="download" size={18} /> Android app
           </DownloadApp>
-          <span className="muted">{user?.name}</span>
+          <NavLink to="/account" className="muted account-link">
+            {user?.name}
+          </NavLink>
           <button className="btn ghost" onClick={logout}>
             <Icon name="logout" size={18} /> Log out
           </button>

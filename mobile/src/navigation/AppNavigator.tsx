@@ -3,6 +3,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import React from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { BottomNav } from '../components/BottomNav';
+import { AccountScreen } from '../screens/AccountScreen';
 import { HomeScreen } from '../screens/HomeScreen';
 import { LibraryScreen } from '../screens/LibraryScreen';
 import { LoginScreen } from '../screens/LoginScreen';
@@ -43,6 +44,7 @@ export function AppNavigator() {
         <>
           <Stack.Screen name="Tabs" component={MainTabs} />
           <Stack.Screen name="SongList" component={SongListScreen} />
+          <Stack.Screen name="Account" component={AccountScreen} />
           <Stack.Screen name="NowPlaying" component={NowPlayingScreen} options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
         </>
       ) : (

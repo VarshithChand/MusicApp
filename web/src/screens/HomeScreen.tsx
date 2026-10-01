@@ -27,11 +27,14 @@ export function HomeScreen() {
 
   return (
     <div className="page wide">
-      <header>
+      <header className="page-head">
         <h1>
           {greeting()}
           {name ? `, ${name}` : ""}
         </h1>
+        <button className="icon-btn filled" onClick={() => navigate("/account")} aria-label="Account">
+          <Icon name="user" size={22} />
+        </button>
       </header>
 
       {isAndroid() && (

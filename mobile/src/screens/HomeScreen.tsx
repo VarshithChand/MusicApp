@@ -7,7 +7,6 @@ import { Cover } from '../components/Cover';
 import { Icon } from '../components/Icon';
 import { SongRow } from '../components/SongRow';
 import { playQueue } from '../player/controls';
-import { useAuth } from '../store/auth';
 import { colors } from '../theme/theme';
 
 function greeting() {
@@ -18,7 +17,6 @@ function greeting() {
 export function HomeScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
-  const logout = useAuth((s) => s.logout);
   const recent = useRecentlyPlayed();
   const popular = useSongs('popular');
   const artists = useArtists();
@@ -32,7 +30,7 @@ export function HomeScreen() {
     <ScrollView style={styles.flex} contentContainerStyle={[styles.content, { paddingTop: insets.top + 24 }]}>
       <View style={styles.header}>
         <Text style={styles.h1}>{greeting()}</Text>
-        <Pressable style={styles.avatar} onPress={logout} accessibilityLabel="Log out">
+        <Pressable style={styles.avatar} onPress={() => navigation.navigate('Account')} accessibilityLabel="Account">
           <Icon name="user" size={22} color={colors.text} />
         </Pressable>
       </View>

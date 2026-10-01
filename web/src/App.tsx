@@ -4,6 +4,7 @@ import { HashRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AddToPlaylistSheet } from "./components/AddToPlaylistSheet";
 import { Layout } from "./components/Layout";
 import { HomeScreen } from "./screens/HomeScreen";
+import { AccountScreen } from "./screens/AccountScreen";
 import { LibraryScreen } from "./screens/LibraryScreen";
 import { LoginScreen } from "./screens/LoginScreen";
 import { NowPlayingScreen } from "./screens/NowPlayingScreen";
@@ -30,6 +31,7 @@ export default function App() {
               <Route path="search" element={<SearchScreen />} />
               <Route path="library" element={<LibraryScreen />} />
               <Route path="list" element={<SongListScreen />} />
+              <Route path="account" element={<AccountScreen />} />
             </Route>
             <Route path="now-playing" element={<NowPlayingScreen />} />
             <Route path="*" element={<Navigate to="/" replace />} />

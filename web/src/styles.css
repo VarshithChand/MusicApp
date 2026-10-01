@@ -1095,3 +1095,57 @@ button.apk-link:disabled {
   display: inline-flex;
   transform: scaleX(-1);
 }
+
+/* --- account page ------------------------------------------------------- */
+
+.account {
+  max-width: 480px;
+}
+.profile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 16px 0 8px;
+}
+.profile h1 {
+  font-size: 26px;
+}
+.profile p {
+  margin: 0;
+}
+.avatar-lg {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--on-accent);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "Bricolage Grotesque", sans-serif;
+  font-size: 40px;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+.badge {
+  margin-top: 8px;
+  padding: 4px 12px;
+  border-radius: 12px;
+  background: var(--surface2);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+}
+.btn.danger-outline {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+.account-link {
+  text-decoration: none;
+  padding: 4px 0;
+}
+.account-link:hover,
+.account-link.active {
+  color: var(--accent);
+}
