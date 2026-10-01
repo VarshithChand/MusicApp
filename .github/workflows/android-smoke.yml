@@ -3,6 +3,10 @@ name: Android smoke test
 # Installs the latest built APK in an emulator, launches it, and uploads the log and a screenshot.
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/android-smoke.yml"
+      - ".github/scripts/smoke.sh"
 
 jobs:
   smoke:
