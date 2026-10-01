@@ -1,5 +1,6 @@
 import { FormEvent, useState } from "react";
 import { Icon } from "../components/Icon";
+import { PasswordInput } from "../components/PasswordInput";
 import { APK_URL } from "../config";
 import { useAuth } from "../store/auth";
 
@@ -85,10 +86,8 @@ export function LoginScreen() {
             </label>
             <label className="field">
               <span>Password</span>
-              <input
+              <PasswordInput
                 name="password"
-                type="password"
-                required
                 minLength={isLogin ? 1 : 8}
                 autoComplete={isLogin ? "current-password" : "new-password"}
                 placeholder={isLogin ? "Your password" : "At least 8 characters"}

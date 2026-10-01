@@ -214,6 +214,39 @@ input::placeholder {
   color: #7c8391;
 }
 
+.pw {
+  position: relative;
+  display: flex;
+}
+.pw input {
+  width: 100%;
+  min-height: 52px;
+  padding: 0 52px 0 16px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 16px;
+}
+.pw-toggle {
+  position: absolute;
+  right: 4px;
+  top: 4px;
+  bottom: 4px;
+  width: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted);
+}
+.pw-toggle:hover,
+.pw-toggle[aria-pressed="true"] {
+  color: var(--accent);
+}
+
 .searchbox {
   position: relative;
 }

@@ -1,5 +1,6 @@
 import { FormEvent, ReactNode, useCallback, useEffect, useState } from "react";
 import { Album, api, Artist, Genre, isSignedIn, login, mediaUrl, signOut, Song, Stats } from "./api";
+import { PasswordInput } from "./PasswordInput";
 
 type Tab = "songs" | "artists" | "albums" | "genres";
 const TABS: { key: Tab; label: string }[] = [
@@ -106,7 +107,7 @@ function Login({ onDone }: { onDone: () => void }) {
         </label>
         <label>
           Password
-          <input name="password" type="password" required autoComplete="current-password" />
+          <PasswordInput name="password" autoComplete="current-password" />
         </label>
         {error && (
           <span className="msg error" role="alert">
