@@ -7,6 +7,7 @@ import { YouTubeDock } from "./components/YouTubeDock";
 import { HomeScreen } from "./screens/HomeScreen";
 import { AccountScreen } from "./screens/AccountScreen";
 import { LibraryScreen } from "./screens/LibraryScreen";
+import { MovieScreen } from "./screens/MovieScreen";
 import { LoginScreen } from "./screens/LoginScreen";
 import { NowPlayingScreen } from "./screens/NowPlayingScreen";
 import { SearchScreen } from "./screens/SearchScreen";
@@ -33,6 +34,7 @@ export default function App() {
               <Route path="library" element={<LibraryScreen />} />
               <Route path="list" element={<SongListScreen />} />
               <Route path="account" element={<AccountScreen />} />
+              <Route path="movie/:id" element={<MovieScreen />} />
             </Route>
             <Route path="now-playing" element={<NowPlayingScreen />} />
             <Route path="*" element={<Navigate to="/" replace />} />

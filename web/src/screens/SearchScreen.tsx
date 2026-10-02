@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useDiscover, useImportSong, useSearch, useYouTube } from "../api/hooks";
 import { Chip } from "../components/Chip";
 import { Cover } from "../components/Cover";
+import { MoodBrowser, MovieResults } from "../components/DiscoverExtras";
 import { Icon } from "../components/Icon";
 import { SongRow } from "../components/SongRow";
 import { usePlayer } from "../store/player";
@@ -73,6 +74,9 @@ export function SearchScreen() {
           <Chip key={k.key} label={k.label} active={kind === k.key} onClick={() => setKind(k.key)} />
         ))}
       </div>
+
+      <MovieResults q={q} />
+      <MoodBrowser q={q} />
 
       {isFetching && <p className="muted">Searching…</p>}
       {isError && <p className="error">Search failed. Check your connection.</p>}

@@ -35,6 +35,74 @@ export interface Stats {
   playlists: number;
 }
 
+export interface MoodInfo {
+  slug: string;
+  name: string;
+  song_count: number;
+}
+export interface Movie {
+  id: number;
+  title: string;
+  status: "draft" | "published";
+  language: string | null;
+  release_year: number | null;
+  music_director: string | null;
+  description: string | null;
+  poster_url: string | null;
+  artist_name: string;
+  published_songs: number;
+  draft_songs: number;
+}
+export interface SongMood {
+  slug: string;
+  primary: boolean;
+  source: "manual" | "suggested";
+}
+export interface AdminSong {
+  id: number;
+  title: string;
+  audio_url: string;
+  duration: number;
+  singers: string | null;
+  lyricist: string | null;
+  music_director: string | null;
+  track_number: number | null;
+  language: string | null;
+  description: string | null;
+  description_source: "manual" | "suggested";
+  status: "draft" | "published";
+  downloadable: boolean;
+  format: string | null;
+  file_size: number | null;
+  moods: SongMood[];
+}
+export interface Suggestion {
+  description: string;
+  moods: { slug: string; primary: boolean }[];
+  source: "suggested";
+}
+export interface UploadSummary {
+  id: number;
+  status: "processing" | "review" | "failed";
+  filename: string;
+  movie: string;
+  total_files: number;
+  processed_files: number;
+  error: string | null;
+  created_at: string;
+}
+export interface UploadItem {
+  id: number;
+  file_name: string;
+  status: "ok" | "rejected" | "duplicate";
+  reason: string | null;
+  size: number | null;
+}
+export interface UploadDetail {
+  job: UploadSummary & { album_id: number };
+  items: UploadItem[];
+}
+
 interface Tokens {
   accessToken: string;
   refreshToken: string;
@@ -135,4 +203,49 @@ export const api = {
   createArtist: (fd: FormData) => request<Artist>("/admin/artists", form(fd)),
   createAlbum: (fd: FormData) => request<Album>("/admin/albums", form(fd)),
   createGenre: (name: string) => request<Genre>("/admin/genres", json({ name })),
+
+  // --- movie soundtracks ---------------------------------------------------
+  moods: () => request<MoodInfo[]>("/moods"),
+  movies: () => request<Movie[]>("/admin/movies"),
+  movieSongs: (id: number) => request<AdminSong[]>(`/admin/movies/${id}/songs`),
+  createMovie: (fd: FormData) => request<{ id: number }>("/admin/albums", form(fd)),
+  patchMovie: (id: number, body: Record<string, unknown>) => request<unknown>(`/admin/albums/${id}`, patch(body)),
+  publishMovie: (id: number) => request<{ published: number }>(`/admin/movies/${id}/publish`, { method: "POST" }),
+  saveOrder: (id: number, songIds: number[]) =>
+    request<void>(`/admin/movies/${id}/order`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ songIds }) }),
+  patchSong: (id: number, body: Record<string, unknown>) => request<unknown>(`/admin/songs/${id}`, patch(body)),
+  suggest: (id: number) => request<Suggestion>(`/admin/songs/${id}/suggest`),
+  uploads: () => request<UploadSummary[]>("/admin/uploads"),
+  upload: (id: number) => request<UploadDetail>(`/admin/uploads/${id}`),
 };
+
+const patch = (body: Record<string, unknown>): RequestInit => ({
+  method: "PATCH",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(body),
+});
+
+/** Uploads the ZIP with a progress callback (fetch can't report upload progress, XMLHttpRequest can). */
+export function uploadZip(fd: FormData, onProgress: (fraction: number) => void): Promise<{ jobId: number }> {
+  const send = (retried: boolean): Promise<{ jobId: number }> =>
+    new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", `${API_URL}/admin/uploads`);
+      if (tokens) xhr.setRequestHeader("Authorization", `Bearer ${tokens.accessToken}`);
+      xhr.upload.onprogress = (e) => e.lengthComputable && onProgress(e.loaded / e.total);
+      xhr.onerror = () => reject(new Error("The upload was interrupted. Check your connection and try again."));
+      xhr.onload = async () => {
+        if (xhr.status === 401 && !retried && (await refresh())) return send(true).then(resolve, reject);
+        let body: { jobId?: number; error?: string } | null = null;
+        try {
+          body = JSON.parse(xhr.responseText);
+        } catch {
+          body = null;
+        }
+        if (xhr.status === 202 && body?.jobId) return resolve({ jobId: body.jobId });
+        reject(new Error(body?.error ?? "The upload failed."));
+      };
+      xhr.send(fd);
+    });
+  return send(false);
+}

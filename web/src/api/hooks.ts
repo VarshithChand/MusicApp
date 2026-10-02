@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './index';
-import { Album, Artist, DiscoverResponse, Playlist, SearchResults, Song, YouTubeResponse } from './types';
+import { Album, Artist, DiscoverResponse, MoodCount, Movie, MovieDetail, Playlist, SearchResults, Song, YouTubeResponse } from './types';
 
 export const useSongs = (sort?: 'popular') =>
   useQuery({ queryKey: ['songs', sort], queryFn: () => api<Song[]>(`/songs${sort ? `?sort=${sort}` : ''}`) });
@@ -94,5 +94,36 @@ export function useYouTube(q: string) {
     queryFn: () => api<YouTubeResponse>(`/discover/youtube?q=${encodeURIComponent(q)}`),
     enabled: q.trim().length > 1,
     staleTime: 10 * 60_000,
+  });
+}
+
+/** Published movie soundtracks, optionally filtered by a search text and language. */
+export function useMovies(q = '', language = '') {
+  const params = new URLSearchParams();
+  if (q.trim()) params.set('q', q.trim());
+  if (language) params.set('language', language);
+  return useQuery({
+    queryKey: ['movies', q.trim(), language],
+    queryFn: () => api<Movie[]>(`/movies?${params.toString()}`),
+    staleTime: 60_000,
+  });
+}
+
+export const useMovie = (id: number) =>
+  useQuery({ queryKey: ['movie', id], queryFn: () => api<MovieDetail>(`/movies/${id}`), enabled: Number.isFinite(id) });
+
+export const useMoods = () =>
+  useQuery({ queryKey: ['moods'], queryFn: () => api<MoodCount[]>('/moods'), staleTime: 5 * 60_000 });
+
+/** Songs filtered by mood and/or language (and optional search text). Disabled until a filter is chosen. */
+export function useFilteredSongs(filters: { mood?: string; language?: string; q?: string }) {
+  const params = new URLSearchParams({ limit: '60' });
+  if (filters.mood) params.set('mood', filters.mood);
+  if (filters.language) params.set('language', filters.language);
+  if (filters.q?.trim()) params.set('q', filters.q.trim());
+  return useQuery({
+    queryKey: ['songs-filtered', filters.mood ?? '', filters.language ?? '', filters.q?.trim() ?? ''],
+    queryFn: () => api<Song[]>(`/songs?${params.toString()}`),
+    enabled: !!(filters.mood || filters.language),
   });
 }

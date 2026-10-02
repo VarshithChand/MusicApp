@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
-import { useArtists, useRecentlyPlayed, useSongs } from "../api/hooks";
+import { useArtists, useMoods, useMovies, useRecentlyPlayed, useSongs } from "../api/hooks";
+import { MovieCard } from "../components/MovieCard";
 import { Cover } from "../components/Cover";
 import { DownloadApp } from "../components/DownloadApp";
 import { isAndroid } from "../config";
@@ -22,6 +23,8 @@ export function HomeScreen() {
   const recent = useRecentlyPlayed();
   const popular = useSongs("popular");
   const artists = useArtists();
+  const movies = useMovies();
+  const moods = useMoods();
 
   const featured = popular.data?.[0];
 
@@ -89,6 +92,32 @@ export function HomeScreen() {
                 <span className="song-sub">{s.artist_name}</span>
               </button>
             ))}
+          </div>
+        </section>
+      )}
+
+      {!!movies.data?.length && (
+        <section>
+          <h2>New soundtracks</h2>
+          <div className="hscroll">
+            {movies.data.map((m) => (
+              <MovieCard key={m.id} movie={m} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {!!moods.data?.some((m) => m.song_count > 0) && (
+        <section>
+          <h2>Browse by mood</h2>
+          <div className="chips">
+            {moods.data
+              .filter((m) => m.song_count > 0)
+              .map((m) => (
+                <button key={m.slug} className="chip" onClick={() => navigate(`/search?mood=${m.slug}`)}>
+                  {m.name}
+                </button>
+              ))}
           </div>
         </section>
       )}

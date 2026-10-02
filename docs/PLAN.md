@@ -43,16 +43,16 @@ We do **not** add a second backend. We extend the existing one.
 | # | Phase | Notes |
 |---|---|---|
 | 1 | **Release pipeline** | Done |
-| 2 | **Schema + metadata** (movies fields, moods, jobs) | Small, safe, additive |
-| 3 | **ZIP upload (admin)** | See below |
-| 4 | **Mood/description suggestions** | Rule-based, no paid AI |
-| 5 | **Discovery** (movie search, mood filters, movie pages) | SQL `ILIKE` + trigram index; paginated |
+| 2 | **Schema + metadata** (movies fields, moods, jobs) | **Done** — see `docs/MUSIC_ADMIN.md` |
+| 3 | **ZIP upload (admin)** | **Done** (backend + admin screens, tested on the live API) |
+| 4 | **Mood/description suggestions** | **Done** — rule-based, labelled "suggested" until confirmed |
+| 5 | **Discovery** (movie search, mood filters, movie pages) | **Done on the website**; Android screens still to do |
 | 6 | **Player upgrades** | Repeat one/all, queue screen, error recovery (RNTP already gives background + lock screen) |
 | 7 | **Offline downloads** | Needs a native file library — see R3 |
 | 8 | **Offline mode** | Network status + downloaded-only view |
 | 9 | **In-app APK updater** | Needs a small native module — see R4 |
-| 10 | **Admin deployment + review UI** | Admin site on Cloudflare Pages |
-| 11 | **Tests + docs** | Backend: Node's built-in test runner (no new dependency). Mobile: Jest already present |
+| 10 | **Admin deployment + review UI** | Review UI **done**; deploying the admin site is still your step |
+| 11 | **Tests + docs** | Backend tests **done** (`npm test`); more to come with each phase |
 
 ### ZIP upload design (phase 3)
 Stream the upload to a temp file (never into memory), read it with a streaming ZIP reader, and enforce: max compressed size, max extracted size, max file count, extension allow-list (mp3/m4a/aac/flac), rejection of absolute paths / `..` / symlinks / executables, magic-byte check of each audio file, and per-file size caps. Each accepted file becomes a *draft* song; nothing is public until the admin reviews and publishes. Processing runs as a background job with a status endpoint, and retrying skips files already processed (matched by SHA-256). Metadata is read from ID3 tags but the admin edits and confirms everything.
