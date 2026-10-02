@@ -5,6 +5,8 @@ import { Readable } from "stream";
 import { pipeline } from "stream/promises";
 import { query } from "../db";
 import { AuthedRequest, requireAuth } from "../auth";
+import { groupsFromSlugs, parseSearchQuery } from "../labels";
+import { buildSongFilter, likePattern } from "../songFilter";
 
 export const songsRouter = Router();
 export const artistsRouter = Router();
@@ -20,7 +22,7 @@ const SONG_SELECT = `
          s.genre_id, g.name AS genre_name, s.license_url, s.source, s.downloadable,
          s.singers, s.music_director, s.language, s.description, s.description_source, s.track_number,
          (SELECT COALESCE(json_agg(m.slug ORDER BY sm.is_primary DESC, m.slug), '[]'::json)
-            FROM song_moods sm JOIN moods m ON m.id = sm.mood_id WHERE sm.song_id = s.id) AS moods
+            FROM song_moods sm JOIN moods m ON m.id = sm.mood_id WHERE sm.song_id = s.id AND sm.source = 'manual') AS moods
   FROM songs s
   JOIN artists ar ON ar.id = s.artist_id
   LEFT JOIN albums al ON al.id = s.album_id
@@ -35,8 +37,6 @@ function pageParams(req: { query: any }) {
   return { limit, offset };
 }
 
-/** "%text%" for ILIKE, with the wildcard characters in the text itself escaped. */
-const likePattern = (text: string) => `%${text.replace(/[%_\\]/g, "\\$&")}%`;
 
 // --- songs ---------------------------------------------------------------
 
@@ -44,33 +44,20 @@ songsRouter.get("/", async (req, res) => {
   const { limit, offset } = pageParams(req);
   const sort = req.query.sort === "popular" ? "s.play_count DESC, s.id DESC" : "s.created_at DESC, s.id DESC";
 
-  // Optional filters: ?mood=sad&language=Telugu&q=text
-  const where = [PUBLISHED];
-  const params: unknown[] = [];
-
-  const mood = String(req.query.mood ?? "").trim().toLowerCase();
-  if (mood) {
-    params.push(mood);
-    where.push(
-      `EXISTS (SELECT 1 FROM song_moods sm JOIN moods m ON m.id = sm.mood_id WHERE sm.song_id = s.id AND m.slug = $${params.length})`,
-    );
-  }
-  const language = String(req.query.language ?? "").trim();
-  if (language) {
-    params.push(language);
-    where.push(`lower(COALESCE(s.language, al.language, '')) = lower($${params.length})`);
-  }
+  // Filters: ?labels=melody,romantic (a song needs ALL of them)  &language=Telugu  &q=text
+  // "mood=" is the older name for a single label and still works.
+  const slugs = [...String(req.query.labels ?? "").split(","), String(req.query.mood ?? "")].map((s) => s.trim()).filter(Boolean);
+  const language = String(req.query.language ?? "").trim().toLowerCase();
   const text = String(req.query.q ?? "").trim();
-  if (text) {
-    params.push(likePattern(text));
-    const n = params.length;
-    where.push(`(s.title ILIKE $${n} OR s.singers ILIKE $${n} OR ar.name ILIKE $${n} OR al.title ILIKE $${n})`);
-  }
+  const groups = groupsFromSlugs(slugs);
+  const filter = buildSongFilter({ groups, languages: language ? [language] : [], text });
+  const filtered = groups.length > 0 || !!language || !!text;
 
-  params.push(limit, offset);
+  const params = [...filter.params, limit, offset];
+  const where = [PUBLISHED, ...filter.conditions];
   res.json(
     await query(
-      `${SONG_SELECT} WHERE ${where.join(" AND ")} ORDER BY ${sort} LIMIT $${params.length - 1} OFFSET $${params.length}`,
+      `${SONG_SELECT} WHERE ${where.join(" AND ")} ORDER BY ${filtered ? filter.orderBy : sort} LIMIT $${params.length - 1} OFFSET $${params.length}`,
       params,
     ),
   );
@@ -82,15 +69,19 @@ songsRouter.get("/search", async (req, res) => {
   if (!q) return res.json({ songs: [], artists: [], albums: [], genres: [] });
   const like = likePattern(q);
 
+  // "Melody", "DJ Songs", "Mass Telugu" are category searches: only songs with that APPROVED label match, so a title that
+  // merely contains the word is not enough. Anything else (a movie or song name) is a text search.
+  const parsed = parseSearchQuery(q);
+  const filter = buildSongFilter(parsed);
+  const { limit, offset } = pageParams(req);
+  const songParams = [...filter.params, limit, offset];
+
   const [songs, artists, albums, genres] = await Promise.all([
     query(
       `${SONG_SELECT}
-       WHERE ${PUBLISHED}
-         AND (s.title ILIKE $1 OR ar.name ILIKE $1 OR al.title ILIKE $1 OR g.name ILIKE $1
-              OR s.singers ILIKE $1 OR s.music_director ILIKE $1 OR s.language ILIKE $1
-              OR EXISTS (SELECT 1 FROM song_moods sm JOIN moods m ON m.id = sm.mood_id WHERE sm.song_id = s.id AND m.name ILIKE $1))
-       ORDER BY s.play_count DESC LIMIT 30`,
-      [like],
+       WHERE ${[PUBLISHED, ...filter.conditions].join(" AND ")}
+       ORDER BY ${filter.orderBy} LIMIT $${songParams.length - 1} OFFSET $${songParams.length}`,
+      songParams,
     ),
     query("SELECT id, name, image_url FROM artists WHERE name ILIKE $1 ORDER BY name LIMIT 20", [like]),
     query(
@@ -102,7 +93,9 @@ songsRouter.get("/search", async (req, res) => {
     ),
     query("SELECT id, name FROM genres WHERE name ILIKE $1 ORDER BY name LIMIT 20", [like]),
   ]);
-  res.json({ songs, artists, albums, genres });
+  // `interpretedAs` tells the app when the search was understood as categories, so it can say so.
+  const categorySearch = parsed.groups.length > 0 || parsed.languages.length > 0;
+  res.json({ songs, artists: categorySearch ? [] : artists, albums: categorySearch ? [] : albums, genres: categorySearch ? [] : genres, interpretedAs: categorySearch ? { labels: parsed.groups, languages: parsed.languages } : null });
 });
 
 songsRouter.get("/:id", async (req, res) => {
@@ -281,11 +274,12 @@ moviesRouter.get("/:id", async (req, res) => {
 moodsRouter.get("/", async (_req, res) => {
   res.json(
     await query(
-      `SELECT m.slug, m.name, COUNT(s.id)::int AS song_count
+      // Counts only APPROVED labels on published songs, so a label that nobody approved yet never shows up as browsable.
+      `SELECT m.slug, m.name, m.kind, COUNT(s.id)::int AS song_count
        FROM moods m
-       LEFT JOIN song_moods sm ON sm.mood_id = m.id
+       LEFT JOIN song_moods sm ON sm.mood_id = m.id AND sm.source = 'manual'
        LEFT JOIN songs s ON s.id = sm.song_id AND s.status = 'published'
-       GROUP BY m.id ORDER BY m.name`,
+       GROUP BY m.id ORDER BY CASE m.kind WHEN 'style' THEN 0 WHEN 'mood' THEN 1 ELSE 2 END, m.name`,
     ),
   );
 });

@@ -171,3 +171,39 @@ CREATE INDEX IF NOT EXISTS idx_songs_sha ON songs(file_sha256) WHERE file_sha256
 CREATE INDEX IF NOT EXISTS idx_albums_status ON albums(status);
 CREATE INDEX IF NOT EXISTS idx_song_moods_mood ON song_moods(mood_id);
 CREATE INDEX IF NOT EXISTS idx_job_items_job ON upload_job_items(job_id);
+
+-- ============================================================================
+-- Smart classification: label kinds (style / mood / genre), stored predictions, and approvals.
+-- Additive only. Rollback: DROP TABLE song_classifications; ALTER TABLE song_moods DROP COLUMN confidence;
+--   ALTER TABLE moods DROP COLUMN kind; DELETE FROM moods WHERE slug IN ('dj-remix','mass','love');
+-- ============================================================================
+
+-- Keep three concepts apart: 'style' (energy/feel), 'mood' (emotion), 'genre' (tradition).
+ALTER TABLE moods ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'mood';
+INSERT INTO moods (slug, name, kind) VALUES
+  ('dj-remix', 'DJ / Remix', 'style'), ('mass', 'Mass', 'style'), ('love', 'Love', 'mood')
+ON CONFLICT (slug) DO NOTHING;
+UPDATE moods SET kind = 'style' WHERE slug IN ('melody', 'dance', 'energetic', 'dj-remix', 'mass');
+UPDATE moods SET kind = 'genre' WHERE slug IN ('classical', 'folk', 'devotional', 'instrumental');
+UPDATE moods SET name = 'High Energy' WHERE slug = 'energetic';
+
+-- song_moods = the labels a song really has. Search only uses source = 'manual' (approved by an admin).
+ALTER TABLE song_moods ADD COLUMN IF NOT EXISTS confidence REAL;
+
+-- What the classifier predicted. Predictions are suggestions: they never reach search until an admin approves them,
+-- and re-running the classifier replaces predictions only, never approved labels.
+CREATE TABLE IF NOT EXISTS song_classifications (
+  song_id       INT PRIMARY KEY REFERENCES songs(id) ON DELETE CASCADE,
+  labels        JSONB NOT NULL DEFAULT '[]',       -- [{slug, confidence, evidence[]}]
+  features      JSONB,                              -- measured tempo / energy / ... (null if audio could not be analysed)
+  method        TEXT NOT NULL,                      -- external | audio-features | metadata
+  model_version TEXT NOT NULL,
+  review_status TEXT NOT NULL DEFAULT 'pending',    -- pending | needs_review | approved | rejected
+  audio_sha256  TEXT,                               -- cache key: same audio + same model = same result
+  error         TEXT,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_class_sha ON song_classifications(audio_sha256) WHERE audio_sha256 IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_class_status ON song_classifications(review_status);
+CREATE INDEX IF NOT EXISTS idx_song_moods_approved ON song_moods(mood_id, song_id) WHERE source = 'manual';

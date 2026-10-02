@@ -3,6 +3,8 @@ import multer from "multer";
 import { z } from "zod";
 import { requireAdmin, requireAuth } from "../auth";
 import { query } from "../db";
+import { approvePredictedLabels, rejectPrediction } from "../classifier/store";
+import { classifyExistingSong, reclassifyMovie } from "../classifier/rerun";
 import { suggest } from "../moodRules";
 import { saveUpload } from "../storage";
 
@@ -139,7 +141,7 @@ const songPatch = z
     descriptionSource: z.enum(["manual", "suggested"]).optional(),
     status: z.enum(["draft", "published"]).optional(),
     moods: z
-      .array(z.object({ slug: z.string().max(40), primary: z.boolean().optional(), source: z.enum(["manual", "suggested"]).optional() }))
+      .array(z.object({ slug: z.string().max(40), primary: z.boolean().optional(), source: z.enum(["manual", "suggested"]).optional(), confidence: z.number().min(0).max(1).optional() }))
       .max(6)
       .optional(),
   })
@@ -188,9 +190,13 @@ adminRouter.patch("/songs/:id", async (req, res) => {
     const primaryIndex = Math.max(0, moods.findIndex((m) => m.primary));
     for (const [i, m] of moods.entries()) {
       await query(
-        "INSERT INTO song_moods (song_id, mood_id, is_primary, source) SELECT $1, id, $3, $4 FROM moods WHERE slug = $2 ON CONFLICT DO NOTHING",
-        [song.id, m.slug, i === primaryIndex, m.source ?? "manual"],
+        "INSERT INTO song_moods (song_id, mood_id, is_primary, source, confidence) SELECT $1, id, $3, $4, $5 FROM moods WHERE slug = $2 ON CONFLICT DO NOTHING",
+        [song.id, m.slug, i === primaryIndex, m.source ?? "manual", m.confidence ?? null],
       );
+    }
+    // The admin's list is the whole truth for this song. Once they have saved approved labels, the classification is reviewed.
+    if (moods.some((m) => (m.source ?? "manual") === "manual")) {
+      await query("UPDATE song_classifications SET review_status = 'approved', updated_at = now() WHERE song_id = $1", [song.id]);
     }
   }
   res.json(song);
@@ -202,9 +208,12 @@ adminRouter.get("/movies/:id/songs", async (req, res) => {
     await query(
       `SELECT s.id, s.title, s.audio_url, s.duration, s.singers, s.lyricist, s.music_director, s.track_number, s.language,
               s.description, s.description_source, s.status, s.downloadable, s.format, s.file_size,
-              (SELECT COALESCE(json_agg(json_build_object('slug', m.slug, 'primary', sm.is_primary, 'source', sm.source)
+              (SELECT COALESCE(json_agg(json_build_object('slug', m.slug, 'primary', sm.is_primary, 'source', sm.source, 'confidence', sm.confidence)
                                         ORDER BY sm.is_primary DESC, m.slug), '[]'::json)
-                 FROM song_moods sm JOIN moods m ON m.id = sm.mood_id WHERE sm.song_id = s.id) AS moods
+                 FROM song_moods sm JOIN moods m ON m.id = sm.mood_id WHERE sm.song_id = s.id) AS moods,
+              (SELECT json_build_object('labels', c.labels, 'method', c.method, 'model_version', c.model_version,
+                                        'review_status', c.review_status, 'error', c.error, 'features', c.features)
+                 FROM song_classifications c WHERE c.song_id = s.id) AS classification
        FROM songs s WHERE s.album_id = $1 ORDER BY s.track_number NULLS LAST, s.id`,
       [req.params.id],
     ),
@@ -285,4 +294,57 @@ adminRouter.get("/stats", async (_req, res) => {
             (SELECT COUNT(*) FROM playlists)::int AS playlists`,
   );
   res.json(row);
+});
+
+// --- classification review ---------------------------------------------------
+
+/** Approve or reject the classifier's suggestions for one song. Approving copies them into the song's real labels. */
+adminRouter.post("/songs/:id/classification", async (req, res) => {
+  const parsed = z.object({ action: z.enum(["approve", "reject"]), slugs: z.array(z.string().max(40)).max(10).optional(), includeLowConfidence: z.boolean().optional() }).safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "action must be approve or reject" });
+  const id = Number(req.params.id);
+  const [song] = await query("SELECT id FROM songs WHERE id = $1", [id]);
+  if (!song) return res.status(404).json({ error: "Song not found" });
+  if (parsed.data.action === "reject") {
+    await rejectPrediction(id);
+    return res.json({ rejected: true });
+  }
+  const added = await approvePredictedLabels(id, { minConfidence: parsed.data.includeLowConfidence ? 0 : 0.5, only: parsed.data.slugs });
+  res.json({ approved: added });
+});
+
+/** Run the classifier again on one song. Only the suggestions change; approved labels are never touched. */
+adminRouter.post("/songs/:id/classify", async (req, res) => {
+  try {
+    const outcome = await classifyExistingSong(Number(req.params.id), req.body?.force === true);
+    if (outcome === "missing") return res.status(404).json({ error: "Song not found" });
+    res.json({ outcome });
+  } catch (err) {
+    res.status(502).json({ error: err instanceof Error ? err.message : "Classification failed" });
+  }
+});
+
+/** Approve the suggestions of every song in a movie that is not flagged for manual review (unless told to include those). */
+adminRouter.post("/movies/:id/approve-labels", async (req, res) => {
+  const includeLow = req.body?.includeLowConfidence === true;
+  const songs = await query<{ song_id: number }>(
+    `SELECT c.song_id FROM song_classifications c JOIN songs s ON s.id = c.song_id
+     WHERE s.album_id = $1 AND c.review_status IN ('pending'${includeLow ? ", 'needs_review'" : ""})`,
+    [req.params.id],
+  );
+  let approved = 0;
+  for (const s of songs) approved += await approvePredictedLabels(s.song_id, { minConfidence: includeLow ? 0.35 : 0.5 });
+  res.json({ songs: songs.length, labels: approved });
+});
+
+/** Re-run the classifier on every song of a movie in the background. */
+adminRouter.post("/movies/:id/classify", async (req, res) => {
+  const songs = await query<{ id: number }>("SELECT id FROM songs WHERE album_id = $1 ORDER BY track_number NULLS LAST, id", [req.params.id]);
+  reclassifyMovie(songs.map((s) => s.id), req.body?.force === true);
+  res.status(202).json({ queued: songs.length });
+});
+
+/** The label vocabulary, grouped by kind, for the review screen. */
+adminRouter.get("/labels", async (_req, res) => {
+  res.json(await query("SELECT slug, name, kind FROM moods ORDER BY CASE kind WHEN 'style' THEN 0 WHEN 'mood' THEN 1 ELSE 2 END, name"));
 });

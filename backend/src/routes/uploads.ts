@@ -12,6 +12,10 @@ import { Router } from "express";
 import { z } from "zod";
 import { AuthedRequest, requireAdmin, requireAuth } from "../auth";
 import { query } from "../db";
+import { classifySong } from "../classifier/classify";
+import { findCached, savePrediction } from "../classifier/store";
+import { SongInfo } from "../moodRules";
+import { chooseMovieName, findMovieMatches, suggestMovieName } from "../movieName";
 import { saveBuffer } from "../storage";
 import {
   AUDIO_MIME,
@@ -74,6 +78,22 @@ interface AlbumRow {
   id: number;
   artist_id: number;
   language: string | null;
+  title: string;
+  release_year: number | null;
+  music_director: string | null;
+}
+
+/**
+ * Suggests labels for a freshly saved song and stores them as PREDICTIONS (never as approved labels).
+ * Reuses an earlier result for identical audio, and never lets a classifier problem fail the upload.
+ */
+async function classifyAndStore(songId: number, tempFile: string, publicUrl: string, meta: SongInfo & { durationSeconds?: number }, sha256: string) {
+  try {
+    const result = (await findCached(sha256)) ?? (await classifySong(tempFile, meta, publicUrl));
+    await savePrediction(songId, result, sha256);
+  } catch (err) {
+    console.error(`classification of song ${songId} failed (the song itself was saved):`, err);
+  }
 }
 
 /** Streams one ZIP entry to a temp file while hashing it and enforcing the size cap. */
@@ -150,6 +170,13 @@ async function processEntry(jobId: number, album: AlbumRow, zip: yauzl.ZipFile, 
         verdict.format,
       ],
     );
+    await classifyAndStore(
+      song.id,
+      temp,
+      url,
+      { title, movie: album.title, language: album.language, singers, musicDirector: album.music_director, releaseYear: album.release_year, durationSeconds: Math.round(tags?.format.duration ?? 0) },
+      extracted.sha256,
+    );
     await recordItem(jobId, entry.fileName, "ok", { songId: song.id, sha256: extracted.sha256, size: extracted.size });
   } catch (err) {
     await recordItem(jobId, entry.fileName, "rejected", { reason: err instanceof Error ? err.message : "Could not process this file" });
@@ -161,7 +188,7 @@ async function processEntry(jobId: number, album: AlbumRow, zip: yauzl.ZipFile, 
 async function processJob(jobId: number, zipPath: string) {
   try {
     const [job] = await query("SELECT album_id FROM upload_jobs WHERE id = $1", [jobId]);
-    const [album] = await query<AlbumRow>("SELECT id, artist_id, language FROM albums WHERE id = $1", [job.album_id]);
+    const [album] = await query<AlbumRow>("SELECT id, artist_id, language, title, release_year, music_director FROM albums WHERE id = $1", [job.album_id]);
 
     let zip: yauzl.ZipFile;
     try {
@@ -207,27 +234,96 @@ export async function failInterruptedJobs() {
   await query("UPDATE upload_jobs SET status = 'failed', error = 'Interrupted by a server restart. Upload the ZIP again; files already saved are skipped.', updated_at = now() WHERE status = 'processing'");
 }
 
+/** Finds an artist by name or creates it. New movies need a credited artist; "Various Artists" is used when none is known. */
+async function artistIdFor(name: string): Promise<number> {
+  const [found] = await query("SELECT id FROM artists WHERE lower(name) = lower($1) LIMIT 1", [name]);
+  if (found) return found.id;
+  const [created] = await query("INSERT INTO artists (name) VALUES ($1) RETURNING id", [name]);
+  return created.id;
+}
+
+/** Tells the admin what movie name a ZIP file name suggests, and which existing movies it might duplicate. */
+uploadsRouter.post("/suggest-movie", async (req, res) => {
+  const parsed = z.object({ filename: z.string().min(1).max(300) }).safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "filename required" });
+  const suggestion = suggestMovieName(parsed.data.filename);
+  const existing = await query<{ id: number; title: string }>("SELECT id, title FROM albums");
+  res.json({ ...suggestion, matches: suggestion.name ? findMovieMatches(suggestion.name, existing) : [] });
+});
+
+const uploadFields = z.object({
+  rightsConfirmed: z.literal("true"),
+  // Either an existing movie...
+  albumId: z.coerce.number().int().optional(),
+  // ...or details for a new one. The name is optional: it falls back to the ZIP file name.
+  movieName: z.string().trim().max(200).optional(),
+  confirmName: z.enum(["true", "false"]).optional(), // the admin has confirmed an ambiguous suggested name
+  createAnyway: z.enum(["true", "false"]).optional(), // the admin has seen the possible duplicates and wants a new movie
+  language: z.string().trim().max(60).optional(),
+  releaseYear: z.coerce.number().int().min(1900).max(2100).optional(),
+  musicDirector: z.string().trim().max(200).optional(),
+  description: z.string().trim().max(2000).optional(),
+});
+
 uploadsRouter.post("/", upload.single("zip"), async (req: AuthedRequest, res) => {
-  const cleanup = () => (req.file ? fs.rm(req.file.path, { force: true }) : undefined);
-  const parsed = z.object({ albumId: z.coerce.number().int(), rightsConfirmed: z.literal("true") }).safeParse(req.body);
-  if (!req.file) return res.status(400).json({ error: "Choose a .zip file" });
-  if (!parsed.success) {
-    await cleanup();
-    return res.status(400).json({ error: "Choose a movie and confirm you have the right to distribute these songs." });
-  }
-  const [album] = await query("SELECT id FROM albums WHERE id = $1", [parsed.data.albumId]);
-  if (!album) {
-    await cleanup();
-    return res.status(404).json({ error: "Movie not found" });
+  const file = req.file;
+  const reject = async (status: number, body: Record<string, unknown>) => {
+    if (file) await fs.rm(file.path, { force: true });
+    return res.status(status).json(body);
+  };
+
+  if (!file) return res.status(400).json({ error: "Choose a .zip file" });
+  const parsed = uploadFields.safeParse(req.body);
+  if (!parsed.success) return reject(400, { error: "Confirm you have the right to distribute these songs, and check the movie details." });
+  const d = parsed.data;
+
+  let albumId = d.albumId;
+  let movieName: string;
+  let nameSource: "existing" | "manual" | "filename" = "existing";
+
+  if (albumId) {
+    // Adding songs to a movie that already exists.
+    const [album] = await query("SELECT id, title FROM albums WHERE id = $1", [albumId]);
+    if (!album) return reject(404, { error: "Movie not found" });
+    movieName = album.title;
+  } else {
+    // A new movie. Name priority: what the admin typed, else the ZIP file name; a vague file name must be confirmed first.
+    const choice = chooseMovieName(d.movieName, file.originalname, d.confirmName === "true");
+    if (!choice.ok) {
+      return reject(409, {
+        code: "confirm-name",
+        error: choice.suggestion.name
+          ? `The file name "${file.originalname}" is too vague to be sure of the movie's name. Confirm "${choice.suggestion.name}" or type the real name.`
+          : "Type the movie's name: the file name doesn't contain one.",
+        suggestion: choice.suggestion,
+      });
+    }
+    movieName = choice.name;
+    nameSource = choice.source;
+
+    // Never create a duplicate silently: show the existing movies and let the admin pick one.
+    const existing = await query<{ id: number; title: string }>("SELECT id, title FROM albums");
+    const matches = findMovieMatches(movieName, existing);
+    if (matches.length && d.createAnyway !== "true") {
+      return reject(409, { code: "duplicate", error: `A movie called "${matches[0].title}" already exists. Add the songs to it, or create a separate movie.`, name: movieName, matches });
+    }
+
+    const artistId = await artistIdFor(d.musicDirector || "Various Artists");
+    // New movies are always drafts: nothing is public until the admin reviews and publishes.
+    const [album] = await query(
+      `INSERT INTO albums (title, artist_id, description, release_year, language, music_director, status)
+       VALUES ($1, $2, $3, $4, $5, $6, 'draft') RETURNING id`,
+      [movieName, artistId, d.description ?? null, d.releaseYear ?? choice.releaseYear ?? null, d.language ?? null, d.musicDirector ?? null],
+    );
+    albumId = album.id;
   }
 
   const [job] = await query(
     "INSERT INTO upload_jobs (album_id, created_by, filename, rights_confirmed) VALUES ($1, $2, $3, TRUE) RETURNING id",
-    [album.id, req.userId, req.file.originalname.slice(0, 200)],
+    [albumId, req.userId, file.originalname.slice(0, 200)],
   );
-  const zipPath = req.file.path;
-  void enqueue(() => processJob(job.id, zipPath));
-  res.status(202).json({ jobId: job.id });
+  void enqueue(() => processJob(job.id, file.path));
+  res.status(202).json({ jobId: job.id, movieId: albumId, movieName, nameSource });
 });
 
 uploadsRouter.get("/", async (_req, res) => {
