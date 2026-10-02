@@ -2,6 +2,7 @@ name: Build Android APK
 
 # Builds the APK, launches it in an emulator, and only if it opens without crashing publishes it as the
 # "latest" download used by the web app. Everything happens in one job so the APK never has to be re-downloaded.
+# (If the emulator package fails to download on the runner, just push again to retry.)
 on:
   push:
     branches: [main]
