@@ -6,9 +6,10 @@ import path from "path";
 import { adminRouter } from "./routes/admin";
 import { appRouter } from "./routes/app";
 import { authRouter } from "./routes/auth";
-import { albumsRouter, artistsRouter, genresRouter, songsRouter } from "./routes/catalog";
+import { albumsRouter, artistsRouter, genresRouter, moodsRouter, moviesRouter, songsRouter } from "./routes/catalog";
 import { discoverRouter } from "./routes/discover";
 import { playlistsRouter, usersRouter } from "./routes/playlists";
+import { failInterruptedJobs, uploadsRouter } from "./routes/uploads";
 import { storageStatus } from "./storage";
 
 const app = express();
@@ -39,8 +40,11 @@ app.use("/songs", songsRouter);
 app.use("/artists", artistsRouter);
 app.use("/albums", albumsRouter);
 app.use("/genres", genresRouter);
+app.use("/movies", moviesRouter);
+app.use("/moods", moodsRouter);
 app.use("/playlists", playlistsRouter);
 app.use("/users", usersRouter);
+app.use("/admin/uploads", uploadsRouter);
 app.use("/admin", adminRouter);
 app.use("/app", appRouter);
 app.use("/discover", discoverRouter);
@@ -49,6 +53,8 @@ app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
   console.error(err);
   res.status(500).json({ error: "Internal server error" });
 });
+
+failInterruptedJobs().catch((err) => console.error("could not clean up interrupted uploads:", err));
 
 const port = Number(process.env.PORT) || 4000;
 app.listen(port, () => console.log(`API listening on :${port}`));

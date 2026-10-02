@@ -2,7 +2,7 @@ import { Response, Router } from "express";
 import { z } from "zod";
 import { AuthedRequest, requireAuth } from "../auth";
 import { query } from "../db";
-import { SONG_SELECT } from "./catalog";
+import { PUBLISHED, SONG_SELECT } from "./catalog";
 
 export const playlistsRouter = Router();
 export const usersRouter = Router();
@@ -48,7 +48,7 @@ playlistsRouter.get("/:id", async (req: AuthedRequest, res) => {
   if (!playlist) return;
   const songs = await query(
     `${SONG_SELECT} JOIN playlist_songs ps ON ps.song_id = s.id
-     WHERE ps.playlist_id = $1 ORDER BY ps.position, ps.added_at`,
+     WHERE ps.playlist_id = $1 AND ${PUBLISHED} ORDER BY ps.position, ps.added_at`,
     [playlist.id],
   );
   res.json({ ...playlist, songs });
@@ -97,7 +97,7 @@ playlistsRouter.delete("/:id/songs/:songId", async (req: AuthedRequest, res) => 
 
 usersRouter.get("/me/liked-songs", async (req: AuthedRequest, res) => {
   res.json(
-    await query(`${SONG_SELECT} JOIN likes l ON l.song_id = s.id WHERE l.user_id = $1 ORDER BY l.created_at DESC`, [
+    await query(`${SONG_SELECT} JOIN likes l ON l.song_id = s.id WHERE l.user_id = $1 AND ${PUBLISHED} ORDER BY l.created_at DESC`, [
       req.userId,
     ]),
   );
@@ -107,7 +107,7 @@ usersRouter.get("/me/recently-played", async (req: AuthedRequest, res) => {
   res.json(
     await query(
       `${SONG_SELECT} JOIN recently_played rp ON rp.song_id = s.id
-       WHERE rp.user_id = $1 ORDER BY rp.played_at DESC LIMIT 20`,
+       WHERE rp.user_id = $1 AND ${PUBLISHED} ORDER BY rp.played_at DESC LIMIT 20`,
       [req.userId],
     ),
   );
