@@ -6,3 +6,6 @@ backend/uploads/*
 !backend/uploads/.gitkeep
 mobile/android/app/*.keystore
 mobile/android/app/build/
+
+*.tmp
+*.tmp.*
