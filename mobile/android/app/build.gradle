@@ -83,8 +83,8 @@ android {
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         // The release pipeline passes the real values (from the Git tag); local builds keep the defaults.
-        versionCode (project.findProperty("appVersionCode") ?: "1").toString().toInteger()
-        versionName (project.findProperty("appVersionName") ?: "1.0").toString()
+        versionCode = (project.findProperty("appVersionCode") ?: "1").toString().toInteger()
+        versionName = (project.findProperty("appVersionName") ?: "1.0").toString()
     }
     signingConfigs {
         debug {
