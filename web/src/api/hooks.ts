@@ -116,14 +116,23 @@ export const useMoods = () =>
   useQuery({ queryKey: ['moods'], queryFn: () => api<MoodCount[]>('/moods'), staleTime: 5 * 60_000 });
 
 /** Songs filtered by mood and/or language (and optional search text). Disabled until a filter is chosen. */
-export function useFilteredSongs(filters: { mood?: string; language?: string; q?: string }) {
+export function useFilteredSongs(filters: { labels?: string[]; language?: string; q?: string }) {
   const params = new URLSearchParams({ limit: '60' });
-  if (filters.mood) params.set('mood', filters.mood);
+  if (filters.labels?.length) params.set('labels', filters.labels.join(','));
   if (filters.language) params.set('language', filters.language);
   if (filters.q?.trim()) params.set('q', filters.q.trim());
   return useQuery({
-    queryKey: ['songs-filtered', filters.mood ?? '', filters.language ?? '', filters.q?.trim() ?? ''],
+    queryKey: ['songs-filtered', (filters.labels ?? []).join(','), filters.language ?? '', filters.q?.trim() ?? ''],
     queryFn: () => api<Song[]>(`/songs?${params.toString()}`),
-    enabled: !!(filters.mood || filters.language),
+    enabled: !!(filters.labels?.length || filters.language),
+  });
+}
+
+/** Trending (last 30 days) or all-time popular music videos in a language, played only in YouTube's own player. */
+export function useTrending(kind: 'trending' | 'popular', lang = 'te') {
+  return useQuery({
+    queryKey: ['trending', kind, lang],
+    queryFn: () => api<YouTubeResponse>(`/discover/trending?kind=${kind}&lang=${lang}`),
+    staleTime: 30 * 60_000,
   });
 }

@@ -194,3 +194,72 @@ discoverRouter.get("/youtube", async (req, res) => {
   ytCache.set(cacheKey, { at: Date.now(), results });
   res.json({ configured: true, results });
 });
+
+// --- Trending / popular in a language (official YouTube player only) ----------
+
+const TRENDING_LANGUAGES: Record<string, { query: string; trending: string; popular: string }> = {
+  te: { query: "Telugu", trending: "new Telugu songs", popular: "Telugu hit songs" },
+  hi: { query: "Hindi", trending: "new Hindi songs", popular: "Hindi hit songs" },
+  ta: { query: "Tamil", trending: "new Tamil songs", popular: "Tamil hit songs" },
+  kn: { query: "Kannada", trending: "new Kannada songs", popular: "Kannada hit songs" },
+  ml: { query: "Malayalam", trending: "new Malayalam songs", popular: "Malayalam hit songs" },
+};
+
+// Trending changes through the day; "popular" barely changes. Long cache times keep us far below the free daily quota
+// (each search costs 100 of 10,000 units).
+const TREND_TTL = { trending: 6 * 60 * 60_000, popular: 24 * 60 * 60_000 } as const;
+const trendCache = new Map<string, { at: number; results: unknown[] }>();
+
+/**
+ * GET /discover/trending?lang=te&kind=trending|popular
+ *  trending = Telugu music videos from the last 30 days, most viewed first
+ *  popular  = most viewed Telugu music videos of all time
+ */
+discoverRouter.get("/trending", async (req, res) => {
+  if (!YT_KEY) return res.json({ configured: false, results: [] });
+  const lang = String(req.query.lang ?? "te").toLowerCase();
+  const kind = req.query.kind === "popular" ? "popular" : "trending";
+  const cfg = TRENDING_LANGUAGES[lang];
+  if (!cfg) return res.status(400).json({ error: "Unsupported language" });
+
+  const key = `${lang}:${kind}`;
+  const hit = trendCache.get(key);
+  if (hit && Date.now() - hit.at < TREND_TTL[kind]) return res.json({ configured: true, results: hit.results });
+
+  const params: Record<string, string> = {
+    part: "snippet",
+    type: "video",
+    videoCategoryId: "10", // Music
+    videoEmbeddable: "true",
+    videoSyndicated: "true",
+    regionCode: "IN",
+    relevanceLanguage: lang,
+    order: "viewCount",
+    maxResults: "15",
+    q: cfg[kind],
+    key: YT_KEY,
+  };
+  if (kind === "trending") params.publishedAfter = new Date(Date.now() - 30 * 24 * 60 * 60_000).toISOString();
+
+  const url = new URL("https://www.googleapis.com/youtube/v3/search");
+  url.search = new URLSearchParams(params).toString();
+  const response = await fetch(url);
+  const body = (await response.json().catch(() => null)) as
+    | { items?: { id: { videoId: string }; snippet: { title: string; channelTitle: string; thumbnails?: { medium?: { url: string } } } }[]; error?: { message?: string } }
+    | null;
+  if (!response.ok || !body?.items) {
+    console.error("youtube trending failed:", response.status, body?.error?.message);
+    // Serve an older cached list rather than an error when YouTube (or the daily quota) is unavailable.
+    if (hit) return res.json({ configured: true, results: hit.results, stale: true });
+    return res.status(502).json({ error: "YouTube is unavailable right now." });
+  }
+
+  const results = body.items.map((i) => ({
+    videoId: i.id.videoId,
+    title: decode(i.snippet.title),
+    channel: decode(i.snippet.channelTitle),
+    thumbnail: i.snippet.thumbnails?.medium?.url ?? null,
+  }));
+  trendCache.set(key, { at: Date.now(), results });
+  res.json({ configured: true, results });
+});

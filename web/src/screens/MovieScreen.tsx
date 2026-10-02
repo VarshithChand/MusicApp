@@ -57,7 +57,7 @@ export function MovieScreen() {
                 {!!s.moods?.length && (
                   <div className="mood-tags" aria-label="Moods">
                     {s.moods.map((m) => (
-                      <button key={m} className="tag" onClick={() => navigate(`/search?mood=${m}`)}>
+                      <button key={m} className="tag" onClick={() => navigate(`/search?labels=${m}`)}>
                         {m}
                       </button>
                     ))}

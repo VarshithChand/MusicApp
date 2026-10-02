@@ -123,5 +123,7 @@ export interface MovieDetail extends Movie {
 export interface MoodCount {
   slug: string;
   name: string;
+  /** style = energy/feel (Melody, DJ, Mass…), mood = emotion, genre = tradition. */
+  kind: 'style' | 'mood' | 'genre';
   song_count: number;
 }

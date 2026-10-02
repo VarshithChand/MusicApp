@@ -56,7 +56,46 @@ export interface Movie {
 export interface SongMood {
   slug: string;
   primary: boolean;
+  /** "manual" = approved by an admin (searchable); "suggested" = not yet approved. */
   source: "manual" | "suggested";
+  confidence?: number | null;
+}
+export interface LabelDef {
+  slug: string;
+  name: string;
+  kind: "style" | "mood" | "genre";
+}
+export interface PredictedLabel {
+  slug: string;
+  confidence: number;
+  evidence: string[];
+}
+export interface Classification {
+  labels: PredictedLabel[];
+  /** external | audio-features | metadata */
+  method: string;
+  model_version: string;
+  review_status: "pending" | "needs_review" | "approved" | "rejected";
+  error: string | null;
+  features: { tempoBpm: number; rmsDb: number; onsetDensity: number; beatStrength: number; brightness: number } | null;
+}
+export interface MovieSuggestion {
+  name: string;
+  ambiguous: boolean;
+  releaseYear: number | null;
+  reason: string | null;
+  matches: { id: number; title: string; kind: "same" | "similar" }[];
+}
+/** The server refused an upload until the admin confirms a vague name or decides about a possible duplicate. */
+export class UploadConflict extends Error {
+  constructor(
+    message: string,
+    public code: "confirm-name" | "duplicate",
+    public suggestion?: MovieSuggestion,
+    public matches?: { id: number; title: string; kind: "same" | "similar" }[],
+  ) {
+    super(message);
+  }
 }
 export interface AdminSong {
   id: number;
@@ -75,6 +114,7 @@ export interface AdminSong {
   format: string | null;
   file_size: number | null;
   moods: SongMood[];
+  classification: Classification | null;
 }
 export interface Suggestion {
   description: string;
@@ -215,6 +255,14 @@ export const api = {
     request<void>(`/admin/movies/${id}/order`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ songIds }) }),
   patchSong: (id: number, body: Record<string, unknown>) => request<unknown>(`/admin/songs/${id}`, patch(body)),
   suggest: (id: number) => request<Suggestion>(`/admin/songs/${id}/suggest`),
+  labels: () => request<LabelDef[]>("/admin/labels"),
+  suggestMovie: (filename: string) => request<MovieSuggestion>("/admin/uploads/suggest-movie", json({ filename })),
+  approveSong: (id: number, body: { action: "approve" | "reject"; slugs?: string[]; includeLowConfidence?: boolean }) =>
+    request<{ approved?: number; rejected?: boolean }>(`/admin/songs/${id}/classification`, json(body)),
+  classifySong: (id: number) => request<{ outcome: string }>(`/admin/songs/${id}/classify`, json({ force: true })),
+  approveMovieLabels: (id: number, includeLowConfidence = false) =>
+    request<{ songs: number; labels: number }>(`/admin/movies/${id}/approve-labels`, json({ includeLowConfidence })),
+  classifyMovie: (id: number) => request<{ queued: number }>(`/admin/movies/${id}/classify`, json({ force: true })),
   uploads: () => request<UploadSummary[]>("/admin/uploads"),
   upload: (id: number) => request<UploadDetail>(`/admin/uploads/${id}`),
 };
@@ -226,8 +274,9 @@ const patch = (body: Record<string, unknown>): RequestInit => ({
 });
 
 /** Uploads the ZIP with a progress callback (fetch can't report upload progress, XMLHttpRequest can). */
-export function uploadZip(fd: FormData, onProgress: (fraction: number) => void): Promise<{ jobId: number }> {
-  const send = (retried: boolean): Promise<{ jobId: number }> =>
+export function uploadZip(fd: FormData, onProgress: (fraction: number) => void): Promise<{ jobId: number; movieId: number; movieName: string; nameSource: string }> {
+  type Done = { jobId: number; movieId: number; movieName: string; nameSource: string };
+  const send = (retried: boolean): Promise<Done> =>
     new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       xhr.open("POST", `${API_URL}/admin/uploads`);
@@ -236,13 +285,17 @@ export function uploadZip(fd: FormData, onProgress: (fraction: number) => void):
       xhr.onerror = () => reject(new Error("The upload was interrupted. Check your connection and try again."));
       xhr.onload = async () => {
         if (xhr.status === 401 && !retried && (await refresh())) return send(true).then(resolve, reject);
-        let body: { jobId?: number; error?: string } | null = null;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let body: any = null;
         try {
           body = JSON.parse(xhr.responseText);
         } catch {
           body = null;
         }
-        if (xhr.status === 202 && body?.jobId) return resolve({ jobId: body.jobId });
+        if (xhr.status === 202 && body?.jobId) return resolve(body as Done);
+        if (xhr.status === 409 && (body?.code === "confirm-name" || body?.code === "duplicate")) {
+          return reject(new UploadConflict(body.error, body.code, body.suggestion, body.matches));
+        }
         reject(new Error(body?.error ?? "The upload failed."));
       };
       xhr.send(fd);
