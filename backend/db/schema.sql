@@ -207,3 +207,20 @@ CREATE TABLE IF NOT EXISTS song_classifications (
 CREATE INDEX IF NOT EXISTS idx_class_sha ON song_classifications(audio_sha256) WHERE audio_sha256 IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_class_status ON song_classifications(review_status);
 CREATE INDEX IF NOT EXISTS idx_song_moods_approved ON song_moods(mood_id, song_id) WHERE source = 'manual';
+
+-- ============================================================================
+-- Reference data import (Telugu workbook): provenance + hints. Additive only.
+-- Rollback: DELETE FROM albums WHERE source = 'reference-workbook' AND NOT EXISTS (SELECT 1 FROM songs WHERE album_id = albums.id);
+--   DELETE FROM artists WHERE source = 'reference-workbook' AND NOT EXISTS (SELECT 1 FROM songs WHERE artist_id = artists.id)
+--     AND NOT EXISTS (SELECT 1 FROM albums WHERE artist_id = artists.id); then drop the new columns.
+-- ============================================================================
+ALTER TABLE artists ADD COLUMN IF NOT EXISTS voice TEXT;
+ALTER TABLE artists ADD COLUMN IF NOT EXISTS suggested_tags TEXT;
+ALTER TABLE artists ADD COLUMN IF NOT EXISTS source TEXT;
+ALTER TABLE albums ADD COLUMN IF NOT EXISTS suggested_tags TEXT;
+ALTER TABLE albums ADD COLUMN IF NOT EXISTS example_singers TEXT;
+ALTER TABLE albums ADD COLUMN IF NOT EXISTS source TEXT;
+
+INSERT INTO moods (slug, name, kind) VALUES
+  ('rock', 'Rock', 'genre'), ('pop', 'Pop', 'genre'), ('electronic', 'Electronic', 'genre'), ('orchestral', 'Orchestral / Epic', 'genre')
+ON CONFLICT (slug) DO NOTHING;

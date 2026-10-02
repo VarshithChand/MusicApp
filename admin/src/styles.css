@@ -404,3 +404,87 @@ ul.items .name {
   font-weight: 600;
   word-break: break-all;
 }
+
+/* --- classification review --------------------------------------------- */
+
+.badge.pending,
+.badge.needs_review {
+  color: var(--accent);
+}
+.badge.approved {
+  color: var(--ok);
+}
+.badge.rejected {
+  color: var(--danger);
+}
+.classification {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.classification.needs_review {
+  border-color: var(--accent);
+}
+.classification.approved {
+  border-color: var(--ok);
+}
+.predictions {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.predictions li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+}
+.predictions .name {
+  min-width: 110px;
+  font-weight: 600;
+}
+.predictions .bar {
+  flex: 1;
+  max-width: 220px;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--surface2);
+  overflow: hidden;
+}
+.predictions .bar span {
+  display: block;
+  height: 100%;
+  background: var(--ok);
+}
+.predictions .bar span.low {
+  background: var(--accent);
+}
+.summary {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 0 0 12px;
+}
+.actions.bulk {
+  margin: 0 0 16px;
+}
+.notice {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.notice.warn {
+  border-color: var(--accent);
+}
+.notice p {
+  margin: 0;
+}

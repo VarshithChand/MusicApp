@@ -34,6 +34,10 @@ export const LABELS: LabelDef[] = [
   { slug: "devotional", name: "Devotional", kind: "genre" },
   { slug: "classical", name: "Classical", kind: "genre" },
   { slug: "instrumental", name: "Instrumental", kind: "genre" },
+  { slug: "rock", name: "Rock", kind: "genre" },
+  { slug: "pop", name: "Pop", kind: "genre" },
+  { slug: "electronic", name: "Electronic", kind: "genre" },
+  { slug: "orchestral", name: "Orchestral / Epic", kind: "genre" },
 ];
 
 export const LABEL_SLUGS = new Set(LABELS.map((l) => l.slug));
@@ -71,6 +75,11 @@ const ALIAS_GROUPS: Record<string, string[]> = {
   friendship: ["friendship"],
   travel: ["travel"],
   workout: ["workout"],
+  rock: ["rock"],
+  pop: ["pop"],
+  electronic: ["electronic"],
+  orchestral: ["orchestral"],
+  orchestra: ["orchestral"],
 };
 
 const NOISE = new Set(["songs", "song", "music", "tracks", "track", "hits"]);

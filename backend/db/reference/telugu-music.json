@@ -1,0 +1,608 @@
+{
+  "source": "telugu_music_artists_albums_genres.xlsx",
+  "note": "Starter reference data (names, years, music directors, suggested tags). Not a complete or authoritative list; verify before publishing. No audio is included.",
+  "language": "Telugu",
+  "artists": [
+    {
+      "name": "S. P. Balasubrahmanyam",
+      "voice": "Male",
+      "tags": "Classic playback; melody, romantic, devotional, folk"
+    },
+    {
+      "name": "Ghantasala",
+      "voice": "Male",
+      "tags": "Classic playback; devotional, classical, melody"
+    },
+    {
+      "name": "K. J. Yesudas",
+      "voice": "Male",
+      "tags": "Classical, devotional, melody"
+    },
+    {
+      "name": "P. B. Srinivas",
+      "voice": "Male",
+      "tags": "Classic playback; melody, romantic"
+    },
+    {
+      "name": "V. Ramakrishna",
+      "voice": "Male",
+      "tags": "Classic playback; melody, devotional"
+    },
+    {
+      "name": "S. P. Sailaja",
+      "voice": "Female",
+      "tags": "Playback; melody, folk, devotional"
+    },
+    {
+      "name": "P. Susheela",
+      "voice": "Female",
+      "tags": "Classic playback; melody, romantic, devotional"
+    },
+    {
+      "name": "S. Janaki",
+      "voice": "Female",
+      "tags": "Classic playback; melody, folk, romantic"
+    },
+    {
+      "name": "K. S. Chithra",
+      "voice": "Female",
+      "tags": "Playback; melody, romantic, devotional"
+    },
+    {
+      "name": "M. M. Keeravani",
+      "voice": "Male",
+      "tags": "Composer and singer; soundtrack"
+    },
+    {
+      "name": "Mano",
+      "voice": "Male",
+      "tags": "Playback; mass, melody, folk"
+    },
+    {
+      "name": "Karthik",
+      "voice": "Male",
+      "tags": "Playback; melody, romantic"
+    },
+    {
+      "name": "Shankar Mahadevan",
+      "voice": "Male",
+      "tags": "Playback; energetic, melody, devotional"
+    },
+    {
+      "name": "Hariharan",
+      "voice": "Male",
+      "tags": "Playback; melody, romantic"
+    },
+    {
+      "name": "Udit Narayan",
+      "voice": "Male",
+      "tags": "Playback; romantic, melody"
+    },
+    {
+      "name": "S. P. Charan",
+      "voice": "Male",
+      "tags": "Playback; melody"
+    },
+    {
+      "name": "Tippu",
+      "voice": "Male",
+      "tags": "Playback; energetic, mass, folk"
+    },
+    {
+      "name": "R. P. Patnaik",
+      "voice": "Male",
+      "tags": "Playback and composer; melody"
+    },
+    {
+      "name": "Vandemataram Srinivas",
+      "voice": "Male",
+      "tags": "Playback and composer; folk, devotional"
+    },
+    {
+      "name": "Devi Sri Prasad",
+      "voice": "Male",
+      "tags": "Composer and singer; mass, dance, melody"
+    },
+    {
+      "name": "Sid Sriram",
+      "voice": "Male",
+      "tags": "Playback; melody, romantic, emotional"
+    },
+    {
+      "name": "Anurag Kulkarni",
+      "voice": "Male",
+      "tags": "Playback; melody, romantic, energetic"
+    },
+    {
+      "name": "Armaan Malik",
+      "voice": "Male",
+      "tags": "Playback; romantic, melody"
+    },
+    {
+      "name": "Hemachandra",
+      "voice": "Male",
+      "tags": "Playback; energetic, melody, mass"
+    },
+    {
+      "name": "Rahul Sipligunj",
+      "voice": "Male",
+      "tags": "Playback; folk, mass, energetic"
+    },
+    {
+      "name": "Ram Miriyala",
+      "voice": "Male",
+      "tags": "Playback; folk, energetic"
+    },
+    {
+      "name": "Mangli",
+      "voice": "Female",
+      "tags": "Playback; folk, devotional, energetic"
+    },
+    {
+      "name": "Geetha Madhuri",
+      "voice": "Female",
+      "tags": "Playback; dance, mass, folk"
+    },
+    {
+      "name": "Sunitha Upadrashta",
+      "voice": "Female",
+      "tags": "Playback; melody, romantic, devotional"
+    },
+    {
+      "name": "Usha",
+      "voice": "Female",
+      "tags": "Playback; melody, romantic"
+    },
+    {
+      "name": "Chinmayi Sripada",
+      "voice": "Female",
+      "tags": "Playback; melody, romantic"
+    },
+    {
+      "name": "Shreya Ghoshal",
+      "voice": "Female",
+      "tags": "Playback; melody, romantic, devotional"
+    },
+    {
+      "name": "Shweta Mohan",
+      "voice": "Female",
+      "tags": "Playback; melody, romantic"
+    },
+    {
+      "name": "Mohana Bhogaraju",
+      "voice": "Female",
+      "tags": "Playback; folk, energetic"
+    },
+    {
+      "name": "Ramya Behara",
+      "voice": "Female",
+      "tags": "Playback; melody, devotional"
+    },
+    {
+      "name": "Madhu Priya",
+      "voice": "Female",
+      "tags": "Playback; folk, energetic"
+    },
+    {
+      "name": "Indravathi Chauhan",
+      "voice": "Female",
+      "tags": "Playback; folk, mass"
+    },
+    {
+      "name": "Jonita Gandhi",
+      "voice": "Female",
+      "tags": "Playback; pop, dance, romantic"
+    },
+    {
+      "name": "Sameera Bharadwaj",
+      "voice": "Female",
+      "tags": "Playback; melody, romantic"
+    },
+    {
+      "name": "Satya Yamini",
+      "voice": "Female",
+      "tags": "Playback; melody, devotional"
+    },
+    {
+      "name": "A. R. Rahman",
+      "voice": "Male",
+      "tags": "Composer; soundtrack, electronic, melody"
+    },
+    {
+      "name": "Ilaiyaraaja",
+      "voice": "Male",
+      "tags": "Composer; classical, folk, melody"
+    },
+    {
+      "name": "Mani Sharma",
+      "voice": "Male",
+      "tags": "Composer; mass, melody"
+    },
+    {
+      "name": "S. Thaman",
+      "voice": "Male",
+      "tags": "Composer; mass, dance, electronic"
+    },
+    {
+      "name": "Mickey J. Meyer",
+      "voice": "Male",
+      "tags": "Composer; melody, romantic"
+    },
+    {
+      "name": "Gopi Sundar",
+      "voice": "Male",
+      "tags": "Composer; melody, romantic"
+    },
+    {
+      "name": "Anup Rubens",
+      "voice": "Male",
+      "tags": "Composer; melody, dance"
+    },
+    {
+      "name": "Chakri",
+      "voice": "Male",
+      "tags": "Composer; folk, mass, melody"
+    },
+    {
+      "name": "Radhan",
+      "voice": "Male",
+      "tags": "Composer; indie, melody, electronic"
+    }
+  ],
+  "movies": [
+    {
+      "title": "Mayabazar",
+      "year": 1957,
+      "exampleSingers": "Ghantasala, P. Susheela",
+      "musicDirector": "Ghantasala",
+      "tags": "Classic film soundtrack"
+    },
+    {
+      "title": "Gundamma Katha",
+      "year": 1962,
+      "exampleSingers": "Ghantasala, P. Susheela",
+      "musicDirector": "Ghantasala",
+      "tags": "Classic film soundtrack"
+    },
+    {
+      "title": "Sankarabharanam",
+      "year": 1980,
+      "exampleSingers": "S. P. Balasubrahmanyam, S. Janaki",
+      "musicDirector": "K. V. Mahadevan",
+      "tags": "Classical, devotional"
+    },
+    {
+      "title": "Sagara Sangamam",
+      "year": 1983,
+      "exampleSingers": "S. P. Balasubrahmanyam, S. Janaki",
+      "musicDirector": "Ilaiyaraaja",
+      "tags": "Classical, melody"
+    },
+    {
+      "title": "Swathi Muthyam",
+      "year": 1986,
+      "exampleSingers": "S. P. Balasubrahmanyam, S. Janaki",
+      "musicDirector": "Ilaiyaraaja",
+      "tags": "Melody, classical"
+    },
+    {
+      "title": "Geethanjali",
+      "year": 1989,
+      "exampleSingers": "S. P. Balasubrahmanyam, S. Janaki",
+      "musicDirector": "Ilaiyaraaja",
+      "tags": "Melody, romantic"
+    },
+    {
+      "title": "Shiva",
+      "year": 1989,
+      "exampleSingers": "S. P. Balasubrahmanyam, K. S. Chithra",
+      "musicDirector": "Ilaiyaraaja",
+      "tags": "Rock, energetic"
+    },
+    {
+      "title": "Gulabi",
+      "year": 1995,
+      "exampleSingers": "S. P. Balasubrahmanyam, Sunitha",
+      "musicDirector": "Sashi Preetam",
+      "tags": "Melody, romantic"
+    },
+    {
+      "title": "Thammudu",
+      "year": 1999,
+      "exampleSingers": "Ramana Gogula, Sunitha",
+      "musicDirector": "Ramana Gogula",
+      "tags": "Rock, energetic"
+    },
+    {
+      "title": "Badri",
+      "year": 2000,
+      "exampleSingers": "Ramana Gogula, Sunitha",
+      "musicDirector": "Ramana Gogula",
+      "tags": "Dance, mass"
+    },
+    {
+      "title": "Nuvvu Naaku Nachav",
+      "year": 2001,
+      "exampleSingers": "S. P. Balasubrahmanyam, K. S. Chithra",
+      "musicDirector": "Koti",
+      "tags": "Melody, romantic"
+    },
+    {
+      "title": "Manmadhudu",
+      "year": 2002,
+      "exampleSingers": "S. P. Balasubrahmanyam, K. S. Chithra",
+      "musicDirector": "Devi Sri Prasad",
+      "tags": "Melody, romantic"
+    },
+    {
+      "title": "Okkadu",
+      "year": 2003,
+      "exampleSingers": "Shankar Mahadevan, K. S. Chithra",
+      "musicDirector": "Mani Sharma",
+      "tags": "Mass, melody"
+    },
+    {
+      "title": "Arya",
+      "year": 2004,
+      "exampleSingers": "Devi Sri Prasad, Tippu",
+      "musicDirector": "Devi Sri Prasad",
+      "tags": "Dance, mass, romantic"
+    },
+    {
+      "title": "Bommarillu",
+      "year": 2006,
+      "exampleSingers": "Siddharth, K. S. Chithra",
+      "musicDirector": "Devi Sri Prasad",
+      "tags": "Melody, romantic"
+    },
+    {
+      "title": "Happy Days",
+      "year": 2007,
+      "exampleSingers": "Karthik, S. P. Charan",
+      "musicDirector": "Mickey J. Meyer",
+      "tags": "Melody, youth"
+    },
+    {
+      "title": "Jalsa",
+      "year": 2008,
+      "exampleSingers": "Devi Sri Prasad, Tippu",
+      "musicDirector": "Devi Sri Prasad",
+      "tags": "Rock, mass, dance"
+    },
+    {
+      "title": "Ye Maaya Chesave",
+      "year": 2010,
+      "exampleSingers": "Karthik, Shreya Ghoshal",
+      "musicDirector": "A. R. Rahman",
+      "tags": "Melody, romantic"
+    },
+    {
+      "title": "Ala Modalaindi",
+      "year": 2011,
+      "exampleSingers": "Karthik, Nithya Menen",
+      "musicDirector": "Kalyani Malik",
+      "tags": "Melody, romantic"
+    },
+    {
+      "title": "Eega",
+      "year": 2012,
+      "exampleSingers": "Deepu, Rahul Sipligunj",
+      "musicDirector": "M. M. Keeravani",
+      "tags": "Soundtrack, energetic"
+    },
+    {
+      "title": "Attarintiki Daredi",
+      "year": 2013,
+      "exampleSingers": "Shankar Mahadevan, Karthik",
+      "musicDirector": "Devi Sri Prasad",
+      "tags": "Melody, dance, mass"
+    },
+    {
+      "title": "Manam",
+      "year": 2014,
+      "exampleSingers": "Shreya Ghoshal, Arijit Singh",
+      "musicDirector": "Anup Rubens",
+      "tags": "Melody, romantic"
+    },
+    {
+      "title": "Baahubali: The Beginning",
+      "year": 2015,
+      "exampleSingers": "M. M. Keeravani, Ramya Behara",
+      "musicDirector": "M. M. Keeravani",
+      "tags": "Epic, orchestral, soundtrack"
+    },
+    {
+      "title": "Fidaa",
+      "year": 2017,
+      "exampleSingers": "Madhu Priya, Hemachandra",
+      "musicDirector": "Shakthikanth Karthick",
+      "tags": "Melody, folk, romantic"
+    },
+    {
+      "title": "Arjun Reddy",
+      "year": 2017,
+      "exampleSingers": "Sid Sriram, Radhan",
+      "musicDirector": "Radhan",
+      "tags": "Indie, melody, emotional"
+    },
+    {
+      "title": "Geetha Govindam",
+      "year": 2018,
+      "exampleSingers": "Sid Sriram, Gopi Sundar",
+      "musicDirector": "Gopi Sundar",
+      "tags": "Melody, romantic"
+    },
+    {
+      "title": "Rangasthalam",
+      "year": 2018,
+      "exampleSingers": "Devi Sri Prasad, Chandrabose",
+      "musicDirector": "Devi Sri Prasad",
+      "tags": "Folk, mass"
+    },
+    {
+      "title": "Jersey",
+      "year": 2019,
+      "exampleSingers": "Anirudh Ravichander, Sid Sriram",
+      "musicDirector": "Anirudh Ravichander",
+      "tags": "Melody, emotional"
+    },
+    {
+      "title": "Ala Vaikunthapurramuloo",
+      "year": 2020,
+      "exampleSingers": "Armaan Malik, Sid Sriram",
+      "musicDirector": "S. Thaman",
+      "tags": "Pop, dance, mass"
+    },
+    {
+      "title": "Pushpa: The Rise",
+      "year": 2021,
+      "exampleSingers": "Indravathi Chauhan, Sid Sriram",
+      "musicDirector": "Devi Sri Prasad",
+      "tags": "Folk, mass, dance"
+    },
+    {
+      "title": "RRR",
+      "year": 2022,
+      "exampleSingers": "Rahul Sipligunj, Kaala Bhairava",
+      "musicDirector": "M. M. Keeravani",
+      "tags": "Epic, folk, energetic"
+    },
+    {
+      "title": "Sita Ramam",
+      "year": 2022,
+      "exampleSingers": "Anurag Kulkarni, Chinmayi Sripada",
+      "musicDirector": "Vishal Chandrashekhar",
+      "tags": "Melody, romantic"
+    },
+    {
+      "title": "Dasara",
+      "year": 2023,
+      "exampleSingers": "Dhee, Ram Miriyala",
+      "musicDirector": "Santhosh Narayanan",
+      "tags": "Folk, mass"
+    },
+    {
+      "title": "Hi Nanna",
+      "year": 2023,
+      "exampleSingers": "Shakthisree Gopalan, Hesham Abdul Wahab",
+      "musicDirector": "Hesham Abdul Wahab",
+      "tags": "Melody, romantic"
+    },
+    {
+      "title": "Devara: Part 1",
+      "year": 2024,
+      "exampleSingers": "Shilpa Rao, Anirudh Ravichander",
+      "musicDirector": "Anirudh Ravichander",
+      "tags": "Mass, dance, electronic"
+    },
+    {
+      "title": "Pushpa 2: The Rule",
+      "year": 2024,
+      "exampleSingers": "Shreya Ghoshal, Indravathi Chauhan",
+      "musicDirector": "Devi Sri Prasad",
+      "tags": "Mass, folk, dance"
+    }
+  ],
+  "genres": [
+    {
+      "name": "Melody",
+      "description": "Soft/melodic arrangements; often vocal-led",
+      "related": "Romantic, emotional, relaxing"
+    },
+    {
+      "name": "Romantic",
+      "description": "Love-themed songs",
+      "related": "Melody, duet"
+    },
+    {
+      "name": "Sad / Emotional",
+      "description": "Songs conveying sadness or longing",
+      "related": "Melody, breakup"
+    },
+    {
+      "name": "Happy",
+      "description": "Upbeat, cheerful songs",
+      "related": "Pop, folk"
+    },
+    {
+      "name": "Mass / High Energy",
+      "description": "High-impact commercial dance/action tracks",
+      "related": "Dance, percussion-heavy"
+    },
+    {
+      "name": "DJ / Remix",
+      "description": "Remixed or DJ-oriented tracks",
+      "related": "Electronic, dance"
+    },
+    {
+      "name": "Dance",
+      "description": "Tracks intended for dancing",
+      "related": "Pop, mass"
+    },
+    {
+      "name": "Folk",
+      "description": "Folk-influenced rhythms and instrumentation",
+      "related": "Festival, mass"
+    },
+    {
+      "name": "Devotional",
+      "description": "Religious/spiritual songs",
+      "related": "Classical, folk"
+    },
+    {
+      "name": "Classical",
+      "description": "Classical or raga-oriented compositions",
+      "related": "Devotional, melody"
+    },
+    {
+      "name": "Instrumental",
+      "description": "Primarily instrumental music",
+      "related": "Classical, orchestral"
+    },
+    {
+      "name": "Rock",
+      "description": "Rock-oriented arrangements",
+      "related": "Energetic, youth"
+    },
+    {
+      "name": "Pop",
+      "description": "Popular contemporary arrangements",
+      "related": "Dance, romantic"
+    },
+    {
+      "name": "Electronic",
+      "description": "Synth/electronic production",
+      "related": "DJ, dance"
+    },
+    {
+      "name": "Orchestral / Epic",
+      "description": "Large-scale cinematic orchestration",
+      "related": "Soundtrack, action"
+    },
+    {
+      "name": "Motivational",
+      "description": "Uplifting or inspirational themes",
+      "related": "Energetic, orchestral"
+    },
+    {
+      "name": "Relaxing",
+      "description": "Low-intensity, calming music",
+      "related": "Melody, instrumental"
+    },
+    {
+      "name": "Friendship",
+      "description": "Songs centered on friendship",
+      "related": "Happy, emotional"
+    },
+    {
+      "name": "Travel",
+      "description": "Songs associated with travel/road themes",
+      "related": "Folk, melody"
+    },
+    {
+      "name": "Workout",
+      "description": "High-energy exercise-oriented tracks",
+      "related": "Mass, dance"
+    }
+  ]
+}
