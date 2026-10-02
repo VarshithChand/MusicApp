@@ -96,3 +96,12 @@ export function useYouTube(q: string) {
     staleTime: 10 * 60_000,
   });
 }
+
+/** Trending (last 30 days) or all-time popular music videos in a language, played only in YouTube's own player. */
+export function useTrending(kind: 'trending' | 'popular', lang = 'te') {
+  return useQuery({
+    queryKey: ['trending', kind, lang],
+    queryFn: () => api<YouTubeResponse>(`/discover/trending?kind=${kind}&lang=${lang}`),
+    staleTime: 30 * 60_000,
+  });
+}

@@ -1,11 +1,13 @@
 import { useNavigation } from '@react-navigation/native';
-import React from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useState } from 'react';
+import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useArtists, useRecentlyPlayed, useSongs } from '../api/hooks';
+import { useArtists, useRecentlyPlayed, useSongs, useTrending } from '../api/hooks';
 import { Cover } from '../components/Cover';
 import { Icon } from '../components/Icon';
 import { SongRow } from '../components/SongRow';
+import { YouTubeModal } from '../components/YouTubeModal';
+import { YouTubeResult } from '../api/types';
 import { playQueue } from '../player/controls';
 import { colors } from '../theme/theme';
 
@@ -20,6 +22,25 @@ export function HomeScreen() {
   const recent = useRecentlyPlayed();
   const popular = useSongs('popular');
   const artists = useArtists();
+  const trending = useTrending('trending');
+  const hits = useTrending('popular');
+  const [video, setVideo] = useState<{ videoId: string; title: string } | null>(null);
+
+  const videoRow = (title: string, q: typeof trending) =>
+    !!q.data?.results.length && (
+      <View style={styles.section}>
+        <Text style={styles.h2}>{title}</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hrow}>
+          {q.data.results.map((v: YouTubeResult) => (
+            <Pressable key={v.videoId} style={styles.vcard} onPress={() => setVideo({ videoId: v.videoId, title: v.title })} accessibilityLabel={`Play ${v.title}`}>
+              {v.thumbnail ? <Image source={{ uri: v.thumbnail }} style={styles.thumb} /> : <View style={styles.thumb} />}
+              <Text style={styles.cardTitle} numberOfLines={2}>{v.title}</Text>
+              <Text style={styles.vchannel} numberOfLines={1}>{v.channel}</Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+      </View>
+    );
 
   const play = (songs: typeof popular.data, index: number) => {
     if (!songs) return;
@@ -54,6 +75,9 @@ export function HomeScreen() {
         </View>
       )}
 
+      {videoRow('Trending Telugu videos', trending)}
+      {videoRow('Popular Telugu videos', hits)}
+
       {!!popular.data?.length && (
         <View style={styles.section}>
           <Text style={styles.h2}>Popular</Text>
@@ -84,6 +108,7 @@ export function HomeScreen() {
           </ScrollView>
         </View>
       )}
+      <YouTubeModal videoId={video?.videoId ?? null} title={video?.title ?? ''} onClose={() => setVideo(null)} />
     </ScrollView>
   );
 }
@@ -99,6 +124,9 @@ const styles = StyleSheet.create({
   hrow: { gap: 14 },
   card: { width: 108, gap: 8 },
   cardTitle: { color: colors.text, fontSize: 14, fontWeight: '600' },
+  vcard: { width: 200, gap: 6 },
+  thumb: { width: 200, height: 112, borderRadius: 12, backgroundColor: colors.surface2 },
+  vchannel: { color: colors.muted, fontSize: 12 },
   artist: { width: 76, alignItems: 'center', gap: 8 },
   artistName: { color: colors.text, fontSize: 13, fontWeight: '500' },
   error: { color: colors.danger, fontSize: 14 },
