@@ -82,8 +82,9 @@ android {
         applicationId "com.musicapp"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        // The release pipeline passes the real values (from the Git tag); local builds keep the defaults.
+        versionCode (project.findProperty("appVersionCode") ?: "1").toString().toInteger()
+        versionName (project.findProperty("appVersionName") ?: "1.0").toString()
     }
     signingConfigs {
         debug {

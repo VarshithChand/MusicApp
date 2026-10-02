@@ -1,22 +1,63 @@
 name: Build Android APK
 
-# Builds the APK, launches it in an emulator, and only if it opens without crashing publishes it as the
-# "latest" download used by the web app. Everything happens in one job so the APK never has to be re-downloaded.
-# (If the emulator package fails to download on the runner, just push again to retry.)
+# Runs ONLY when you ask for it:
+#   • push a version tag:   git tag v1.2.0 && git push origin v1.2.0
+#   • or GitHub → Actions → "Build Android APK" → Run workflow (enter the version, e.g. 1.2.0)
+# It builds and signs the APK, launches it in an emulator, and only if it opens without crashing publishes it
+# (plus a version.json describing it) as the "latest" release that the website's download button serves.
 on:
   push:
-    branches: [main]
-    paths: ["mobile/**", ".github/workflows/android.yml", ".github/scripts/smoke.sh"]
+    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to build, like 1.2.0 (must be higher than the published one)"
+        required: true
+      notes:
+        description: "Release notes shown to users (optional)"
+        required: false
 
 permissions:
   contents: write # needed to publish the release at the end
+
+# Never run two releases at once.
+concurrency:
+  group: android-release
+  cancel-in-progress: false
 
 jobs:
   apk:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Work out the version
+        id: ver
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then V="${GITHUB_REF_NAME#v}"; else V="$INPUT_VERSION"; fi
+          if ! [[ "$V" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            echo "::error::Version must look like 1.2.3 (got '$V')"; exit 1
+          fi
+          MAJ=${BASH_REMATCH[1]}; MIN=${BASH_REMATCH[2]}; PAT=${BASH_REMATCH[3]}
+          if [ "$MIN" -gt 99 ] || [ "$PAT" -gt 99 ]; then
+            echo "::error::Minor and patch numbers must be between 0 and 99"; exit 1
+          fi
+          CODE=$((MAJ * 10000 + MIN * 100 + PAT))
+
+          # Refuse duplicates and downgrades against what is currently published.
+          if gh release download latest -p version.json -D prev 2>/dev/null; then
+            PREV=$(jq -r '.versionCode' prev/version.json)
+            echo "Currently published versionCode: $PREV"
+            if [ "$CODE" -le "$PREV" ]; then
+              echo "::error::Version $V (code $CODE) is not higher than the published code $PREV"; exit 1
+            fi
+          fi
+          echo "name=$V" >> "$GITHUB_OUTPUT"
+          echo "code=$CODE" >> "$GITHUB_OUTPUT"
+          echo "Building $V (versionCode $CODE)"
 
       - uses: actions/setup-node@v4
         with:
@@ -45,7 +86,42 @@ jobs:
         working-directory: mobile/android
         run: |
           chmod +x gradlew
-          ./gradlew assembleRelease --no-daemon
+          ./gradlew assembleRelease --no-daemon \
+            -PappVersionName="${{ steps.ver.outputs.name }}" \
+            -PappVersionCode="${{ steps.ver.outputs.code }}"
+
+      - name: Verify the signature and describe the APK
+        id: apk
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          APK=mobile/android/app/build/outputs/apk/release/app-release.apk
+          test -f "$APK"
+          APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -n 1)
+          "$APKSIGNER" verify --print-certs "$APK" | tee cert.txt
+          SIGNER=$(grep -m1 "certificate SHA-256 digest" cert.txt | awk '{print $NF}')
+          test -n "$SIGNER"
+
+          # Updates only install over an app signed with the same key, so never change it silently.
+          if [ -f prev/version.json ]; then
+            PREV_SIGNER=$(jq -r '.signerSha256 // empty' prev/version.json)
+            if [ -n "$PREV_SIGNER" ] && [ "$PREV_SIGNER" != "$SIGNER" ]; then
+              echo "::error::Signing certificate changed; installed apps could not update. Aborting."; exit 1
+            fi
+          fi
+
+          SHA=$(sha256sum "$APK" | awk '{print $1}')
+          SIZE=$(stat -c%s "$APK")
+          NOTES="${{ inputs.notes }}"
+          [ -n "$NOTES" ] || NOTES="Version ${{ steps.ver.outputs.name }}"
+          jq -n \
+            --argjson versionCode "${{ steps.ver.outputs.code }}" \
+            --arg versionName "${{ steps.ver.outputs.name }}" \
+            --arg apkUrl "https://github.com/${{ github.repository }}/releases/latest/download/music.apk" \
+            --arg sha256 "$SHA" --argjson fileSize "$SIZE" \
+            --arg signerSha256 "$SIGNER" --arg releaseNotes "$NOTES" \
+            '{versionCode:$versionCode, versionName:$versionName, apkUrl:$apkUrl, sha256:$sha256, fileSize:$fileSize, signerSha256:$signerSha256, releaseNotes:$releaseNotes, mandatory:false}' > version.json
+          cat version.json
 
       - name: Enable KVM
         run: |
@@ -68,23 +144,20 @@ jobs:
           name: smoke-output
           path: smoke-out/
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: music-app-release
-          path: mobile/android/app/build/outputs/apk/release/app-release.apk
-          if-no-files-found: error
-
       # Only an APK that stayed alive in the emulator is published, so the download button never serves a broken build.
-      - name: Publish APK as the latest download
+      - name: Publish APK and version.json as the latest download
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           if [ "$(tail -n 1 smoke-out/result.txt | tr -d '\r')" != "ALIVE" ]; then
-            echo "App crashed in the emulator; not publishing. The previously published APK stays available."
+            echo "::error::App crashed in the emulator; not publishing. The previously published APK stays available."
             exit 1
           fi
           cp mobile/android/app/build/outputs/apk/release/app-release.apk music.apk
           gh release view latest >/dev/null 2>&1 || gh release create latest \
             --title "Latest Android build" \
             --notes "Always the newest APK that passed the launch test. Download music.apk."
+          # APK first, manifest last: the manifest is only updated once the file it points to is in place.
           gh release upload latest music.apk --clobber
+          gh release upload latest version.json --clobber
+          echo "Published ${{ steps.ver.outputs.name }} (versionCode ${{ steps.ver.outputs.code }})"
