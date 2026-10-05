@@ -1,6 +1,6 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View, ViewStyle } from 'react-native';
-import { colors, radius } from '../theme';
+import { Colors, radius, useColors, useStyles } from '../theme';
 
 export function Button({
   title,
@@ -15,6 +15,8 @@ export function Button({
   disabled?: boolean;
   style?: ViewStyle;
 }) {
+  const colors = useColors();
+  const styles = useStyles(makeStyles);
   const bg = kind === 'primary' ? colors.accent : kind === 'danger' ? colors.danger : colors.surface2;
   return (
     <Pressable
@@ -30,6 +32,8 @@ export function Button({
 }
 
 export function SearchBar({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const colors = useColors();
+  const styles = useStyles(makeStyles);
   return (
     <View style={styles.search}>
       <TextInput
@@ -52,6 +56,8 @@ export function SearchBar({ value, onChange }: { value: string; onChange: (v: st
 }
 
 export function Chip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
+  const colors = useColors();
+  const styles = useStyles(makeStyles);
   return (
     <Pressable
       onPress={onPress}
@@ -75,6 +81,8 @@ export function Banner({
   text?: string;
   action?: React.ReactNode;
 }) {
+  const colors = useColors();
+  const styles = useStyles(makeStyles);
   const c = tone === 'ok' ? colors.ok : tone === 'danger' ? colors.danger : colors.warn;
   return (
     <View style={[styles.banner, { borderColor: c }]}>
@@ -86,18 +94,21 @@ export function Banner({
 }
 
 export function Card({ children, style }: { children: React.ReactNode; style?: ViewStyle }) {
+  const styles = useStyles(makeStyles);
   return <View style={[styles.card, style]}>{children}</View>;
 }
 
 export function H1({ children }: { children: React.ReactNode }) {
+  const styles = useStyles(makeStyles);
   return <Text style={styles.h1}>{children}</Text>;
 }
 
 export function Muted({ children, style }: { children: React.ReactNode; style?: object }) {
+  const styles = useStyles(makeStyles);
   return <Text style={[styles.muted, style]}>{children}</Text>;
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Colors) => StyleSheet.create({
   button: { paddingVertical: 14, paddingHorizontal: 18, borderRadius: radius.md, alignItems: 'center' },
   buttonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
   search: {

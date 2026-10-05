@@ -8,7 +8,7 @@ import { Banner, Button, Chip, H1, Muted, SearchBar } from '../components/ui';
 import { RootParamList } from '../navigation/types';
 import { onNativeEvent } from '../services/native';
 import { useApp } from '../store/useApp';
-import { colors } from '../theme';
+import { Colors, useColors, useStyles } from '../theme';
 import { InstalledApp } from '../types';
 import { filterApps, LockFilter } from '../utils/filterApps';
 import { protectionReady } from '../utils/permissions';
@@ -17,6 +17,8 @@ type Props = NativeStackScreenProps<RootParamList, 'app-lock'>;
 
 /** Installed apps with a lock switch. The list comes from Android's PackageManager; no names are hard-coded. */
 export function AppLockScreen({ navigation }: Props) {
+  const colors = useColors();
+  const styles = useStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const { apps, appsLoading, appsError, protectedApps, permissions } = useApp();
   const loadApps = useApp((s) => s.loadApps);
@@ -108,7 +110,7 @@ export function AppLockScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Colors) => StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   head: { paddingHorizontal: 20, gap: 12 },
   chips: { flexDirection: 'row', gap: 8 },

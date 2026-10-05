@@ -4,7 +4,7 @@ import { Screen, useOnFocus } from '../components/Screen';
 import { Card, Chip, H1, Muted } from '../components/ui';
 import { securityApi } from '../services/native';
 import { useApp } from '../store/useApp';
-import { colors } from '../theme';
+import { Colors, useColors, useStyles } from '../theme';
 import { LockMode } from '../types';
 
 const MODES: { mode: LockMode; title: string; text: string }[] = [
@@ -16,6 +16,7 @@ const GRACE = [1, 5, 15, 30];
 
 /** Re-lock behaviour. The rules themselves run in Kotlin (LockStateMachine); this only chooses them. */
 export function LockSettingsScreen() {
+  const styles = useStyles(makeStyles);
   const settings = useApp((s) => s.settings);
   const loadSettings = useApp((s) => s.loadSettings);
 
@@ -57,7 +58,7 @@ export function LockSettingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Colors) => StyleSheet.create({
   active: { borderWidth: 1, borderColor: colors.accent },
   row: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   radio: { width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: colors.muted },

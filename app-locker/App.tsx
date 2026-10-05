@@ -3,6 +3,7 @@ import { AppState, StatusBar } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AppNavigator } from './src/navigation/AppNavigator';
 import { useApp } from './src/store/useApp';
+import { useColors } from './src/theme';
 
 /** The locker's own gate comes back if the app was in the background for longer than this. */
 const RELOCK_AFTER_MS = 60_000;
@@ -12,6 +13,7 @@ export default function App() {
   const refreshAll = useApp((s) => s.refreshAll);
   const setUnlocked = useApp((s) => s.setUnlocked);
   const leftAt = useRef<number | null>(null);
+  const colors = useColors();
 
   useEffect(() => {
     refreshAll().catch(() => loadSettings().catch(() => {}));
@@ -31,7 +33,7 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <StatusBar barStyle="light-content" />
+      <StatusBar barStyle={colors.dark ? 'light-content' : 'dark-content'} />
       <AppNavigator />
     </SafeAreaProvider>
   );

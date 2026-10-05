@@ -150,6 +150,8 @@ class SecuritySettingsModule(private val ctx: ReactApplicationContext) : ReactCo
     m.putString("lockMode", s.lockMode.name)
     m.putInt("graceMinutes", s.graceMinutes)
     m.putInt("pinLength", s.pinLength)
+    m.putString("themeMode", s.themeMode.name)
+    m.putBoolean("hideNotifications", s.hideNotifications)
     promise.resolve(m)
   }
 
@@ -165,6 +167,13 @@ class SecuritySettingsModule(private val ctx: ReactApplicationContext) : ReactCo
       s.lockMode = mode
       LockManager.reset() // a new mode starts from a clean state
     }
+    if (patch.hasKey("themeMode")) {
+      s.themeMode = try { ThemeMode.valueOf(patch.getString("themeMode") ?: "") } catch (_: Exception) {
+        promise.reject("INVALID_THEME", "Unknown theme")
+        return
+      }
+    }
+    if (patch.hasKey("hideNotifications")) s.hideNotifications = patch.getBoolean("hideNotifications")
     if (patch.hasKey("graceMinutes")) s.graceMinutes = patch.getInt("graceMinutes").coerceIn(1, 120)
     promise.resolve(true)
   }

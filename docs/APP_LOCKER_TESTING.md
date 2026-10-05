@@ -51,7 +51,20 @@ Emulator: Android 17 (API 37), Pixel 6a image, x86_64, 16 KB pages, software gra
 | No crash | ☑ |
 | **Result** | **9 of 9 passed, no ANR** |
 
+### Added 2026-10-05: layout, fingerprint animation, notifications, light theme
+
+| Check | Result |
+|---|---|
+| Lock screen layout: app icon and name at the top, number pad at the bottom (dark and light), checked on a screenshot | ☑ |
+| Animated fingerprint (pulsing ring + scan line) shown above the pad and tappable; checked on a screenshot with a forced preview because the emulator has no enrolled fingerprint | ☑ (look only; **not tested with a real fingerprint**) |
+| Light theme on the lock screen (follows the system setting; status-bar icons turn dark) | ☑ screenshot |
+| Notification text of a locked app replaced by "Unlock to read it", original text gone (emulator test, Android Shell as the locked sender) | ☑ in 2 consecutive runs |
+| Notification rules: calls, alarms, music, navigation, downloads, ongoing and foreground-service notifications untouched; no removal when the replacement cannot be shown; own notifications ignored | ☑ 9 unit tests |
+| Not tested: real WhatsApp/Telegram notifications, reply actions, group summaries on a real phone, notification access on Android 13+ restricted settings, the in-app Appearance screens by hand | ☐ |
+
 ### Honest notes
+- Notification hiding removes the original notification, so its **Reply / Mark as read buttons are gone** for locked apps. The placeholder opens the app (after unlocking) instead. If a locked app re-posts the same notification, the placeholder is updated, not duplicated.
+- Debug builds allow screenshots of the lock screen so the layout can be checked; release builds keep it hidden from screenshots and recents.
 - **Force-stop switches the service off (Android behaviour, not a bug).** My first versions of the test force-stopped the app right before enabling the service. Android removes an app's accessibility service from the enabled list after a force-stop, which raced with the test: the first lock worked, then "Enabled services" became empty, the process was frozen and nothing locked any more. The GitHub run showed it (`Enabled services:{}`, `freezing ... com.applocker.app`). This is the documented limit that a force-stopped locker stops protecting; the Permissions/Home screens show "Protection is off" when it happens. The test now stops the process with a plain kill and checks the service is running before and during the run.
 - Earlier on a local emulator I also saw "Input dispatching timed out: application does not have a focused window" after pressing Back, followed by the process being killed. That happened only in the degraded state produced by repeated force-stops/reinstalls. After switching the test to a plain kill, three consecutive full runs (one after a reboot, two without) passed with no ANR. I did not find a separate cause, so **re-check Back on the lock screen on real phones**.
 - GitHub Actions run 37293548112 (checks job, Android 14 emulator): all steps green, 10 of 10 checks passed.

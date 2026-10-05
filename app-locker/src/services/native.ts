@@ -50,7 +50,7 @@ export const lockApi = {
 export const securityApi = {
   getSettings: (): Promise<Settings> => mod(SecuritySettings, 'SecuritySettings').getSettings(),
   updateSettings: (
-    patch: Partial<Pick<Settings, 'biometricEnabled' | 'lockMode' | 'graceMinutes'>>,
+    patch: Partial<Pick<Settings, 'biometricEnabled' | 'lockMode' | 'graceMinutes' | 'themeMode' | 'hideNotifications'>>,
   ): Promise<boolean> => mod(SecuritySettings, 'SecuritySettings').updateSettings(patch),
   isTrivialPin: (pin: string): Promise<boolean> => mod(SecuritySettings, 'SecuritySettings').isTrivialPin(pin),
   setPin: (pin: string): Promise<boolean> => mod(SecuritySettings, 'SecuritySettings').setPin(pin),

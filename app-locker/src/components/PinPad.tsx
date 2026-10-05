@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { colors } from '../theme';
+import { Colors, useColors, useStyles } from '../theme';
 
 interface Props {
   length: number;
@@ -14,6 +14,7 @@ const ROWS = [['1', '2', '3'], ['4', '5', '6'], ['7', '8', '9'], ['', '0', '<']]
 
 /** Number pad with dots. Calls onComplete once, as soon as `length` digits are entered. */
 export function PinPad({ length, onComplete, disabled, resetKey = 0 }: Props) {
+  const styles = useStyles(makeStyles);
   const [digits, setDigits] = useState('');
 
   useEffect(() => setDigits(''), [resetKey]);
@@ -67,7 +68,7 @@ export function PinPad({ length, onComplete, disabled, resetKey = 0 }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Colors) => StyleSheet.create({
   wrap: { alignItems: 'center', gap: 12 },
   dots: { flexDirection: 'row', gap: 14, marginBottom: 12 },
   dot: { width: 14, height: 14, borderRadius: 7, borderWidth: 1.5, borderColor: colors.muted },

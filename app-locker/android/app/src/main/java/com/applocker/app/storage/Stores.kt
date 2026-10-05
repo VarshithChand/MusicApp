@@ -6,6 +6,7 @@ import android.os.SystemClock
 import android.util.Base64
 import com.applocker.app.lock.LockConfig
 import com.applocker.app.lock.LockMode
+import com.applocker.app.lock.ThemeMode
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -77,6 +78,15 @@ class SecuritySettings(private val ctx: Context) {
   var pinLength: Int
     get() = p.getInt("pin_length", PinPolicy.DEFAULT_LENGTH)
     set(v) = p.edit().putInt("pin_length", v).apply()
+
+  var themeMode: ThemeMode
+    get() = try { ThemeMode.valueOf(p.getString("theme_mode", "SYSTEM")!!) } catch (_: Exception) { ThemeMode.SYSTEM }
+    set(v) = p.edit().putString("theme_mode", v.name).apply()
+
+  /** Replace the text of notifications from locked apps with "Unlock to read". On by default; needs notification access. */
+  var hideNotifications: Boolean
+    get() = p.getBoolean("hide_notifications", true)
+    set(v) = p.edit().putBoolean("hide_notifications", v).apply()
 
   fun lockConfig() = LockConfig(lockMode, graceMinutes * 60_000L)
 }

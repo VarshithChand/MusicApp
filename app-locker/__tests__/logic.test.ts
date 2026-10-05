@@ -49,6 +49,8 @@ const status = (over: Partial<PermissionStatus> = {}): PermissionStatus => ({
   overlay: true,
   biometric: 'available',
   usageAccess: false,
+  notificationAccess: false,
+  notificationsAllowed: true,
   batteryUnrestricted: false,
   manufacturer: 'samsung',
   sdkInt: 34,
@@ -73,6 +75,23 @@ describe('permissions summary', () => {
     const row = summarize(status({ biometric: 'none_enrolled' })).find((r) => r.key === 'biometric')!;
     expect(row.state).toBe('warn');
     expect(row.detail).toMatch(/fingerprint/i);
+  });
+
+  it('offers notification access first, then permission to show our own notice', () => {
+    const find = (s: PermissionStatus) => summarize(s).find((r) => r.key === 'notifications')!;
+    const off = find(status({ notificationAccess: false }));
+    expect(off.state).toBe('warn');
+    expect(off.action?.page).toBe('notificationAccess');
+    const blocked = find(status({ notificationAccess: true, notificationsAllowed: false }));
+    expect(blocked.state).toBe('warn');
+    expect(blocked.action?.page).toBe('postNotifications');
+    const on = find(status({ notificationAccess: true, notificationsAllowed: true }));
+    expect(on.state).toBe('ok');
+    expect(on.action).toBeNull();
+  });
+
+  it('notification hiding never decides whether protection works', () => {
+    expect(protectionReady(status({ notificationAccess: false }))).toBe(true);
   });
 
   it('gives brand specific tips and a generic fallback', () => {

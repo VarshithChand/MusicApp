@@ -1,13 +1,20 @@
-import { PermissionStatus } from '../types';
+import { PermissionStatus, SettingsPage } from '../types';
 
 export type RowState = 'ok' | 'warn' | 'missing';
 
+export interface PermissionAction {
+  label: string;
+  page: SettingsPage;
+}
+
 export interface PermissionRowInfo {
-  key: 'accessibility' | 'overlay' | 'biometric' | 'battery' | 'usage';
+  key: 'accessibility' | 'overlay' | 'biometric' | 'notifications' | 'battery' | 'usage';
   title: string;
   state: RowState;
   required: boolean;
   detail: string;
+  /** The button to show while the row is not fully OK (opens the matching Android settings page). */
+  action: PermissionAction | null;
 }
 
 /** Turns the raw Android status into the rows shown on the Permissions & Protection screen. */
@@ -21,6 +28,7 @@ export function summarize(s: PermissionStatus): PermissionRowInfo[] {
       detail: s.accessibility
         ? 'Enabled. App Locker can tell which app is open.'
         : 'Required. Without it no app can be locked.',
+      action: { label: 'Open Accessibility settings', page: 'accessibility' },
     },
     {
       key: 'overlay',
@@ -30,6 +38,7 @@ export function summarize(s: PermissionStatus): PermissionRowInfo[] {
       detail: s.overlay
         ? 'Enabled. The lock screen can open reliably from the background.'
         : 'Recommended. Helps the lock screen appear on time on some phones.',
+      action: { label: 'Allow display over other apps', page: 'overlay' },
     },
     {
       key: 'biometric',
@@ -37,7 +46,9 @@ export function summarize(s: PermissionStatus): PermissionRowInfo[] {
       state: s.biometric === 'available' ? 'ok' : 'warn',
       required: false,
       detail: biometricDetail(s.biometric),
+      action: null,
     },
+    notificationsRow(s),
     {
       key: 'battery',
       title: 'Battery optimisation',
@@ -46,6 +57,7 @@ export function summarize(s: PermissionStatus): PermissionRowInfo[] {
       detail: s.batteryUnrestricted
         ? 'Unrestricted. Android is less likely to stop App Locker.'
         : 'Action recommended. Android may stop App Locker in the background.',
+      action: { label: 'Remove battery limits', page: 'battery' },
     },
     {
       key: 'usage',
@@ -53,8 +65,37 @@ export function summarize(s: PermissionStatus): PermissionRowInfo[] {
       state: s.usageAccess ? 'ok' : 'warn',
       required: false,
       detail: s.usageAccess ? 'Enabled.' : 'Optional. Not needed for normal use.',
+      action: { label: 'Open usage access', page: 'usage' },
     },
   ];
+}
+
+/** Hiding the text of locked apps' notifications needs two things: notification access and permission to show our own. */
+function notificationsRow(s: PermissionStatus): PermissionRowInfo {
+  const base = { key: 'notifications' as const, title: 'Hide notification text', required: false };
+  if (!s.notificationAccess) {
+    return {
+      ...base,
+      state: 'warn',
+      detail:
+        'Optional. Lets App Locker replace the text of notifications from locked apps (like WhatsApp messages) with "Unlock to read it". It looks only at which app sent a notification, never at its text.',
+      action: { label: 'Allow notification access', page: 'notificationAccess' },
+    };
+  }
+  if (!s.notificationsAllowed) {
+    return {
+      ...base,
+      state: 'warn',
+      detail: 'Notification access is on, but Android is blocking App Locker\'s own notifications. Allow them so the "Unlock to read it" notice can appear.',
+      action: { label: 'Allow App Locker notifications', page: 'postNotifications' },
+    };
+  }
+  return {
+    ...base,
+    state: 'ok',
+    detail: 'On. Text of notifications from locked apps is replaced with "Unlock to read it". Calls, alarms and music controls are never touched.',
+    action: null,
+  };
 }
 
 function biometricDetail(b: PermissionStatus['biometric']): string {

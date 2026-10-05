@@ -7,7 +7,7 @@ import { H1, Muted } from '../components/ui';
 import { RootParamList } from '../navigation/types';
 import { securityApi } from '../services/native';
 import { useApp } from '../store/useApp';
-import { colors } from '../theme';
+import { Colors, useColors, useStyles } from '../theme';
 import { formatWait } from '../utils/format';
 
 type Props = NativeStackScreenProps<RootParamList, 'pin-setup'>;
@@ -15,6 +15,7 @@ type Step = 'old' | 'new' | 'confirm';
 
 /** Change the PIN: current PIN, new PIN, confirm. The current PIN is checked with the same attempt limits as unlocking. */
 export function PinSetupScreen({ navigation }: Props) {
+  const styles = useStyles(makeStyles);
   const settings = useApp((s) => s.settings);
   const loadSettings = useApp((s) => s.loadSettings);
   const length = settings?.pinLength ?? 6;
@@ -89,7 +90,7 @@ export function PinSetupScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Colors) => StyleSheet.create({
   error: { color: colors.danger },
   pad: { alignItems: 'center', marginTop: 16 },
 });

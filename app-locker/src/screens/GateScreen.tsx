@@ -5,11 +5,12 @@ import { PinPad } from '../components/PinPad';
 import { Button, Muted } from '../components/ui';
 import { biometricApi, securityApi } from '../services/native';
 import { useApp } from '../store/useApp';
-import { colors } from '../theme';
+import { Colors, useColors, useStyles } from '../theme';
 import { formatWait } from '../utils/format';
 
 /** App Locker's own lock: its settings need the PIN or fingerprint, otherwise anyone could switch the locks off. */
 export function GateScreen() {
+  const styles = useStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const settings = useApp((s) => s.settings);
   const setUnlocked = useApp((s) => s.setUnlocked);
@@ -75,7 +76,7 @@ export function GateScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Colors) => StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg, alignItems: 'center', gap: 12, paddingHorizontal: 24 },
   title: { color: colors.text, fontSize: 28, fontWeight: '700' },
   error: { color: colors.danger, minHeight: 22, textAlign: 'center', marginVertical: 12 },

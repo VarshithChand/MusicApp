@@ -1,9 +1,11 @@
 package com.applocker.app.permissions
 
+import android.Manifest
 import android.app.AppOpsManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
@@ -11,6 +13,10 @@ import android.os.Process
 import android.provider.Settings
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG
+import androidx.core.app.ActivityCompat
+import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
+import com.applocker.app.notifications.LockedNotificationListener
 import com.applocker.app.accessibility.AppAccessibilityService
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.Promise
@@ -30,6 +36,8 @@ class PermissionModule(private val ctx: ReactApplicationContext) : ReactContextB
       m.putBoolean("overlay", Settings.canDrawOverlays(ctx))
       m.putString("biometric", PermissionState.biometricStatus(ctx))
       m.putBoolean("usageAccess", PermissionState.usageAccess(ctx))
+      m.putBoolean("notificationAccess", PermissionState.notificationAccess(ctx))
+      m.putBoolean("notificationsAllowed", NotificationManagerCompat.from(ctx).areNotificationsEnabled())
       m.putBoolean("batteryUnrestricted", PermissionState.batteryUnrestricted(ctx))
       m.putString("manufacturer", Build.MANUFACTURER)
       m.putInt("sdkInt", Build.VERSION.SDK_INT)
@@ -62,6 +70,20 @@ class PermissionModule(private val ctx: ReactApplicationContext) : ReactContextB
         "usage" -> Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)
         "battery" -> Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:${ctx.packageName}"))
         "appInfo" -> Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${ctx.packageName}"))
+        "notificationAccess" -> notificationAccessIntent()
+        "postNotifications" -> {
+          // Android 13+ asks with a system dialog the first time; after that the app's notification settings open.
+          val activity = ctx.currentActivity
+          if (Build.VERSION.SDK_INT >= 33 && activity != null && !askedForNotifications &&
+            ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+          ) {
+            askedForNotifications = true
+            ActivityCompat.requestPermissions(activity, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 4711)
+            promise.resolve(true)
+            return
+          }
+          Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, ctx.packageName)
+        }
         "oem" -> null
         else -> throw IllegalArgumentException("Unknown settings page: $kind")
       }
@@ -75,12 +97,32 @@ class PermissionModule(private val ctx: ReactApplicationContext) : ReactContextB
     }
   }
 
+  private var askedForNotifications = false
+
+  /** Opens this app's entry in the notification-access list when Android supports it, else the whole list. */
+  private fun notificationAccessIntent(): Intent =
+    if (Build.VERSION.SDK_INT >= 30) {
+      Intent(Settings.ACTION_NOTIFICATION_LISTENER_DETAIL_SETTINGS).putExtra(
+        Settings.EXTRA_NOTIFICATION_LISTENER_COMPONENT_NAME,
+        ComponentName(ctx, LockedNotificationListener::class.java).flattenToString(),
+      )
+    } else {
+      Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
+    }
+
   private fun start(intent: Intent, kind: String): Boolean {
     intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     return try {
       ctx.startActivity(intent)
       true
     } catch (_: Exception) {
+      if (kind == "notificationAccess") {
+        try {
+          ctx.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+          return true
+        } catch (_: Exception) {
+        }
+      }
       if (kind == "battery") {
         try {
           ctx.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
@@ -101,6 +143,9 @@ object PermissionState {
     val me = ComponentName(ctx, AppAccessibilityService::class.java)
     return list.split(':').any { ComponentName.unflattenFromString(it) == me }
   }
+
+  fun notificationAccess(ctx: Context): Boolean =
+    NotificationManagerCompat.getEnabledListenerPackages(ctx).contains(ctx.packageName)
 
   fun biometricStatus(ctx: Context): String = when (BiometricManager.from(ctx).canAuthenticate(BIOMETRIC_STRONG)) {
     BiometricManager.BIOMETRIC_SUCCESS -> "available"

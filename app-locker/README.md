@@ -14,6 +14,14 @@ A deterrent against casual access, **not** an unbreakable lock. It stops working
 
 Local only. The release app has **no INTERNET permission** (the pipeline fails if it ever does), no account, no analytics. The Accessibility Service is configured so it cannot read screen content; it sees only the package name and window class of the app in front. Biometric data never reaches the app: Android only answers yes or no. The PIN is stored as PBKDF2-HMAC-SHA256 with a random salt, encrypted again with a non-exportable Android Keystore key.
 
+## Notification privacy (optional)
+
+With **Notification access** switched on by the user, `LockedNotificationListener` replaces the text of notifications from locked apps with "New notification. Unlock to read it." (one silent placeholder per app; tapping it opens the locked app, which asks for the PIN). Android gives a listener every notification, so the service decides only from the package name, category and flags and never reads the title or text. Rules (`NotificationPolicy`, unit-tested): calls, alarms, music controls, navigation, downloads, ongoing and foreground-service notifications are never touched, and the original is only removed when the placeholder can actually be shown (otherwise the notification would vanish). The placeholder disappears when the app is unlocked.
+
+## Themes
+
+Security -> Appearance: System, Light or Dark. It applies to the app (`src/theme.ts`) and to the native lock screen (`LockPalette.kt`), which share the same colours.
+
 ## How it works
 
 ```

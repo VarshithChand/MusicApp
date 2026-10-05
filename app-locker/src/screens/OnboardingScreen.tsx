@@ -5,12 +5,13 @@ import { Screen } from '../components/Screen';
 import { Button, Card, Chip, H1, Muted } from '../components/ui';
 import { biometricApi, securityApi } from '../services/native';
 import { useApp } from '../store/useApp';
-import { colors } from '../theme';
+import { Colors, useColors, useStyles } from '../theme';
 
 type Step = 'welcome' | 'pin' | 'confirm' | 'bio';
 
 /** First run: explain, create the PIN once, optionally enable the fingerprint. After this no PIN is asked per app. */
 export function OnboardingScreen() {
+  const styles = useStyles(makeStyles);
   const [step, setStep] = useState<Step>('welcome');
   const [length, setLength] = useState(6);
   const [first, setFirst] = useState('');
@@ -139,7 +140,7 @@ export function OnboardingScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Colors) => StyleSheet.create({
   h: { color: colors.text, fontSize: 16, fontWeight: '700' },
   p: { color: colors.text, fontSize: 14, lineHeight: 21 },
   chips: { flexDirection: 'row', gap: 8 },

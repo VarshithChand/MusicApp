@@ -3,9 +3,10 @@ import { Text, StyleSheet } from 'react-native';
 import { Screen } from '../components/Screen';
 import { Card, H1, Muted } from '../components/ui';
 import { permissionsApi } from '../services/native';
-import { colors } from '../theme';
+import { Colors, useColors, useStyles } from '../theme';
 
 export function AboutScreen() {
+  const styles = useStyles(makeStyles);
   const [version, setVersion] = useState('');
 
   useEffect(() => {
@@ -31,6 +32,18 @@ export function AboutScreen() {
       </Card>
 
       <Card>
+        <Text style={styles.h}>Notifications</Text>
+        <Text style={styles.p}>
+          If you switch on Notification access, App Locker can replace the text of notifications from locked apps with
+          "Unlock to read it". Android lets a notification listener see every notification, so be clear about what this
+          app does with that: it looks only at which app sent it (plus its category and whether it is ongoing), never
+          at the title or text, and it stores nothing. It never touches calls, alarms, music controls, navigation or
+          downloads. It cannot send anything anywhere because the app has no internet permission. You can turn it off
+          in Security or in Android Settings at any time.
+        </Text>
+      </Card>
+
+      <Card>
         <Text style={styles.h}>What the Accessibility Service sees</Text>
         <Text style={styles.p}>
           Only the name of the app and screen that came to the front. It is set up so that it cannot read what is on the
@@ -52,7 +65,7 @@ export function AboutScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Colors) => StyleSheet.create({
   h: { color: colors.text, fontSize: 16, fontWeight: '700' },
   p: { color: colors.text, fontSize: 14, lineHeight: 21 },
 });

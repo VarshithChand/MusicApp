@@ -28,6 +28,12 @@ The plan was approved to proceed with phases 0 to 10 inside this repository (fol
 - **Back/Home on the lock screen** are verified on the emulator. The lock screen is no longer closed by "the user moved on" window events, because a late event from the app just left must never close it and reveal the protected app.
 - **Event throttling** (`notificationTimeout`) is 0 so no window change is skipped.
 
+### Added after the first test round (2026-10-05)
+- **Lock screen layout:** icon and name at the top, number pad at the bottom (thumb reach).
+- **Animated fingerprint** above the pad (pulsing ring and scan line); tap it to open the fingerprint prompt again. The real check is still Android's BiometricPrompt.
+- **Notification privacy** (optional, needs Notification access): text of notifications from locked apps becomes "Unlock to read it". Safety rules protect calls, alarms, music, navigation, downloads and ongoing notifications; the original is only removed if the replacement can be shown. Reply buttons are lost for those notifications. Android 13+ also needs the notification permission for the replacement.
+- **Themes:** System, Light and Dark for both the app and the lock screen.
+
 ### Behaviour found while testing
 - **A force-stop turns the Accessibility Service off.** Android removes an app's accessibility service from the enabled list when the app is force-stopped, so protection ends until the user switches the service back on. This is the limit already listed above; the Home and Permissions screens show "Protection is off" and the Fix button.
 - **If Android kills the service process, restarts can be delayed** (a restart was once scheduled about 30 minutes out after a kill following an error). Real-phone testing must watch for this.

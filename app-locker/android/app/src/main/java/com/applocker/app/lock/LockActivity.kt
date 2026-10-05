@@ -1,14 +1,14 @@
 package com.applocker.app.lock
 
-import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.view.Gravity
+import android.view.View
 import android.view.WindowManager
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -19,6 +19,9 @@ import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 import java.lang.ref.WeakReference
 import java.util.concurrent.Executors
 
@@ -26,6 +29,9 @@ import java.util.concurrent.Executors
  * The lock screen. A native Activity on purpose: it opens instantly (no React Native start-up), hosts the system
  * fingerprint prompt, is hidden from screenshots and Recents, and Back / Home both send the user to the launcher
  * so the protected app is never revealed without authentication.
+ *
+ * Layout: the app's icon and name at the top, the animated fingerprint above the number pad, the number pad at the
+ * bottom (within thumb reach). Colours follow the theme chosen in the app (system, light or dark).
  */
 class LockActivity : AppCompatActivity() {
   private var targetPkg = ""
@@ -35,11 +41,13 @@ class LockActivity : AppCompatActivity() {
   private var promptShowing = false
   private var wantPrompt = false
 
+  private lateinit var palette: LockPalette
   private lateinit var title: TextView
   private lateinit var message: TextView
   private lateinit var dots: TextView
   private lateinit var icon: ImageView
-  private lateinit var bioButton: TextView
+  private lateinit var fingerprint: FingerprintView
+  private lateinit var fingerprintHint: TextView
   private val keys = ArrayList<TextView>()
 
   private val ui = Handler(Looper.getMainLooper())
@@ -49,8 +57,16 @@ class LockActivity : AppCompatActivity() {
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(null)
-    window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
     LockManager.init(applicationContext)
+    // Hidden from screenshots and screen recording in release builds. Debug builds allow them so the layout can be checked.
+    if (!DebugLog.isDebuggable) {
+      window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
+    }
+    palette = LockPalette.of(this, LockManager.settings.themeMode)
+    window.setBackgroundDrawable(ColorDrawable(palette.bg))
+    val bars = WindowCompat.getInsetsController(window, window.decorView)
+    bars.isAppearanceLightStatusBars = !palette.dark
+    bars.isAppearanceLightNavigationBars = !palette.dark
     current = WeakReference(this)
     setContentView(buildUi())
     onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
@@ -112,7 +128,9 @@ class LockActivity : AppCompatActivity() {
     render()
     message.text = ""
     wantPrompt = true
-    bioButton.visibility = if (biometricUsable()) android.view.View.VISIBLE else android.view.View.GONE
+    val bio = biometricUsable()
+    fingerprint.visibility = if (bio) View.VISIBLE else View.GONE
+    fingerprintHint.visibility = if (bio) View.VISIBLE else View.GONE
     refreshLockout()
   }
 
@@ -165,6 +183,7 @@ class LockActivity : AppCompatActivity() {
           unlock()
         } else {
           message.text = if (r.remainingMs > 0) "" else "Wrong PIN"
+          shake(dots)
           refreshLockout()
           if (r.remainingMs <= 0) setKeysEnabled(true)
         }
@@ -203,6 +222,14 @@ class LockActivity : AppCompatActivity() {
 
   private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
 
+  private fun shake(v: View) {
+    v.animate().translationX(dp(12).toFloat()).setDuration(60).withEndAction {
+      v.animate().translationX(-dp(12).toFloat()).setDuration(60).withEndAction {
+        v.animate().translationX(0f).setDuration(60).start()
+      }.start()
+    }.start()
+  }
+
   private fun render() {
     val len = LockManager.settings.pinLength
     dots.text = (0 until len).joinToString(" ") { if (it < entered.length) "●" else "○" }
@@ -218,13 +245,13 @@ class LockActivity : AppCompatActivity() {
   private fun key(label: String, onClick: () -> Unit): TextView = TextView(this).apply {
     text = label
     textSize = 24f
-    setTextColor(Color.WHITE)
+    setTextColor(palette.keyText)
     gravity = Gravity.CENTER
     background = GradientDrawable().apply {
       shape = GradientDrawable.OVAL
-      setColor(Color.parseColor("#2A2A2E"))
+      setColor(palette.key)
     }
-    layoutParams = LinearLayout.LayoutParams(dp(72), dp(72)).apply { setMargins(dp(10), dp(6), dp(10), dp(6)) }
+    layoutParams = LinearLayout.LayoutParams(dp(72), dp(72)).apply { setMargins(dp(10), dp(5), dp(10), dp(5)) }
     setOnClickListener { if (isEnabled) onClick() }
     keys.add(this)
   }
@@ -233,40 +260,72 @@ class LockActivity : AppCompatActivity() {
     val root = LinearLayout(this).apply {
       orientation = LinearLayout.VERTICAL
       gravity = Gravity.CENTER_HORIZONTAL
-      setBackgroundColor(Color.parseColor("#0B0B0D"))
-      setPadding(dp(24), dp(56), dp(24), dp(24))
+      setBackgroundColor(palette.bg)
+    }
+    // Keep content clear of the status bar and the gesture bar on every Android version.
+    ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->
+      val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+      v.setPadding(bars.left + dp(24), bars.top + dp(24), bars.right + dp(24), bars.bottom + dp(16))
+      insets
+    }
+
+    // Top: app icon, name, PIN dots, message. Takes all the free space so the pad sits at the bottom.
+    val header = LinearLayout(this).apply {
+      orientation = LinearLayout.VERTICAL
+      gravity = Gravity.CENTER
+      layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f)
     }
     icon = ImageView(this).apply { layoutParams = LinearLayout.LayoutParams(dp(72), dp(72)) }
     title = TextView(this).apply {
-      setTextColor(Color.WHITE)
+      setTextColor(palette.text)
       textSize = 22f
       gravity = Gravity.CENTER
       setPadding(0, dp(16), 0, dp(8))
     }
     dots = TextView(this).apply {
-      setTextColor(Color.WHITE)
+      setTextColor(palette.text)
       textSize = 22f
       gravity = Gravity.CENTER
       letterSpacing = 0.15f
       setPadding(0, dp(12), 0, dp(8))
     }
     message = TextView(this).apply {
-      setTextColor(Color.parseColor("#FF8A80"))
+      setTextColor(palette.error)
       textSize = 14f
       gravity = Gravity.CENTER
       minHeight = dp(40)
     }
-    root.addView(icon)
-    root.addView(title)
-    root.addView(dots)
-    root.addView(message)
+    header.addView(icon)
+    header.addView(title)
+    header.addView(dots)
+    header.addView(message)
+    root.addView(header)
 
+    // Animated fingerprint, tap to open the fingerprint prompt again.
+    fingerprint = FingerprintView(this, palette.text, palette.accent).apply {
+      layoutParams = LinearLayout.LayoutParams(dp(110), dp(110))
+      contentDescription = "Fingerprint. Tap to scan."
+      setOnClickListener { showPrompt() }
+    }
+    fingerprintHint = TextView(this).apply {
+      text = "Touch the sensor or use your PIN"
+      textSize = 13f
+      setTextColor(palette.muted)
+      gravity = Gravity.CENTER
+      setPadding(0, 0, 0, dp(10))
+    }
+    root.addView(fingerprint)
+    root.addView(fingerprintHint)
+
+    // Bottom: the number pad.
     val rows = listOf(listOf("1", "2", "3"), listOf("4", "5", "6"), listOf("7", "8", "9"), listOf("", "0", "<"))
     for (row in rows) {
       val line = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
       for (k in row) {
         when (k) {
-          "" -> line.addView(android.view.View(this).apply { layoutParams = LinearLayout.LayoutParams(dp(72), dp(72)).apply { setMargins(dp(10), dp(6), dp(10), dp(6)) } })
+          "" -> line.addView(View(this).apply {
+            layoutParams = LinearLayout.LayoutParams(dp(72), dp(72)).apply { setMargins(dp(10), dp(5), dp(10), dp(5)) }
+          })
           "<" -> line.addView(key("⌫") {
             if (entered.isNotEmpty()) entered.deleteCharAt(entered.length - 1)
             render()
@@ -280,23 +339,10 @@ class LockActivity : AppCompatActivity() {
       }
       root.addView(line)
     }
-
-    bioButton = TextView(this).apply {
-      text = "Use fingerprint"
-      textSize = 16f
-      setTextColor(Color.parseColor("#7CB7FF"))
-      gravity = Gravity.CENTER
-      setPadding(dp(16), dp(16), dp(16), dp(16))
-      setOnClickListener { showPrompt() }
-    }
-    root.addView(bioButton)
     return root
   }
 
   companion object {
     private var current: WeakReference<LockActivity>? = null
-
-    @Suppress("unused")
-    fun isShowing(ctx: Context) = current?.get() != null
   }
 }

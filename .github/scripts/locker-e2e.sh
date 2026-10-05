@@ -40,25 +40,21 @@ wait_for_focus() { # $1 = text expected in focus, $2 = seconds
 adb wait-for-device
 adb shell input keyevent KEYCODE_WAKEUP
 adb shell wm dismiss-keyguard >/dev/null 2>&1 || true
+adb uninstall "$PKG" >/dev/null 2>&1 || true # clean start (also avoids version-downgrade refusals)
+adb logcat -c # so the "no crash" check at the end only sees this run
 adb install -r "$APK" || { echo "FAIL: install"; exit 1; }
 
-# Start once so the app's data folder exists, then stop it.
-adb shell am start -n "$PKG/.MainActivity" >/dev/null
-sleep 6
-# Stop the process WITHOUT "force-stop": Android removes an app's accessibility service from the enabled list after a
-# force-stop (that is the documented limit that a force-stopped locker stops protecting), which would race with the
-# enable step below and make the test flaky. A plain kill of the process has no such effect.
-adb shell input keyevent KEYCODE_HOME
-sleep 1
-PID=$(adb shell pidof "$PKG" | tr -d '')
-[ -n "$PID" ] && adb shell "run-as $PKG kill -9 $PID"
-sleep 2
+# No need to start the app: the data folder exists after install, and the accessibility service starts the lock logic
+# by itself. (Never force-stop it: Android removes an app's accessibility service from the enabled list after a force-stop.)
 
 # Protect Android Settings and pretend a PIN exists (placeholder record), without any UI.
-PREFS='<?xml version="1.0" encoding="utf-8" standalone="yes" ?><map><string name="protected_apps">[{&quot;p&quot;:&quot;'"$PROTECTED"'&quot;,&quot;n&quot;:&quot;Settings&quot;,&quot;e&quot;:true,&quot;t&quot;:1}]</string><string name="pin_record">1:AAAA:AAAA</string><int name="pin_length" value="6" /></map>'
+PREFS='<?xml version="1.0" encoding="utf-8" standalone="yes" ?><map><string name="protected_apps">[{&quot;p&quot;:&quot;'"$PROTECTED"'&quot;,&quot;n&quot;:&quot;Settings&quot;,&quot;e&quot;:true,&quot;t&quot;:1},{&quot;p&quot;:&quot;com.android.shell&quot;,&quot;n&quot;:&quot;Shell&quot;,&quot;e&quot;:true,&quot;t&quot;:2}]</string><string name="pin_record">1:AAAA:AAAA</string><int name="pin_length" value="6" /></map>'
 adb shell "run-as $PKG sh -c 'mkdir -p shared_prefs && cat > shared_prefs/applocker.xml'" <<< "$PREFS" || { fail "could not write settings"; }
 
 # Turn the accessibility service on (works from adb on an emulator).
+# Allow the optional notification features: the system permission and notification access for the listener.
+adb shell pm grant "$PKG" android.permission.POST_NOTIFICATIONS >/dev/null 2>&1
+adb shell cmd notification allow_listener "$PKG/$PKG.notifications.LockedNotificationListener" >/dev/null 2>&1
 adb shell settings put secure enabled_accessibility_services "$SERVICE"
 adb shell settings put secure accessibility_enabled 1
 
@@ -108,6 +104,13 @@ done
 adb shell am start -a android.intent.action.VIEW -d "content://contacts/people" >/dev/null 2>&1
 sleep 3
 if focus | grep -q "LockActivity"; then fail "an unprotected app was locked"; else pass "unprotected apps are left alone"; fi
+
+# 6b. Notification text of a locked app is replaced with "Unlock to read it" (Android Shell is protected in this test).
+adb shell cmd notification post -S bigtext -t "SecretTitle" locktag "SecretMessageBody" >/dev/null 2>&1
+sleep 5
+NOTES=$(adb shell dumpsys notification --noredact 2>/dev/null)
+if echo "$NOTES" | grep -q "Unlock to read it"; then pass "locked app's notification replaced by 'Unlock to read it'"; else fail "replacement notification not shown"; fi
+if echo "$NOTES" | grep -q "SecretMessageBody"; then fail "the original notification text is still on the phone"; else pass "original notification text removed"; fi
 
 # 7. The service survived all of that and the app did not crash.
 if adb logcat -d | grep -E "FATAL EXCEPTION" -A3 | grep -q "$PKG"; then fail "App Locker crashed"; adb logcat -d | grep -E "FATAL EXCEPTION" -A8 | head -30; else pass "no crash"; fi

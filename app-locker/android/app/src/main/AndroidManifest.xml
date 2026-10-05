@@ -4,6 +4,8 @@
     <!-- There is deliberately NO INTERNET permission in the release app: it cannot upload anything.
          (Debug builds add it in src/debug so the Metro dev server works.) -->
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
+    <!-- Android 13+: needed to show the "Unlock to read" notification that replaces a locked app's notification text. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" tools:ignore="ProtectedPermissions" />
@@ -48,6 +50,17 @@
         android:excludeFromRecents="true"
         android:configChanges="keyboard|keyboardHidden|orientation|screenLayout|screenSize|smallestScreenSize|uiMode"
         android:exported="false" />
+
+      <!-- Optional: hides the text of notifications from locked apps. Switched on by the user (Notification access). -->
+      <service
+        android:name=".notifications.LockedNotificationListener"
+        android:label="@string/notification_listener_label"
+        android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
+        android:exported="true">
+        <intent-filter>
+            <action android:name="android.service.notification.NotificationListenerService" />
+        </intent-filter>
+      </service>
 
       <service
         android:name=".accessibility.AppAccessibilityService"

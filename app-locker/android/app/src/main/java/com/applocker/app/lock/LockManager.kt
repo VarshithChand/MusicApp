@@ -61,6 +61,7 @@ object LockManager {
 
   @Synchronized fun markUnlocked(pkg: String) {
     machine!!.onUnlocked(pkg)
+    com.applocker.app.notifications.NotificationHider.clear(appContext, pkg)
     emit("lockStateChanged", "unlocked:$pkg")
   }
 

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Image, StyleSheet, Switch, Text, View } from 'react-native';
-import { colors } from '../theme';
+import { Colors, useColors, useStyles } from '../theme';
 import { InstalledApp } from '../types';
 
 interface Props {
@@ -10,6 +10,8 @@ interface Props {
 }
 
 function AppRowBase({ app, locked, onToggle }: Props) {
+  const colors = useColors();
+  const styles = useStyles(makeStyles);
   return (
     <View style={styles.row}>
       {app.iconUri ? <Image source={{ uri: app.iconUri }} style={styles.icon} /> : <View style={styles.icon} />}
@@ -35,7 +37,7 @@ function AppRowBase({ app, locked, onToggle }: Props) {
 
 export const AppRow = React.memo(AppRowBase);
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Colors) => StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, gap: 12 },
   icon: { width: 44, height: 44, borderRadius: 10, backgroundColor: colors.surface2 },
   text: { flex: 1 },

@@ -5,12 +5,13 @@ import { Screen, useOnFocus } from '../components/Screen';
 import { Banner, Button, Card, H1, Muted } from '../components/ui';
 import { RootParamList } from '../navigation/types';
 import { useApp } from '../store/useApp';
-import { colors } from '../theme';
+import { Colors, useColors, useStyles } from '../theme';
 import { protectionReady, summarize } from '../utils/permissions';
 
 type Props = NativeStackScreenProps<RootParamList, 'home'>;
 
 export function HomeScreen({ navigation }: Props) {
+  const styles = useStyles(makeStyles);
   const protectedApps = useApp((s) => s.protectedApps);
   const settings = useApp((s) => s.settings);
   const permissions = useApp((s) => s.permissions);
@@ -79,6 +80,7 @@ export function modeName(mode?: string, grace?: number): string {
 }
 
 function Row({ k, v }: { k: string; v: string }) {
+  const styles = useStyles(makeStyles);
   return (
     <View style={styles.row}>
       <Text style={styles.k}>{k}</Text>
@@ -87,7 +89,7 @@ function Row({ k, v }: { k: string; v: string }) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Colors) => StyleSheet.create({
   big: { color: colors.text, fontSize: 48, fontWeight: '700' },
   h: { color: colors.text, fontSize: 17, fontWeight: '700' },
   row: { flexDirection: 'row', justifyContent: 'space-between' },

@@ -15,6 +15,8 @@ object DebugLog {
     enabled = (ctx.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
   }
 
+  val isDebuggable: Boolean get() = enabled
+
   fun d(msg: String) {
     if (enabled) Log.d("AppLockerDbg", msg)
   }

@@ -1,6 +1,6 @@
 import React from 'react';
 import { ActivityIndicator, View } from 'react-native';
-import { DarkTheme, NavigationContainer } from '@react-navigation/native';
+import { DarkTheme, DefaultTheme, NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { AboutScreen } from '../screens/AboutScreen';
 import { AppLockScreen } from '../screens/AppLockScreen';
@@ -12,18 +12,28 @@ import { PermissionsScreen } from '../screens/PermissionsScreen';
 import { PinSetupScreen } from '../screens/PinSetupScreen';
 import { SecurityScreen } from '../screens/SecurityScreen';
 import { useApp } from '../store/useApp';
-import { colors } from '../theme';
+import { useColors } from '../theme';
 import { RootParamList } from './types';
 
 const Stack = createNativeStackNavigator<RootParamList>();
-
-const theme = { ...DarkTheme, colors: { ...DarkTheme.colors, background: colors.bg, card: colors.bg, primary: colors.accent } };
 
 /**
  * Which screens exist depends on state, so a locked-out user cannot navigate to the settings:
  * no PIN yet -> onboarding; PIN but not unlocked -> gate; otherwise the app.
  */
 export function AppNavigator() {
+  const colors = useColors();
+  const theme = {
+    ...(colors.dark ? DarkTheme : DefaultTheme),
+    colors: {
+      ...(colors.dark ? DarkTheme : DefaultTheme).colors,
+      background: colors.bg,
+      card: colors.bg,
+      text: colors.text,
+      border: colors.border,
+      primary: colors.accent,
+    },
+  };
   const settings = useApp((s) => s.settings);
   const unlocked = useApp((s) => s.unlocked);
 

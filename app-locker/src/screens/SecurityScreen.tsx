@@ -2,17 +2,19 @@ import React, { useState } from 'react';
 import { Alert, StyleSheet, Switch, Text, View } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Screen, useOnFocus } from '../components/Screen';
-import { Button, Card, H1, Muted } from '../components/ui';
+import { Button, Card, Chip, H1, Muted } from '../components/ui';
 import { RootParamList } from '../navigation/types';
 import { biometricApi } from '../services/native';
 import { securityApi } from '../services/native';
 import { useApp } from '../store/useApp';
-import { colors } from '../theme';
-import { BiometricStatus } from '../types';
+import { Colors, useColors, useStyles } from '../theme';
+import { BiometricStatus, ThemeMode } from '../types';
 
 type Props = NativeStackScreenProps<RootParamList, 'security'>;
 
 export function SecurityScreen({ navigation }: Props) {
+  const colors = useColors();
+  const styles = useStyles(makeStyles);
   const settings = useApp((s) => s.settings);
   const loadSettings = useApp((s) => s.loadSettings);
   const [bio, setBio] = useState<BiometricStatus>('unsupported');
@@ -38,6 +40,16 @@ export function SecurityScreen({ navigation }: Props) {
     } catch (e) {
       Alert.alert('Fingerprint', e instanceof Error ? e.message : 'Could not change this setting');
     }
+  };
+
+  const setTheme = async (mode: ThemeMode) => {
+    await securityApi.updateSettings({ themeMode: mode });
+    await loadSettings();
+  };
+
+  const setHideNotifications = async (on: boolean) => {
+    await securityApi.updateSettings({ hideNotifications: on });
+    await loadSettings();
   };
 
   const test = async () => {
@@ -77,6 +89,39 @@ export function SecurityScreen({ navigation }: Props) {
       </Card>
 
       <Card>
+        <Text style={styles.h}>Appearance</Text>
+        <Muted>Applies to the app and to the lock screen.</Muted>
+        <View style={styles.chips}>
+          {(['SYSTEM', 'LIGHT', 'DARK'] as const).map((m) => (
+            <Chip
+              key={m}
+              label={m === 'SYSTEM' ? 'System' : m === 'LIGHT' ? 'Light' : 'Dark'}
+              active={settings?.themeMode === m}
+              onPress={() => setTheme(m)}
+            />
+          ))}
+        </View>
+      </Card>
+
+      <Card>
+        <View style={styles.row}>
+          <View style={styles.flex}>
+            <Text style={styles.h}>Hide notification text</Text>
+            <Muted>
+              For locked apps, show "Unlock to read it" instead of the message. Needs Notification access, which you can
+              switch on in Permissions & Protection. Calls and alarms are never touched.
+            </Muted>
+          </View>
+          <Switch
+            value={settings?.hideNotifications ?? true}
+            onValueChange={setHideNotifications}
+            trackColor={{ false: colors.surface2, true: colors.accent }}
+            thumbColor="#fff"
+          />
+        </View>
+      </Card>
+
+      <Card>
         <Text style={styles.h}>PIN</Text>
         <Muted>Used when the fingerprint fails or is off. It is stored scrambled, never as plain text.</Muted>
         <Button title="Change PIN" kind="secondary" onPress={() => navigation.navigate('pin-setup')} />
@@ -93,8 +138,9 @@ export function SecurityScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Colors) => StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   flex: { flex: 1, gap: 4 },
   h: { color: colors.text, fontSize: 17, fontWeight: '700' },
+  chips: { flexDirection: 'row', gap: 8 },
 });
