@@ -28,8 +28,10 @@ The plan was approved to proceed with phases 0 to 10 inside this repository (fol
 - **Back/Home on the lock screen** are verified on the emulator. The lock screen is no longer closed by "the user moved on" window events, because a late event from the app just left must never close it and reveal the protected app.
 - **Event throttling** (`notificationTimeout`) is 0 so no window change is skipped.
 
-### New risk found while testing
-While repeatedly killing and reinstalling the app on one emulator, the lock screen sometimes ended in "Input dispatching timed out (application does not have a focused window)". Android then killed App Locker's process, and **Android did not restart the Accessibility Service for a long time (a restart was scheduled about 30 minutes later), during which nothing was protected.** After rebooting the emulator the same full test passed with no ANR, so I believe the trigger was the emulator's degraded state, but I have **not proven that**. This must be re-checked on real phones. It also shows a general limit: if Android kills the service, protection pauses until Android restarts it.
+### Behaviour found while testing
+- **A force-stop turns the Accessibility Service off.** Android removes an app's accessibility service from the enabled list when the app is force-stopped, so protection ends until the user switches the service back on. This is the limit already listed above; the Home and Permissions screens show "Protection is off" and the Fix button.
+- **If Android kills the service process, restarts can be delayed** (a restart was once scheduled about 30 minutes out after a kill following an error). Real-phone testing must watch for this.
+- Once, on a heavily abused emulator, pressing Back on the lock screen ended in an ANR ("no focused window"); it did not reproduce after the test stopped using force-stop. Re-check on real phones.
 
 ## 0. Decisions I need from you before Phase 0
 
