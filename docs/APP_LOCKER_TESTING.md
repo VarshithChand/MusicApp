@@ -11,7 +11,7 @@ Legend: ☑ passed (how it was checked) · ☐ not run yet · — not applicable
 | | PIN rules (format, trivial PINs, lockout schedule, countdown, reboot restarts the wait) | 5 ☑ |
 | Jest (`npm test`) | App list search/filter (name, package, case, system apps, locked/unlocked), permission summary, brand tips, wait formatting | 9 ☑ |
 | TypeScript (`tsc --noEmit`) | Whole project | ☑ clean |
-| Emulator end-to-end (`.github/scripts/locker-e2e.sh`) | Lock screen appears over a protected app; says "Unlock <name>"; Home and Back never reveal the app; locks again next time; unprotected app is not locked; no crash | see section "Emulator results" |
+| Emulator end-to-end (`.github/scripts/locker-e2e.sh`) | Service running; lock screen appears over a protected app; says "Unlock <name>"; Home and Back never reveal the app; locks again next time; 4 rapid Home+reopen rounds; unprotected app is not locked; no crash | 10 checks ☑ locally (Android 17) and ☑ in GitHub Actions (Android 14), see "Emulator results" |
 | Release gate | Signed with the private key (not the debug key); no INTERNET permission; same signing certificate as the previous release; version higher than the published one | enforced by the pipeline on release |
 
 ## Manual matrix (physical phones)
@@ -54,4 +54,5 @@ Emulator: Android 17 (API 37), Pixel 6a image, x86_64, 16 KB pages, software gra
 ### Honest notes
 - **Force-stop switches the service off (Android behaviour, not a bug).** My first versions of the test force-stopped the app right before enabling the service. Android removes an app's accessibility service from the enabled list after a force-stop, which raced with the test: the first lock worked, then "Enabled services" became empty, the process was frozen and nothing locked any more. The GitHub run showed it (`Enabled services:{}`, `freezing ... com.applocker.app`). This is the documented limit that a force-stopped locker stops protecting; the Permissions/Home screens show "Protection is off" when it happens. The test now stops the process with a plain kill and checks the service is running before and during the run.
 - Earlier on a local emulator I also saw "Input dispatching timed out: application does not have a focused window" after pressing Back, followed by the process being killed. That happened only in the degraded state produced by repeated force-stops/reinstalls. After switching the test to a plain kill, three consecutive full runs (one after a reboot, two without) passed with no ANR. I did not find a separate cause, so **re-check Back on the lock screen on real phones**.
-- Not tested yet: a real fingerprint, a real phone, any phone brand, the Keystore path on real hardware, the first-run onboarding UI by hand, and a signed release from the GitHub pipeline.
+- GitHub Actions run 37293548112 (checks job, Android 14 emulator): all steps green, 10 of 10 checks passed.
+- Not tested yet: a real fingerprint, a real phone, any phone brand, typing a PIN on the lock screen, the Keystore path on real hardware, the first-run onboarding UI by hand, and a signed release from the GitHub pipeline (needs your signing secrets).

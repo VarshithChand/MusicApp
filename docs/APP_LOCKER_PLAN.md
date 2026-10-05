@@ -9,15 +9,15 @@ The plan was approved to proceed with phases 0 to 10 inside this repository (fol
 | Phase | Status | Evidence |
 |---|---|---|
 | 0 Skeleton + native-module spike | Done | RN 0.87.1 + new architecture builds; native modules and the native Activity run on the emulator |
-| 1 Detection spike | Done on an emulator (Android 17) | Service sees the foreground app and starts the lock screen; a real phone and Android 14/15 are still untested |
+| 1 Detection spike | Done on emulators (Android 17 locally, Android 14 on GitHub) | Service sees the foreground app and starts the lock screen; a real phone is still untested |
 | 2 App discovery + App Lock list | Built, emulator-verified for the list code path only | PackageManager list, cached icons, search/filter (Jest-tested) |
 | 3 PIN + secure storage | Done | PBKDF2 + Keystore, lockout (JUnit-tested); Keystore path itself not exercised by automated tests |
-| 4 Lock screen + PIN unlock | Done | Emulator test: lock appears, Home/Back never reveal, locks again, rapid re-open locks |
+| 4 Lock screen + PIN unlock | Done on emulators | Emulator test (10 checks): service running, lock appears, Home/Back never reveal, locks again, rapid re-open locks. Passed locally and in GitHub Actions. The PIN pad itself was not typed on in the test |
 | 5 Biometric | Built | Uses Android BiometricPrompt; **not tested with a real fingerprint** |
 | 6 Permissions screen + OEM tips | Built | Status checks and settings intents; **OEM screens untested** (best effort, with fallback) |
 | 7 Re-lock modes | Done | All three modes covered by 12 JUnit tests |
 | 8 Home, About, locker's own gate | Built | |
-| 9 CI/CD + private signing | Built, **not yet run in GitHub** | `.github/workflows/applocker.yml`; needs the four signing secrets (docs/APP_LOCKER_RELEASE.md) |
+| 9 CI/CD + private signing | Checks job **verified in GitHub** (type check, Jest, Kotlin tests, debug build, Android 14 emulator test: all green). **The signed-release job has never run**: it needs you to create the key and four secrets (docs/APP_LOCKER_RELEASE.md) |
 | 10 Hardening + OEM pass + 1.0 | **Not done** | Needs real phones; see docs/APP_LOCKER_TESTING.md |
 
 ### Where the build differs from the plan above
