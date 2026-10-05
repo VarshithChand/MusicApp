@@ -2,12 +2,14 @@ name: App Locker
 
 # Separate from the music app's pipeline: own tags (locker-vX.Y.Z), own release (locker-latest), own signing key.
 #   • every push / pull request that touches app-locker/  ->  checks only (types, tests, debug build, emulator test)
-#   • tag  locker-v1.2.0   or  Actions -> "App Locker" -> Run workflow (version 1.2.0)  ->  signed release APK
+#   • tag  locker-v1.2.0   or  Actions -> "App Locker" -> Run workflow (version 1.2.0)  ->  signed release APK (needs the private key)
+#   • tag  locker-test-v1.2.0  ->  TEST APK signed with the public debug key, published as a pre-release "locker-test".
+#     For trying the app on your own phone when you have no private key yet. Not an official release.
 on:
   push:
     branches: [main]
     paths: ["app-locker/**", ".github/workflows/applocker.yml", ".github/scripts/locker-e2e.sh"]
-    tags: ["locker-v[0-9]+.[0-9]+.[0-9]+"]
+    tags: ["locker-v[0-9]+.[0-9]+.[0-9]+", "locker-test-v[0-9]+.[0-9]+.[0-9]+"]
   pull_request:
     paths: ["app-locker/**", ".github/workflows/applocker.yml", ".github/scripts/locker-e2e.sh"]
   workflow_dispatch:
@@ -41,8 +43,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           INPUT_VERSION: ${{ inputs.version }}
         run: |
-          V=""
-          if [ "$GITHUB_REF_TYPE" = "tag" ]; then V="${GITHUB_REF_NAME#locker-v}"; else V="$INPUT_VERSION"; fi
+          V=""; TEST=false
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            case "$GITHUB_REF_NAME" in
+              locker-test-v*) V="${GITHUB_REF_NAME#locker-test-v}"; TEST=true ;;
+              *) V="${GITHUB_REF_NAME#locker-v}" ;;
+            esac
+          else V="$INPUT_VERSION"; fi
+          if [ "$TEST" = "true" ]; then RELTAG=locker-test; APKNAME=app-locker-test.apk; else RELTAG=locker-latest; APKNAME=app-locker.apk; fi
           if [ -z "$V" ]; then
             echo "release=false" >> "$GITHUB_OUTPUT"; echo "Checks only (no version given)"; exit 0
           fi
@@ -55,18 +63,21 @@ jobs:
           fi
           CODE=$((MAJ * 10000 + MIN * 100 + PAT))
           # Refuse duplicates and downgrades against what is published.
-          if gh release download locker-latest -p version.json -D prev 2>/dev/null; then
+          if gh release download "$RELTAG" -p version.json -D prev 2>/dev/null; then
             PREV=$(jq -r '.versionCode' prev/version.json)
             if [ "$CODE" -le "$PREV" ]; then
               echo "::error::Version $V (code $CODE) is not higher than the published code $PREV"; exit 1
             fi
           fi
           echo "release=true" >> "$GITHUB_OUTPUT"
+          echo "test=$TEST" >> "$GITHUB_OUTPUT"
+          echo "reltag=$RELTAG" >> "$GITHUB_OUTPUT"
+          echo "apkname=$APKNAME" >> "$GITHUB_OUTPUT"
           echo "name=$V" >> "$GITHUB_OUTPUT"
           echo "code=$CODE" >> "$GITHUB_OUTPUT"
 
       - name: Release needs the private signing key
-        if: steps.mode.outputs.release == 'true'
+        if: steps.mode.outputs.release == 'true' && steps.mode.outputs.test != 'true'
         env:
           KS: ${{ secrets.APPLOCKER_KEYSTORE_BASE64 }}
           PW: ${{ secrets.APPLOCKER_KEYSTORE_PASSWORD }}
@@ -130,7 +141,7 @@ jobs:
           disable-animations: true
           script: bash .github/scripts/locker-e2e.sh app-locker/android/app/build/outputs/apk/debug/app-debug.apk
 
-      - name: Build the signed release APK
+      - name: Build the release APK (private key, or debug-signed in test mode)
         if: steps.mode.outputs.release == 'true'
         working-directory: app-locker/android
         env:
@@ -139,13 +150,21 @@ jobs:
           APPLOCKER_KEY_ALIAS: ${{ secrets.APPLOCKER_KEY_ALIAS }}
           APPLOCKER_KEY_PASSWORD: ${{ secrets.APPLOCKER_KEY_PASSWORD }}
         run: |
-          echo "$APPLOCKER_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
-          export APPLOCKER_KEYSTORE_FILE="$RUNNER_TEMP/release.jks"
-          ./gradlew assembleRelease --no-daemon \
-            -PreactNativeArchitectures=$ABIS \
-            -PappVersionName="${{ steps.mode.outputs.name }}" \
-            -PappVersionCode="${{ steps.mode.outputs.code }}"
-          rm -f "$RUNNER_TEMP/release.jks"
+          if [ "${{ steps.mode.outputs.test }}" = "true" ]; then
+            # TEST build: public debug key, only for trying the app. Never used for a real release.
+            ./gradlew assembleRelease --no-daemon -PallowDebugSigning=true \
+              -PreactNativeArchitectures=$ABIS \
+              -PappVersionName="${{ steps.mode.outputs.name }}" \
+              -PappVersionCode="${{ steps.mode.outputs.code }}"
+          else
+            echo "$APPLOCKER_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+            export APPLOCKER_KEYSTORE_FILE="$RUNNER_TEMP/release.jks"
+            ./gradlew assembleRelease --no-daemon \
+              -PreactNativeArchitectures=$ABIS \
+              -PappVersionName="${{ steps.mode.outputs.name }}" \
+              -PappVersionCode="${{ steps.mode.outputs.code }}"
+            rm -f "$RUNNER_TEMP/release.jks"
+          fi
 
       - name: Verify the APK (signature, no internet permission) and describe it
         if: steps.mode.outputs.release == 'true'
@@ -158,8 +177,10 @@ jobs:
           "$BT/apksigner" verify --print-certs "$APK" | tee cert.txt
           SIGNER=$(grep -m1 "certificate SHA-256 digest" cert.txt | awk '{print $NF}')
           test -n "$SIGNER"
-          # It must NOT be signed with the public debug key.
-          if grep -qi "Android Debug" cert.txt; then echo "::error::Signed with the debug key"; exit 1; fi
+          # A real release must NOT be signed with the public debug key. A test build is, by design.
+          if [ "${{ steps.mode.outputs.test }}" != "true" ] && grep -qi "Android Debug" cert.txt; then
+            echo "::error::Signed with the debug key"; exit 1
+          fi
 
           # Privacy promise: the release app has no internet permission.
           "$BT/aapt2" dump permissions "$APK" | tee perms.txt
@@ -168,7 +189,7 @@ jobs:
           fi
 
           # Updates only install over an app signed with the same key, so never change it silently.
-          if gh release download locker-latest -p version.json -D prev 2>/dev/null; then
+          if [ "${{ steps.mode.outputs.test }}" != "true" ] && gh release download locker-latest -p version.json -D prev 2>/dev/null; then
             PREV_SIGNER=$(jq -r '.signerSha256 // empty' prev/version.json)
             if [ -n "$PREV_SIGNER" ] && [ "$PREV_SIGNER" != "$SIGNER" ]; then
               echo "::error::Signing certificate changed; installed apps could not update. Aborting."; exit 1
@@ -178,26 +199,34 @@ jobs:
           SHA=$(sha256sum "$APK" | awk '{print $1}')
           SIZE=$(stat -c%s "$APK")
           NOTES="${{ inputs.notes }}"; [ -n "$NOTES" ] || NOTES="Version ${{ steps.mode.outputs.name }}"
-          cp "$APK" app-locker.apk
+          cp "$APK" "${{ steps.mode.outputs.apkname }}"
           jq -n \
             --argjson versionCode "${{ steps.mode.outputs.code }}" \
             --arg versionName "${{ steps.mode.outputs.name }}" \
-            --arg apkUrl "https://github.com/${{ github.repository }}/releases/download/locker-latest/app-locker.apk" \
+            --arg apkUrl "https://github.com/${{ github.repository }}/releases/download/${{ steps.mode.outputs.reltag }}/${{ steps.mode.outputs.apkname }}" \
             --arg sha256 "$SHA" --argjson fileSize "$SIZE" \
             --arg signerSha256 "$SIGNER" --arg releaseNotes "$NOTES" \
             '{versionCode:$versionCode, versionName:$versionName, apkUrl:$apkUrl, sha256:$sha256, fileSize:$fileSize, signerSha256:$signerSha256, releaseNotes:$releaseNotes}' > version.json
           cat version.json
-          echo "$SHA  app-locker.apk" > app-locker.apk.sha256
+          echo "$SHA  ${{ steps.mode.outputs.apkname }}" > "${{ steps.mode.outputs.apkname }}.sha256"
 
-      - name: Publish app-locker.apk, its checksum and version.json
+      - name: Publish the APK, its checksum and version.json
         if: steps.mode.outputs.release == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
+          RELTAG: ${{ steps.mode.outputs.reltag }}
+          APKNAME: ${{ steps.mode.outputs.apkname }}
         run: |
-          gh release view locker-latest >/dev/null 2>&1 || gh release create locker-latest \
-            --title "App Locker (latest)" \
-            --notes "Newest App Locker APK that passed all checks and the emulator test."
+          if [ "${{ steps.mode.outputs.test }}" = "true" ]; then
+            gh release view "$RELTAG" >/dev/null 2>&1 || gh release create "$RELTAG" --prerelease \
+              --title "App Locker TEST build (debug-signed)" \
+              --notes "TEST build for trying App Locker on your own phone. Signed with the public Android debug key, NOT a private release key, so it is not an official release. You will have to uninstall it before installing a properly signed version later. No internet permission. Built by the pipeline from the tagged code and checked on an Android emulator; not yet tested on a physical phone."
+          else
+            gh release view "$RELTAG" >/dev/null 2>&1 || gh release create "$RELTAG" \
+              --title "App Locker (latest)" \
+              --notes "Newest App Locker APK that passed all checks and the emulator test."
+          fi
           # APK first, manifest last: the manifest only changes once the file it describes is in place.
-          gh release upload locker-latest app-locker.apk app-locker.apk.sha256 --clobber
-          gh release upload locker-latest version.json --clobber
-          echo "Published ${{ steps.mode.outputs.name }} (versionCode ${{ steps.mode.outputs.code }})"
+          gh release upload "$RELTAG" "$APKNAME" "$APKNAME.sha256" --clobber
+          gh release upload "$RELTAG" version.json --clobber
+          echo "Published ${{ steps.mode.outputs.name }} (versionCode ${{ steps.mode.outputs.code }}) to $RELTAG"
