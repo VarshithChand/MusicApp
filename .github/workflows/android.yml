@@ -160,4 +160,15 @@ jobs:
           # APK first, manifest last: the manifest is only updated once the file it points to is in place.
           gh release upload latest music.apk --clobber
           gh release upload latest version.json --clobber
+
+          # Also keep this version permanently, so the Apps page can list previous versions.
+          # --latest=false matters: the website's download button uses GitHub's "Latest release" (release 'latest'),
+          # and a newer versioned release must never take that flag over.
+          VER="${{ steps.ver.outputs.name }}"
+          VTAG="v${VER}"
+          cp music.apk "music-${VER}.apk"
+          sha256sum "music-${VER}.apk" > "music-${VER}.apk.sha256"
+          gh release view "$VTAG" >/dev/null 2>&1 || gh release create "$VTAG" --latest=false --target "$GITHUB_SHA" \
+            --title "Music ${VER}" --notes "Music app ${VER}"
+          gh release upload "$VTAG" "music-${VER}.apk" "music-${VER}.apk.sha256" version.json --clobber
           echo "Published ${{ steps.ver.outputs.name }} (versionCode ${{ steps.ver.outputs.code }})"

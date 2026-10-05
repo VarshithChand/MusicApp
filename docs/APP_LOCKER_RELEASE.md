@@ -20,12 +20,12 @@ It asks for a keystore password, a key password and some name fields. Choose str
 
 Repository → Settings → Secrets and variables → Actions → New repository secret. Create four:
 
-| Secret | Value |
-|---|---|
-| `APPLOCKER_KEYSTORE_BASE64` | the key file encoded as text: `base64 -w0 applocker-release.jks` (Git Bash) |
-| `APPLOCKER_KEYSTORE_PASSWORD` | the keystore password |
-| `APPLOCKER_KEY_ALIAS` | `applocker` |
-| `APPLOCKER_KEY_PASSWORD` | the key password |
+| Secret                          | Value                                                                        |
+| ------------------------------- | ---------------------------------------------------------------------------- |
+| `APPLOCKER_KEYSTORE_BASE64`   | the key file encoded as text:`base64 -w0 applocker-release.jks` (Git Bash) |
+| `APPLOCKER_KEYSTORE_PASSWORD` | the keystore password                                                        |
+| `APPLOCKER_KEY_ALIAS`         | `applocker`                                                                |
+| `APPLOCKER_KEY_PASSWORD`      | the key password                                                             |
 
 Never paste these into chat or commit them.
 

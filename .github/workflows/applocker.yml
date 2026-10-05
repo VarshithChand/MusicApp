@@ -71,6 +71,8 @@ jobs:
           fi
           echo "release=true" >> "$GITHUB_OUTPUT"
           echo "test=$TEST" >> "$GITHUB_OUTPUT"
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then VTAG="$GITHUB_REF_NAME"; else VTAG="locker-v$V"; fi
+          echo "vtag=$VTAG" >> "$GITHUB_OUTPUT"
           echo "reltag=$RELTAG" >> "$GITHUB_OUTPUT"
           echo "apkname=$APKNAME" >> "$GITHUB_OUTPUT"
           echo "name=$V" >> "$GITHUB_OUTPUT"
@@ -218,15 +220,30 @@ jobs:
           APKNAME: ${{ steps.mode.outputs.apkname }}
         run: |
           if [ "${{ steps.mode.outputs.test }}" = "true" ]; then
-            gh release view "$RELTAG" >/dev/null 2>&1 || gh release create "$RELTAG" --prerelease \
+            gh release view "$RELTAG" >/dev/null 2>&1 || gh release create "$RELTAG" --prerelease --latest=false \
               --title "App Locker TEST build (debug-signed)" \
               --notes "TEST build for trying App Locker on your own phone. Signed with the public Android debug key, NOT a private release key, so it is not an official release. You will have to uninstall it before installing a properly signed version later. No internet permission. Built by the pipeline from the tagged code and checked on an Android emulator; not yet tested on a physical phone."
           else
-            gh release view "$RELTAG" >/dev/null 2>&1 || gh release create "$RELTAG" \
+            # --latest=false: GitHub's "Latest release" must stay the music app's (its website download button uses it).
+            gh release view "$RELTAG" >/dev/null 2>&1 || gh release create "$RELTAG" --latest=false \
               --title "App Locker (latest)" \
               --notes "Newest App Locker APK that passed all checks and the emulator test."
           fi
           # APK first, manifest last: the manifest only changes once the file it describes is in place.
           gh release upload "$RELTAG" "$APKNAME" "$APKNAME.sha256" --clobber
           gh release upload "$RELTAG" version.json --clobber
+
+          # Also keep this version permanently, so the Apps page can list previous versions.
+          VER="${{ steps.mode.outputs.name }}"
+          VTAG="${{ steps.mode.outputs.vtag }}"
+          if [ "${{ steps.mode.outputs.test }}" = "true" ]; then
+            VAPK="app-locker-test-${VER}.apk"; PRE="--prerelease"; TITLE="App Locker ${VER} (TEST, debug-signed)"
+          else
+            VAPK="app-locker-${VER}.apk"; PRE=""; TITLE="App Locker ${VER}"
+          fi
+          cp "$APKNAME" "$VAPK"
+          sha256sum "$VAPK" > "$VAPK.sha256"
+          gh release view "$VTAG" >/dev/null 2>&1 || gh release create "$VTAG" $PRE --latest=false --target "$GITHUB_SHA" \
+            --title "$TITLE" --notes "App Locker ${VER}"
+          gh release upload "$VTAG" "$VAPK" "$VAPK.sha256" version.json --clobber
           echo "Published ${{ steps.mode.outputs.name }} (versionCode ${{ steps.mode.outputs.code }}) to $RELTAG"

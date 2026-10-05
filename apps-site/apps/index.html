@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Apps</title>
+<meta name="description" content="Download the latest Android apps, and earlier versions of each.">
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #ffffff; --text: #14161a; --muted: #5d6573; --line: #e1e4ea;
+    --accent: #2563eb; --accent-text: #ffffff; --ok: #0f7b4f; --warn-bg: #fff4d6; --warn-text: #7a5300;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0d0e11; --card: #17191e; --text: #f2f3f5; --muted: #9aa1ad; --line: #2a2d35;
+      --accent: #5b8cff; --accent-text: #0b1020; --ok: #4cd391; --warn-bg: #3a2e0c; --warn-text: #ffd479;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { color-scheme: light dark; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 860px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 30px; margin: 0 0 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 20px; margin: 40px 0 12px; }
+  .sub { color: var(--muted); margin: 0 0 8px; }
+  .grid { display: grid; gap: 14px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 18px; }
+  .app { display: flex; gap: 14px; align-items: flex-start; }
+  .icon { flex: none; width: 56px; height: 56px; border-radius: 14px; display: grid; place-items: center; font-size: 28px; color: #fff; }
+  .grow { flex: 1; min-width: 0; }
+  .name { font-size: 18px; font-weight: 700; margin: 0; }
+  .meta { color: var(--muted); font-size: 14px; margin: 2px 0 0; }
+  .desc { margin: 8px 0 0; color: var(--text); font-size: 15px; }
+  .badge { display: inline-block; font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 999px; margin-left: 6px; vertical-align: middle; background: var(--warn-bg); color: var(--warn-text); }
+  .btn { display: inline-block; margin-top: 12px; padding: 10px 16px; border-radius: 12px; background: var(--accent); color: var(--accent-text); font-weight: 700; text-decoration: none; }
+  .btn:focus-visible, a:focus-visible, summary:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .link { color: var(--accent); }
+  .small { font-size: 13px; color: var(--muted); }
+  table { width: 100%; border-collapse: collapse; font-size: 15px; }
+  th, td { text-align: left; padding: 10px 6px; border-top: 1px solid var(--line); vertical-align: middle; }
+  th { color: var(--muted); font-weight: 600; font-size: 13px; border-top: none; }
+  td.right, th.right { text-align: right; }
+  .state { padding: 24px; text-align: center; color: var(--muted); }
+  details { margin-top: 28px; }
+  summary { cursor: pointer; font-weight: 600; }
+  ol { padding-left: 20px; }
+  @media (max-width: 520px) { .hide-sm { display: none; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Apps</h1>
+  <p class="sub">Android apps you can download directly. Each app has its newest version first, then earlier versions.</p>
+
+  <h2>Latest</h2>
+  <div id="latest" class="grid" aria-live="polite"><div class="card state">Loading…</div></div>
+
+  <h2>Previous versions</h2>
+  <div id="previous" class="grid" aria-live="polite"><div class="card state">Loading…</div></div>
+
+  <details>
+    <summary>How to install an APK</summary>
+    <ol>
+      <li>Open this page on your Android phone and tap <b>Download APK</b>.</li>
+      <li>Open the downloaded file. If Android asks, allow installing from this source (your browser or Files app).</li>
+      <li>Updating over an older version works only if both versions were signed with the same key. A <b>TEST</b> build is signed with a public test key, so uninstall it before installing a properly signed version.</li>
+      <li>Some apps need extra Android settings. Each app explains them on first start.</li>
+    </ol>
+    <p class="small">Check a download: compare its SHA-256 (the “SHA-256” link next to each file) with the file you got.</p>
+  </details>
+</main>
+
+<script>
+(function () {
+  "use strict";
+
+  // The repository whose GitHub releases hold the APK files.
+  var REPO = "VarshithChand/MusicApp";
+  var API = "https://api.github.com/repos/" + REPO + "/releases?per_page=100";
+
+  // One entry per app. A release belongs to an app when its tag matches.
+  //  tag: stable versions     testTag: test builds (optional)     rolling: the always-newest release, used only until a
+  //  versioned release exists.
+  var APPS = [
+    {
+      id: "music", name: "Music", icon: "▶", color: "#f5a524",
+      desc: "Stream and download music, playlists, movie soundtracks and trending videos.",
+      tag: /^v(\d+\.\d+\.\d+)$/,
+      rolling: { tag: "latest", file: "music.apk" }
+    },
+    {
+      id: "applocker", name: "App Locker", icon: "🔒", color: "#1e3a5f",
+      desc: "Lock other apps behind your fingerprint or a PIN. Works offline and has no internet access.",
+      tag: /^locker-v(\d+\.\d+\.\d+)$/,
+      testTag: /^locker-test-v(\d+\.\d+\.\d+)$/,
+      rolling: { tag: "locker-latest", file: "app-locker.apk" },
+      rollingTestTag: "locker-test"
+    }
+  ];
+
+  var releasesUrl = "https://github.com/" + REPO + "/releases";
+
+  function el(tag, attrs, children) {
+    var e = document.createElement(tag);
+    Object.keys(attrs || {}).forEach(function (k) {
+      if (k === "text") e.textContent = attrs[k];
+      else if (k === "class") e.className = attrs[k];
+      else e.setAttribute(k, attrs[k]);
+    });
+    (children || []).forEach(function (c) { e.appendChild(c); });
+    return e;
+  }
+
+  function cmp(a, b) { // newest version first
+    var x = a.split(".").map(Number), y = b.split(".").map(Number);
+    for (var i = 0; i < 3; i++) if (x[i] !== y[i]) return y[i] - x[i];
+    return 0;
+  }
+  function fmtDate(iso) {
+    try { return new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" }); }
+    catch (e) { return ""; }
+  }
+  function fmtSize(bytes) { return bytes ? (bytes / 1048576).toFixed(1) + " MB" : ""; }
+
+  function apkOf(release) {
+    var a = (release.assets || []).filter(function (x) { return /\.apk$/i.test(x.name); })[0];
+    if (!a) return null;
+    var sha = (release.assets || []).filter(function (x) { return x.name === a.name + ".sha256"; })[0];
+    return { url: a.browser_download_url, size: a.size, name: a.name, sha: sha ? sha.browser_download_url : null };
+  }
+
+  // Turn the list of GitHub releases into { appId: { versions: [...], rolling: {...} } }
+  function group(releases) {
+    var out = {};
+    APPS.forEach(function (app) { out[app.id] = { versions: [], rolling: null }; });
+    releases.forEach(function (r) {
+      if (r.draft) return;
+      var apk = apkOf(r);
+      if (!apk) return;
+      APPS.forEach(function (app) {
+        var m = app.tag.exec(r.tag_name), t = app.testTag && app.testTag.exec(r.tag_name);
+        if (m || t) {
+          out[app.id].versions.push({
+            version: (m || t)[1], test: !!t, date: r.published_at || r.created_at, apk: apk, page: r.html_url
+          });
+        } else if (r.tag_name === app.rolling.tag) {
+          out[app.id].rolling = { date: r.published_at || r.created_at, apk: apk, page: r.html_url };
+        } else if (app.rollingTestTag && r.tag_name === app.rollingTestTag) {
+          out[app.id].rollingTest = { date: r.published_at || r.created_at, apk: apk, page: r.html_url };
+        }
+      });
+    });
+    APPS.forEach(function (app) {
+      // Stable first, then by version, newest first.
+      out[app.id].versions.sort(function (a, b) { return (a.test - b.test) || cmp(a.version, b.version); });
+    });
+    return out;
+  }
+
+  function renderLatest(app, data) {
+    var v = data.versions[0];
+    var head = el("div", { class: "app" }, [
+      el("div", { class: "icon", style: "background:" + app.color, "aria-hidden": "true", text: app.icon })
+    ]);
+    var body = el("div", { class: "grow" });
+    var title = el("p", { class: "name", text: app.name });
+    body.appendChild(title);
+
+    var link = null, meta = "", testOnly = false;
+    if (v) {
+      title.appendChild(el("span", { class: "small", text: "  " + v.version }));
+      if (v.test) title.appendChild(el("span", { class: "badge", text: "TEST" }));
+      meta = [fmtDate(v.date), fmtSize(v.apk.size)].filter(Boolean).join(" · ");
+      link = v.apk;
+    } else if (data.rolling) {
+      meta = ["Newest build", fmtDate(data.rolling.date), fmtSize(data.rolling.apk.size)].filter(Boolean).join(" · ");
+      link = data.rolling.apk;
+    } else if (data.rollingTest) {
+      testOnly = true;
+      title.appendChild(el("span", { class: "badge", text: "TEST" }));
+      meta = ["Newest test build", fmtDate(data.rollingTest.date), fmtSize(data.rollingTest.apk.size)].filter(Boolean).join(" · ");
+      link = data.rollingTest.apk;
+    }
+    if (meta) body.appendChild(el("p", { class: "meta", text: meta }));
+    body.appendChild(el("p", { class: "desc", text: app.desc }));
+    if ((v && v.test) || testOnly) {
+      body.appendChild(el("p", { class: "small", text: "Test build: signed with a public test key. Fine for trying the app on your own phone." }));
+    }
+    if (link) {
+      body.appendChild(el("a", { class: "btn", href: link.url, text: "Download APK" }));
+      if (link.sha) body.appendChild(el("span", { class: "small" }, [document.createTextNode("  "), el("a", { class: "link", href: link.sha, text: "SHA-256" })]));
+    } else {
+      body.appendChild(el("p", { class: "small", text: "No download is available yet." }));
+    }
+    head.appendChild(body);
+    return el("div", { class: "card" }, [head]);
+  }
+
+  function renderPrevious(app, data) {
+    var older = data.versions.slice(1);
+    var card = el("div", { class: "card" });
+    card.appendChild(el("p", { class: "name", text: app.name }));
+    if (!older.length) {
+      card.appendChild(el("p", { class: "small", text: "No earlier versions yet. They appear here when a newer version is released." }));
+      return card;
+    }
+    var thead = el("tr", {}, [
+      el("th", { text: "Version" }), el("th", { class: "hide-sm", text: "Released" }),
+      el("th", { class: "hide-sm", text: "Size" }), el("th", { class: "right", text: "Download" })
+    ]);
+    var tbody = el("tbody");
+    older.forEach(function (v) {
+      var ver = el("td", { text: v.version });
+      if (v.test) ver.appendChild(el("span", { class: "badge", text: "TEST" }));
+      var dl = el("td", { class: "right" }, [el("a", { class: "link", href: v.apk.url, text: "APK" })]);
+      if (v.apk.sha) {
+        dl.appendChild(document.createTextNode(" · "));
+        dl.appendChild(el("a", { class: "link", href: v.apk.sha, text: "SHA-256" }));
+      }
+      tbody.appendChild(el("tr", {}, [ver, el("td", { class: "hide-sm", text: fmtDate(v.date) }), el("td", { class: "hide-sm", text: fmtSize(v.apk.size) }), dl]));
+    });
+    card.appendChild(el("table", {}, [el("thead", {}, [thead]), tbody]));
+    return card;
+  }
+
+  function fail(msg) {
+    ["latest", "previous"].forEach(function (id) {
+      var box = document.getElementById(id);
+      box.textContent = "";
+      var c = el("div", { class: "card state" }, [
+        document.createTextNode(msg + " "),
+        el("a", { class: "link", href: releasesUrl, text: "Open the releases page on GitHub" })
+      ]);
+      box.appendChild(c);
+    });
+  }
+
+  fetch(API, { headers: { Accept: "application/vnd.github+json" } })
+    .then(function (r) {
+      if (!r.ok) throw new Error("GitHub answered " + r.status);
+      return r.json();
+    })
+    .then(function (releases) {
+      var grouped = group(releases);
+      var latest = document.getElementById("latest"), previous = document.getElementById("previous");
+      latest.textContent = ""; previous.textContent = "";
+      APPS.forEach(function (app) {
+        latest.appendChild(renderLatest(app, grouped[app.id]));
+        previous.appendChild(renderPrevious(app, grouped[app.id]));
+      });
+    })
+    .catch(function () { fail("The list could not be loaded right now."); });
+})();
+</script>
+</body>
+</html>
