@@ -18,7 +18,10 @@ pass() { echo "PASS: $1"; }
 diag() { # what the service saw (debug builds log package names only) and what the system thinks
   echo "---- diagnostics ----"
   adb logcat -d -s AppLockerDbg:D AndroidRuntime:E 2>/dev/null | tail -40 | cut -c1-220
-  adb shell dumpsys accessibility 2>/dev/null | grep -E "Bound services|crashed" | cut -c1-160
+  adb shell dumpsys accessibility 2>/dev/null | grep -E "Bound services|Enabled services|crashed|Binding services|Temporarily|isAccessibilityTool" | cut -c1-200
+  adb logcat -d -b all 2>/dev/null | grep -iE "AccessibilityManagerService|AccessibilityServiceConnection|AccessibilityMgr" | grep -iE "applocker|unbind|disconnect|crash|disable" | tail -12 | cut -c1-260
+  adb logcat -d -b all 2>/dev/null | grep -E "com.applocker.app" | grep -iE "died|killed|unbind|onDestroy|disconnect|Scheduling|freez" | tail -8 | cut -c1-230
+  echo "pid: $(adb shell pidof com.applocker.app)"
   adb shell pidof com.applocker.app || echo "app process NOT running"
   adb logcat -d -b events 2>/dev/null | grep -E "am_anr|am_crash|am_kill|am_proc_died" | grep applocker | tail -5 | cut -c1-200
   echo "---------------------"
