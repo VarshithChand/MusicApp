@@ -50,7 +50,7 @@ sleep 6
 # enable step below and make the test flaky. A plain kill of the process has no such effect.
 adb shell input keyevent KEYCODE_HOME
 sleep 1
-PID=$(adb shell pidof "$PKG" | tr -d '')
+PID=$(adb shell pidof "$PKG" | tr -d '')
 [ -n "$PID" ] && adb shell "run-as $PKG kill -9 $PID"
 sleep 2
 
