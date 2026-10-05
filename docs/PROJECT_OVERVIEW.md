@@ -94,6 +94,6 @@ Everything behind them is one backend and one database, so the app and website a
 - Label suggestions are rules over audio measurements. They are starting points, and no accuracy figure is claimed.
 - Secrets live in Render and GitHub settings, never in the app or the repository.
 
-## 7. Idea under discussion: app locker
+## 7. App Locker (separate app, in `app-locker/`)
 
-A separate Android app that locks chosen apps behind a fingerprint, with a PIN fallback. It would detect the opened app with an Accessibility Service, cover it with a lock screen, and unlock through Android's biometric prompt. It needs Accessibility and "display over other apps" permissions, and some phone brands need extra battery settings. It would be a new project in its own folder, built with the same free pipeline. Not started; waiting for your decision.
+A standalone Android app that locks other apps behind a fingerprint or PIN, built in this repository with its own pipeline (`.github/workflows/applocker.yml`, tags `locker-vX.Y.Z`). Built and emulator-tested through the lock screen; real-phone, fingerprint and brand testing and the first signed release are still to do. See [APP_LOCKER_PLAN.md](APP_LOCKER_PLAN.md), [APP_LOCKER_RELEASE.md](APP_LOCKER_RELEASE.md) and [APP_LOCKER_TESTING.md](APP_LOCKER_TESTING.md).
