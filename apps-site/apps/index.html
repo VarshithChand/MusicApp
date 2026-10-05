@@ -116,13 +116,13 @@
     for (var i = 0; i < 3; i++) if (x[i] !== y[i]) return y[i] - x[i];
     return 0;
   }
-  // Date and time in the visitor's own time zone, e.g. "Oct 5, 2026, 7:41 PM IST".
+  // Date and time in Indian Standard Time for every visitor, e.g. "5 Oct 2026, 7:00 pm IST".
   function fmtDate(iso) {
     if (!iso) return "";
     try {
-      return new Date(iso).toLocaleString(undefined, {
-        year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short"
-      });
+      return new Date(iso).toLocaleString("en-IN", {
+        timeZone: "Asia/Kolkata", year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", hour12: true
+      }) + " IST";
     } catch (e) { return ""; }
   }
   function fmtSize(bytes) { return bytes ? (bytes / 1048576).toFixed(1) + " MB" : ""; }
