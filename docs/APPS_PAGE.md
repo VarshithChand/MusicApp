@@ -26,7 +26,24 @@ Rolling releases (`latest`, `locker-latest`, `locker-test`) are only a fallback 
 
 Versions sort as numbers (0.2.10 is newer than 0.2.9). Drafts are ignored.
 
-## Deploy on Cloudflare Pages (free)
+## Serve it at `admin.deploymentportal.in/apps` (chosen address)
+
+The admin site build includes the page, so deploying the admin site also publishes `/apps`. There is still only one copy of the page (`apps-site/apps/`); `admin/vite.config.ts` copies it into the build and serves it while developing.
+
+You do this in the Cloudflare dashboard (I have no access to it):
+
+1. Workers & Pages -> Create -> Pages -> Connect to Git -> this repository.
+2. Settings: **Root directory** `admin`, **Build command** `npm run build`, **Build output directory** `dist`, **Production branch** `main`.
+3. Environment variable: `NODE_VERSION` = `22`.
+4. After the first deploy: the project's **Custom domains** -> add `admin.deploymentportal.in` (Cloudflare creates the DNS record).
+5. Open `https://admin.deploymentportal.in/apps`.
+
+Notes:
+- `/apps` is public: anyone with the link can see it, while the admin panel itself still needs a login.
+- This also deploys the admin panel (phase 10 of the plan). Its address must be added to the backend's allowed origins (`CORS_ORIGINS` on Render) before the admin screens can talk to the API.
+- Locally: `cd admin && npm run dev`, then open `http://localhost:5173/apps`.
+
+## Other ways to host it
 
 You do this in the Cloudflare dashboard (I have no access to it).
 
@@ -40,7 +57,7 @@ You do this in the Cloudflare dashboard (I have no access to it).
 - Copy the folder `apps-site/apps/` into that site as `/apps/`. The page works from any path because it uses no relative files.
 - Or give this project its own address (for example `apps.deploymentportal.in`); the page is then at `https://apps.deploymentportal.in/apps/`, and `https://apps.deploymentportal.in/` redirects to it.
 
-Every push to `main` redeploys the page, but you rarely need to touch it.
+Every push to `main` redeploys, but you rarely need to touch the page.
 
 ## Limits
 
