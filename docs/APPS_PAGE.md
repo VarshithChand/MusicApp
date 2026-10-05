@@ -40,7 +40,7 @@ You do this in the Cloudflare dashboard (I have no access to it):
 
 Notes:
 - `/apps` is public: anyone with the link can see it, while the admin panel itself still needs a login.
-- This also deploys the admin panel (phase 10 of the plan). Its address must be added to the backend's allowed origins (`CORS_ORIGINS` on Render) before the admin screens can talk to the API.
+- This also deploys the admin panel (phase 10 of the plan). The backend already accepts requests from any website address, so the admin screens can reach it without extra settings; the admin code already defaults to the Render URL (`VITE_API_URL` can override it).
 - Locally: `cd admin && npm run dev`, then open `http://localhost:5173/apps`.
 
 ## Other ways to host it
