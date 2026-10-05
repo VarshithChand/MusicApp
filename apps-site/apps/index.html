@@ -116,9 +116,14 @@
     for (var i = 0; i < 3; i++) if (x[i] !== y[i]) return y[i] - x[i];
     return 0;
   }
+  // Date and time in the visitor's own time zone, e.g. "Oct 5, 2026, 7:41 PM IST".
   function fmtDate(iso) {
-    try { return new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" }); }
-    catch (e) { return ""; }
+    if (!iso) return "";
+    try {
+      return new Date(iso).toLocaleString(undefined, {
+        year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short"
+      });
+    } catch (e) { return ""; }
   }
   function fmtSize(bytes) { return bytes ? (bytes / 1048576).toFixed(1) + " MB" : ""; }
 
@@ -126,7 +131,10 @@
     var a = (release.assets || []).filter(function (x) { return /\.apk$/i.test(x.name); })[0];
     if (!a) return null;
     var sha = (release.assets || []).filter(function (x) { return x.name === a.name + ".sha256"; })[0];
-    return { url: a.browser_download_url, size: a.size, name: a.name, sha: sha ? sha.browser_download_url : null };
+    return {
+      url: a.browser_download_url, size: a.size, name: a.name, sha: sha ? sha.browser_download_url : null,
+      time: a.updated_at || a.created_at || null
+    };
   }
 
   // Turn the list of GitHub releases into { appId: { versions: [...], rolling: {...} } }
@@ -141,12 +149,12 @@
         var m = app.tag.exec(r.tag_name), t = app.testTag && app.testTag.exec(r.tag_name);
         if (m || t) {
           out[app.id].versions.push({
-            version: (m || t)[1], test: !!t, date: r.published_at || r.created_at, apk: apk, page: r.html_url
+            version: (m || t)[1], test: !!t, date: apk.time || r.published_at || r.created_at, apk: apk, page: r.html_url
           });
         } else if (r.tag_name === app.rolling.tag) {
-          out[app.id].rolling = { date: r.published_at || r.created_at, apk: apk, page: r.html_url };
+          out[app.id].rolling = { date: apk.time || r.published_at || r.created_at, apk: apk, page: r.html_url };
         } else if (app.rollingTestTag && r.tag_name === app.rollingTestTag) {
-          out[app.id].rollingTest = { date: r.published_at || r.created_at, apk: apk, page: r.html_url };
+          out[app.id].rollingTest = { date: apk.time || r.published_at || r.created_at, apk: apk, page: r.html_url };
         }
       });
     });
@@ -170,15 +178,15 @@
     if (v) {
       title.appendChild(el("span", { class: "small", text: "  " + v.version }));
       if (v.test) title.appendChild(el("span", { class: "badge", text: "TEST" }));
-      meta = [fmtDate(v.date), fmtSize(v.apk.size)].filter(Boolean).join(" · ");
+      meta = ["Released " + fmtDate(v.date), fmtSize(v.apk.size)].filter(Boolean).join(" · ");
       link = v.apk;
     } else if (data.rolling) {
-      meta = ["Newest build", fmtDate(data.rolling.date), fmtSize(data.rolling.apk.size)].filter(Boolean).join(" · ");
+      meta = ["Newest build, released " + fmtDate(data.rolling.date), fmtSize(data.rolling.apk.size)].filter(Boolean).join(" · ");
       link = data.rolling.apk;
     } else if (data.rollingTest) {
       testOnly = true;
       title.appendChild(el("span", { class: "badge", text: "TEST" }));
-      meta = ["Newest test build", fmtDate(data.rollingTest.date), fmtSize(data.rollingTest.apk.size)].filter(Boolean).join(" · ");
+      meta = ["Newest test build, released " + fmtDate(data.rollingTest.date), fmtSize(data.rollingTest.apk.size)].filter(Boolean).join(" · ");
       link = data.rollingTest.apk;
     }
     if (meta) body.appendChild(el("p", { class: "meta", text: meta }));
