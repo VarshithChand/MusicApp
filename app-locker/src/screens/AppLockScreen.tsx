@@ -26,7 +26,7 @@ export function AppLockScreen({ navigation }: Props) {
 
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<LockFilter>('all');
-  const [showSystem, setShowSystem] = useState(false);
+  const [hideSystem, setHideSystem] = useState(false);
 
   useEffect(() => {
     loadApps();
@@ -42,7 +42,7 @@ export function AppLockScreen({ navigation }: Props) {
   });
 
   const lockedSet = useMemo(() => new Set(protectedApps.filter((p) => p.enabled).map((p) => p.packageName)), [protectedApps]);
-  const data = useMemo(() => filterApps(apps, query, lockedSet, filter, showSystem), [apps, query, lockedSet, filter, showSystem]);
+  const data = useMemo(() => filterApps(apps, query, lockedSet, filter, hideSystem), [apps, query, lockedSet, filter, hideSystem]);
 
   const toggle = async (app: InstalledApp, on: boolean) => {
     try {
@@ -68,8 +68,8 @@ export function AppLockScreen({ navigation }: Props) {
           <Chip label="Unlocked" active={filter === 'unlocked'} onPress={() => setFilter('unlocked')} />
         </View>
         <View style={styles.sys}>
-          <Text style={styles.sysText}>Show system apps</Text>
-          <Switch value={showSystem} onValueChange={setShowSystem} trackColor={{ false: colors.surface2, true: colors.accent }} thumbColor="#fff" />
+          <Text style={styles.sysText}>Hide system apps</Text>
+          <Switch value={hideSystem} onValueChange={setHideSystem} trackColor={{ false: colors.surface2, true: colors.accent }} thumbColor="#fff" />
         </View>
         {permissions && !ready && (
           <Banner

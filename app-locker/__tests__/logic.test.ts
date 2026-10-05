@@ -27,16 +27,20 @@ describe('filterApps', () => {
     expect(filterApps(apps, 'zzz', new Set())).toEqual([]);
   });
 
-  it('hides system apps unless asked, but keeps a locked system app visible', () => {
-    expect(filterApps(apps, '', new Set()).map((a) => a.label)).not.toContain('Gallery');
-    expect(filterApps(apps, '', new Set(), 'all', true).map((a) => a.label)).toContain('Gallery');
-    expect(filterApps(apps, '', new Set(['com.sec.android.gallery3d'])).map((a) => a.label)).toContain('Gallery');
+  it('lists system apps by default, because Chrome and Phone are system apps on many phones', () => {
+    expect(filterApps(apps, '', new Set()).map((a) => a.label)).toContain('Gallery');
+  });
+
+  it('can hide system apps, but keeps locked ones and still finds them by search', () => {
+    expect(filterApps(apps, '', new Set(), 'all', true).map((a) => a.label)).not.toContain('Gallery');
+    expect(filterApps(apps, '', new Set(['com.sec.android.gallery3d']), 'all', true).map((a) => a.label)).toContain('Gallery');
+    expect(filterApps(apps, 'gallery', new Set(), 'all', true).map((a) => a.label)).toEqual(['Gallery']);
   });
 
   it('filters locked and unlocked', () => {
     const locked = new Set(['com.whatsapp']);
     expect(filterApps(apps, '', locked, 'locked').map((a) => a.label)).toEqual(['WhatsApp']);
-    expect(filterApps(apps, '', locked, 'unlocked').map((a) => a.label)).toEqual(['Instagram', 'Chrome']);
+    expect(filterApps(apps, '', locked, 'unlocked').map((a) => a.label)).toEqual(['Instagram', 'Chrome', 'Gallery']);
   });
 });
 
