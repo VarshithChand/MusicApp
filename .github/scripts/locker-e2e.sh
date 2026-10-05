@@ -15,7 +15,15 @@ PROTECTED=com.android.settings
 FAILS=0
 
 pass() { echo "PASS: $1"; }
-fail() { echo "FAIL: $1"; FAILS=$((FAILS + 1)); }
+diag() { # what the service saw (debug builds log package names only) and what the system thinks
+  echo "---- diagnostics ----"
+  adb logcat -d -s AppLockerDbg:D AndroidRuntime:E 2>/dev/null | tail -40 | cut -c1-220
+  adb shell dumpsys accessibility 2>/dev/null | grep -E "Bound services|crashed" | cut -c1-160
+  adb shell pidof com.applocker.app || echo "app process NOT running"
+  adb logcat -d -b events 2>/dev/null | grep -E "am_anr|am_crash|am_kill|am_proc_died" | grep applocker | tail -5 | cut -c1-200
+  echo "---------------------"
+}
+fail() { echo "FAIL: $1"; FAILS=$((FAILS + 1)); diag; }
 
 focus() { adb shell dumpsys window | grep -E "mCurrentFocus|mFocusedApp" | head -3 | tr -d '\r'; }
 wait_for_focus() { # $1 = text expected in focus, $2 = seconds
