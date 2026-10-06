@@ -95,10 +95,27 @@
       testTag: /^locker-test-v(\d+\.\d+\.\d+)$/,
       rolling: { tag: "locker-latest", file: "app-locker.apk" },
       rollingTestTag: "locker-test"
+    },
+    {
+      id: "lifetracker", name: "Life Tracker", icon: "📒", color: "#0f766e",
+      desc: "Private money, food and water tracker with salary, loan and savings reminders. Works fully offline and has no internet access.",
+      tag: /^tracker-v(\d+\.\d+\.\d+)$/,
+      testTag: /^tracker-test-v(\d+\.\d+\.\d+)$/,
+      rolling: { tag: "tracker-latest", file: "life-tracker.apk" },
+      rollingTestTag: "tracker-test"
     }
   ];
 
   var releasesUrl = "https://github.com/" + REPO + "/releases";
+
+  // On our own site the button downloads through /apps/get (same address as this page), so the browser just saves the
+  // file. A github.com link can be opened by the GitHub app or a GitHub page on a phone instead. On any other address
+  // (a plain static host, localhost) the direct GitHub link is used.
+  var USE_PROXY = /^admin\.deploymentportal\.in$|\.pages\.dev$/.test(location.hostname);
+  function dlUrl(file) {
+    if (!USE_PROXY || !file.tag) return file.url;
+    return "/apps/get?tag=" + encodeURIComponent(file.tag) + "&name=" + encodeURIComponent(file.name);
+  }
 
   function el(tag, attrs, children) {
     var e = document.createElement(tag);
@@ -132,7 +149,8 @@
     if (!a) return null;
     var sha = (release.assets || []).filter(function (x) { return x.name === a.name + ".sha256"; })[0];
     return {
-      url: a.browser_download_url, size: a.size, name: a.name, sha: sha ? sha.browser_download_url : null,
+      url: a.browser_download_url, size: a.size, name: a.name, tag: release.tag_name,
+      sha: sha ? sha.browser_download_url : null, shaName: sha ? sha.name : null,
       time: a.updated_at || a.created_at || null
     };
   }
@@ -195,8 +213,8 @@
       body.appendChild(el("p", { class: "small", text: "Test build: signed with a public test key. Fine for trying the app on your own phone." }));
     }
     if (link) {
-      body.appendChild(el("a", { class: "btn", href: link.url, text: "Download APK" }));
-      if (link.sha) body.appendChild(el("span", { class: "small" }, [document.createTextNode("  "), el("a", { class: "link", href: link.sha, text: "SHA-256" })]));
+      body.appendChild(el("a", { class: "btn", href: dlUrl(link), download: link.name, rel: "noopener", text: "Download APK" }));
+      if (link.sha) body.appendChild(el("span", { class: "small" }, [document.createTextNode("  "), el("a", { class: "link", href: dlUrl({ url: link.sha, tag: link.tag, name: link.shaName }), download: link.shaName, rel: "noopener", text: "SHA-256" })]));
     } else {
       body.appendChild(el("p", { class: "small", text: "No download is available yet." }));
     }
@@ -220,10 +238,10 @@
     older.forEach(function (v) {
       var ver = el("td", { text: v.version });
       if (v.test) ver.appendChild(el("span", { class: "badge", text: "TEST" }));
-      var dl = el("td", { class: "right" }, [el("a", { class: "link", href: v.apk.url, text: "APK" })]);
+      var dl = el("td", { class: "right" }, [el("a", { class: "link", href: dlUrl(v.apk), download: v.apk.name, rel: "noopener", text: "APK" })]);
       if (v.apk.sha) {
         dl.appendChild(document.createTextNode(" · "));
-        dl.appendChild(el("a", { class: "link", href: v.apk.sha, text: "SHA-256" }));
+        dl.appendChild(el("a", { class: "link", href: dlUrl({ url: v.apk.sha, tag: v.apk.tag, name: v.apk.shaName }), download: v.apk.shaName, rel: "noopener", text: "SHA-256" }));
       }
       tbody.appendChild(el("tr", {}, [ver, el("td", { class: "hide-sm", text: fmtDate(v.date) }), el("td", { class: "hide-sm", text: fmtSize(v.apk.size) }), dl]));
     });

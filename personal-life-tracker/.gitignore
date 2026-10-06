@@ -1,0 +1,37 @@
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.jks
+*.keystore
+!debug.keystore
+secrets/
+
+# Personal data: never commit real data
+*.sqlite
+*.sqlite3
+*.db
+exports/
+data/
+backups/
+*.csv
+!database/seed/*.csv
+
+# Logs may contain personal data
+*.log
+
+# Dependencies and build output
+node_modules/
+__pycache__/
+.venv/
+dist/
+build/
+.gradle/
+.idea/
+local.properties
+.DS_Store
+
+# Native build cache (contains local paths)
+.cxx/

@@ -1,0 +1,230 @@
+name: Life Tracker
+
+# Separate from the music app and App Locker: own tags (tracker-vX.Y.Z), own release (tracker-latest), own signing key.
+#   • every push / pull request that touches personal-life-tracker/mobile/  ->  checks only (types, tests)
+#   • tag  tracker-test-v0.2.0  or  Actions -> "Life Tracker" -> Run workflow (version 0.2.0, test = true)
+#       ->  TEST APK signed with the public debug key, published as a pre-release "tracker-test".
+#   • tag  tracker-v0.2.0  or  Run workflow (test = false)  ->  release APK signed with your private key
+#       (needs the LIFETRACKER_KEYSTORE_* secrets; the debug key is never used for it).
+# The Apps page (admin.deploymentportal.in/apps) lists whatever this publishes.
+on:
+  push:
+    branches: [main]
+    paths: ["personal-life-tracker/mobile/**", ".github/workflows/lifetracker.yml"]
+    tags: ["tracker-v[0-9]+.[0-9]+.[0-9]+", "tracker-test-v[0-9]+.[0-9]+.[0-9]+"]
+  pull_request:
+    paths: ["personal-life-tracker/mobile/**", ".github/workflows/lifetracker.yml"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version, like 0.2.0 (leave empty to only run the checks)"
+        required: false
+      test:
+        description: "Test build signed with the public debug key (true), or a real release with your private key (false)"
+        required: false
+        default: "true"
+      notes:
+        description: "Release notes (optional)"
+        required: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: lifetracker-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  ABIS: armeabi-v7a,arm64-v8a
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Decide whether this is a release
+        id: mode
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_TEST: ${{ inputs.test }}
+        run: |
+          V=""; TEST=false
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            case "$GITHUB_REF_NAME" in
+              tracker-test-v*) V="${GITHUB_REF_NAME#tracker-test-v}"; TEST=true ;;
+              *) V="${GITHUB_REF_NAME#tracker-v}" ;;
+            esac
+          else
+            V="$INPUT_VERSION"; [ "$INPUT_TEST" = "false" ] || TEST=true
+          fi
+          if [ "$TEST" = "true" ]; then RELTAG=tracker-test; APKNAME=life-tracker-test.apk; else RELTAG=tracker-latest; APKNAME=life-tracker.apk; fi
+          if [ -z "$V" ]; then
+            echo "release=false" >> "$GITHUB_OUTPUT"; echo "Checks only (no version given)"; exit 0
+          fi
+          if ! [[ "$V" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            echo "::error::Version must look like 1.2.3 (got '$V')"; exit 1
+          fi
+          MAJ=${BASH_REMATCH[1]}; MIN=${BASH_REMATCH[2]}; PAT=${BASH_REMATCH[3]}
+          if [ "$MIN" -gt 99 ] || [ "$PAT" -gt 99 ]; then
+            echo "::error::Minor and patch numbers must be between 0 and 99"; exit 1
+          fi
+          CODE=$((MAJ * 10000 + MIN * 100 + PAT))
+          # Refuse duplicates and downgrades against what is published.
+          if gh release download "$RELTAG" -p version.json -D prev 2>/dev/null; then
+            PREV=$(jq -r '.versionCode' prev/version.json)
+            if [ "$CODE" -le "$PREV" ]; then
+              echo "::error::Version $V (code $CODE) is not higher than the published code $PREV"; exit 1
+            fi
+          fi
+          echo "release=true" >> "$GITHUB_OUTPUT"
+          echo "test=$TEST" >> "$GITHUB_OUTPUT"
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then VTAG="$GITHUB_REF_NAME"; elif [ "$TEST" = "true" ]; then VTAG="tracker-test-v$V"; else VTAG="tracker-v$V"; fi
+          echo "vtag=$VTAG" >> "$GITHUB_OUTPUT"
+          echo "reltag=$RELTAG" >> "$GITHUB_OUTPUT"
+          echo "apkname=$APKNAME" >> "$GITHUB_OUTPUT"
+          echo "name=$V" >> "$GITHUB_OUTPUT"
+          echo "code=$CODE" >> "$GITHUB_OUTPUT"
+
+      - name: Release needs the private signing key
+        if: steps.mode.outputs.release == 'true' && steps.mode.outputs.test != 'true'
+        env:
+          KS: ${{ secrets.LIFETRACKER_KEYSTORE_BASE64 }}
+          PW: ${{ secrets.LIFETRACKER_KEYSTORE_PASSWORD }}
+          AL: ${{ secrets.LIFETRACKER_KEY_ALIAS }}
+          KP: ${{ secrets.LIFETRACKER_KEY_PASSWORD }}
+        run: |
+          if [ -z "$KS" ] || [ -z "$PW" ] || [ -z "$AL" ] || [ -z "$KP" ]; then
+            echo "::error::Missing signing secrets. Add LIFETRACKER_KEYSTORE_BASE64, LIFETRACKER_KEYSTORE_PASSWORD, LIFETRACKER_KEY_ALIAS and LIFETRACKER_KEY_PASSWORD, or publish a TEST build (tag tracker-test-vX.Y.Z). The debug key is never used for a real release."
+            exit 1
+          fi
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: personal-life-tracker/mobile/package-lock.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: "" # the runner already ships the SDK
+
+      - name: Install dependencies
+        working-directory: personal-life-tracker/mobile
+        run: npm ci
+
+      - name: Type check
+        working-directory: personal-life-tracker/mobile
+        run: npx tsc --noEmit
+
+      - name: Tests
+        working-directory: personal-life-tracker/mobile
+        run: npx jest --ci
+
+      - name: Build the release APK (private key, or debug-signed in test mode)
+        if: steps.mode.outputs.release == 'true'
+        working-directory: personal-life-tracker/mobile/android
+        env:
+          LIFETRACKER_KEYSTORE_BASE64: ${{ secrets.LIFETRACKER_KEYSTORE_BASE64 }}
+          LIFETRACKER_KEYSTORE_PASSWORD: ${{ secrets.LIFETRACKER_KEYSTORE_PASSWORD }}
+          LIFETRACKER_KEY_ALIAS: ${{ secrets.LIFETRACKER_KEY_ALIAS }}
+          LIFETRACKER_KEY_PASSWORD: ${{ secrets.LIFETRACKER_KEY_PASSWORD }}
+        run: |
+          chmod +x gradlew
+          if [ "${{ steps.mode.outputs.test }}" != "true" ]; then
+            echo "$LIFETRACKER_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+            export LIFETRACKER_KEYSTORE_FILE="$RUNNER_TEMP/release.jks"
+          else
+            # TEST build: the app's build.gradle falls back to the public debug key when no private key is given.
+            unset LIFETRACKER_KEYSTORE_PASSWORD LIFETRACKER_KEY_ALIAS LIFETRACKER_KEY_PASSWORD
+          fi
+          ./gradlew assembleRelease --no-daemon \
+            -PreactNativeArchitectures=$ABIS \
+            -PappVersionName="${{ steps.mode.outputs.name }}" \
+            -PappVersionCode="${{ steps.mode.outputs.code }}"
+          rm -f "$RUNNER_TEMP/release.jks"
+
+      - name: Verify the APK (signature, no internet permission) and describe it
+        if: steps.mode.outputs.release == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          APK=personal-life-tracker/mobile/android/app/build/outputs/apk/release/app-release.apk
+          test -f "$APK"
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -n 1)
+          "$BT/apksigner" verify --print-certs "$APK" | tee cert.txt
+          SIGNER=$(grep -m1 "certificate SHA-256 digest" cert.txt | awk '{print $NF}')
+          test -n "$SIGNER"
+          if [ "${{ steps.mode.outputs.test }}" != "true" ] && grep -qi "Android Debug" cert.txt; then
+            echo "::error::Signed with the debug key"; exit 1
+          fi
+
+          # Privacy promise: the app is fully offline, so the release APK must not ask for the internet.
+          "$BT/aapt2" dump permissions "$APK" | tee perms.txt
+          if grep -q "android.permission.INTERNET" perms.txt; then
+            echo "::error::The release APK asks for INTERNET. Life Tracker must not."; exit 1
+          fi
+
+          # Updates only install over an app signed with the same key, so never change it silently.
+          if [ "${{ steps.mode.outputs.test }}" != "true" ] && gh release download tracker-latest -p version.json -D prev 2>/dev/null; then
+            PREV_SIGNER=$(jq -r '.signerSha256 // empty' prev/version.json)
+            if [ -n "$PREV_SIGNER" ] && [ "$PREV_SIGNER" != "$SIGNER" ]; then
+              echo "::error::Signing certificate changed; installed apps could not update. Aborting."; exit 1
+            fi
+          fi
+
+          SHA=$(sha256sum "$APK" | awk '{print $1}')
+          SIZE=$(stat -c%s "$APK")
+          NOTES="${{ inputs.notes }}"; [ -n "$NOTES" ] || NOTES="Version ${{ steps.mode.outputs.name }}"
+          cp "$APK" "${{ steps.mode.outputs.apkname }}"
+          jq -n \
+            --argjson versionCode "${{ steps.mode.outputs.code }}" \
+            --arg versionName "${{ steps.mode.outputs.name }}" \
+            --arg apkUrl "https://github.com/${{ github.repository }}/releases/download/${{ steps.mode.outputs.reltag }}/${{ steps.mode.outputs.apkname }}" \
+            --arg sha256 "$SHA" --argjson fileSize "$SIZE" \
+            --arg signerSha256 "$SIGNER" --arg releaseNotes "$NOTES" \
+            '{versionCode:$versionCode, versionName:$versionName, apkUrl:$apkUrl, sha256:$sha256, fileSize:$fileSize, signerSha256:$signerSha256, releaseNotes:$releaseNotes}' > version.json
+          cat version.json
+          echo "$SHA  ${{ steps.mode.outputs.apkname }}" > "${{ steps.mode.outputs.apkname }}.sha256"
+
+      - name: Publish the APK, its checksum and version.json
+        if: steps.mode.outputs.release == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELTAG: ${{ steps.mode.outputs.reltag }}
+          APKNAME: ${{ steps.mode.outputs.apkname }}
+        run: |
+          if [ "${{ steps.mode.outputs.test }}" = "true" ]; then
+            gh release view "$RELTAG" >/dev/null 2>&1 || gh release create "$RELTAG" --prerelease --latest=false \
+              --title "Life Tracker TEST build (debug-signed)" \
+              --notes "TEST build for trying Life Tracker on your own phone. Signed with the public Android debug key, NOT a private release key. No internet permission. Not yet tested on a physical phone."
+          else
+            # --latest=false: GitHub's "Latest release" must stay the music app's (its website download button uses it).
+            gh release view "$RELTAG" >/dev/null 2>&1 || gh release create "$RELTAG" --latest=false \
+              --title "Life Tracker (latest)" \
+              --notes "Newest Life Tracker APK that passed the checks."
+          fi
+          # APK first, manifest last: the manifest only changes once the file it describes is in place.
+          gh release upload "$RELTAG" "$APKNAME" "$APKNAME.sha256" --clobber
+          gh release upload "$RELTAG" version.json --clobber
+
+          # Also keep this version permanently, so the Apps page can list previous versions.
+          VER="${{ steps.mode.outputs.name }}"
+          VTAG="${{ steps.mode.outputs.vtag }}"
+          if [ "${{ steps.mode.outputs.test }}" = "true" ]; then
+            VAPK="life-tracker-test-${VER}.apk"; PRE="--prerelease"; TITLE="Life Tracker ${VER} (TEST, debug-signed)"
+          else
+            VAPK="life-tracker-${VER}.apk"; PRE=""; TITLE="Life Tracker ${VER}"
+          fi
+          cp "$APKNAME" "$VAPK"
+          sha256sum "$VAPK" > "$VAPK.sha256"
+          gh release view "$VTAG" >/dev/null 2>&1 || gh release create "$VTAG" $PRE --latest=false --target "$GITHUB_SHA" \
+            --title "$TITLE" --notes "Life Tracker ${VER}"
+          gh release upload "$VTAG" "$VAPK" "$VAPK.sha256" version.json --clobber
+          echo "Published ${{ steps.mode.outputs.name }} (versionCode ${{ steps.mode.outputs.code }}) to $RELTAG"

@@ -21,10 +21,15 @@ apps-site/
 |---|---|---|
 | Music | `v0.2.4`, `v0.2.5` ... | The pipeline `android.yml` creates one release per version from now on |
 | App Locker | `locker-v1.0.0` ... (signed) and `locker-test-v1.0.1` ... (TEST, debug-signed) | `locker-test` builds are marked **TEST**. A stable release is always preferred over a newer test build for "Latest" |
+| Life Tracker | `tracker-v0.2.0` ... (signed) and `tracker-test-v0.2.0` ... (TEST, debug-signed) | Pipeline `lifetracker.yml`. No internet permission, checked by the pipeline |
 
 Rolling releases (`latest`, `locker-latest`, `locker-test`) are only a fallback for "Latest" until a versioned release exists. That is why Music shows "Newest build" today: versions before this change were not kept, so Music's history starts with its next build.
 
 Versions sort as numbers (0.2.10 is newer than 0.2.9). Drafts are ignored.
+
+## Downloads go through the site, not GitHub
+
+On `admin.deploymentportal.in` (and `*.pages.dev`) the buttons point at `/apps/get?tag=...&name=...`, a Cloudflare Pages Function (`admin/functions/apps/get.ts`) that streams the file from the GitHub release with `Content-Disposition: attachment`. The browser then just saves the APK from our own address. A direct github.com link can be opened by the GitHub app or a GitHub page on a phone instead. The function only serves `.apk` / `.apk.sha256` files from release tags this repository uses (allow-lists in the file). On any other address the page falls back to the direct GitHub link. Tested locally with `wrangler pages dev` (correct headers, real APK bytes, bad names give 404); not yet tested on the deployed site.
 
 ## Serve it at `admin.deploymentportal.in/apps` (chosen address)
 
