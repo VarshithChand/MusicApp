@@ -22,13 +22,13 @@ object ReminderScheduler {
   private const val PREFS = "reminders"
   private const val KEY = "schedule"
 
-  data class Item(val id: String, val date: String, val time: String, val title: String, val text: String)
+  data class Item(val id: String, val date: String, val time: String, val title: String, val text: String, val channel: String = "money")
 
   fun parse(json: String): List<Item> {
     val arr = JSONArray(json)
     return (0 until arr.length()).map {
       val o = arr.getJSONObject(it)
-      Item(o.getString("id"), o.getString("date"), o.getString("time"), o.getString("title"), o.getString("text"))
+      Item(o.getString("id"), o.getString("date"), o.getString("time"), o.getString("title"), o.getString("text"), o.optString("channel", "money"))
     }
   }
 
@@ -47,7 +47,7 @@ object ReminderScheduler {
     PendingIntent.getBroadcast(
       ctx,
       i.id.hashCode(),
-      Intent(ctx, ReminderReceiver::class.java).setAction(ACTION).putExtra("id", i.id).putExtra("title", i.title).putExtra("text", i.text),
+      Intent(ctx, ReminderReceiver::class.java).setAction(ACTION).putExtra("id", i.id).putExtra("title", i.title).putExtra("text", i.text).putExtra("channel", i.channel),
       PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
     )
 

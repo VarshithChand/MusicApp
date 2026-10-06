@@ -1,15 +1,17 @@
 import React, { useCallback, useState } from 'react';
 import { Alert, Pressable, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import { DEFAULT_MEAL_REMINDERS, MealReminderSettings } from '../analytics/mealReminders';
 import { FoodRow, Place } from '../analytics/types';
 import { dayNutrition, foodSpending, frequentFoods } from '../analytics/wellness';
 import { DateField, entryTime, useEntryDate } from '../components/DateField';
-import { Button, Card, Chip, Heading, Input, Muted, Page, Row, Title } from '../components/ui';
+import { Badge, Button, Card, Chip, Heading, Input, Muted, Page, Row, Title } from '../components/ui';
 import { useData } from '../data';
 import { MEAL_TYPES, MealType } from '../db/repos';
 import { addDays } from '../lib/dates';
 import { message } from '../lib/errors';
 import { formatInr, parseAmountToMinor } from '../lib/money';
+import { nativeNotifier } from '../notify/native';
 import { useColors } from '../theme';
 
 const MEAL_LABEL: Record<MealType, string> = {
@@ -41,10 +43,17 @@ export function FoodScreen() {
   const [cost, setCost] = useState('');
   const [place, setPlace] = useState<Place | null>(null);
   const [items, setItems] = useState<Item[]>([]);
+  const [mealRem, setMealRem] = useState<MealReminderSettings>(DEFAULT_MEAL_REMINDERS);
+  const [times, setTimes] = useState<Record<string, string>>({});
+  const [notifOn, setNotifOn] = useState<boolean | null>(null);
 
   const load = useCallback(async () => {
     const from = entryDate < addDays(today, -13) ? entryDate : addDays(today, -13);
     setItems(await repos.foodBetween(from, today));
+    const mr = await repos.mealReminderSettings();
+    setMealRem(mr);
+    setTimes(Object.fromEntries(mr.slots.map((x) => [x.meal, x.time])));
+    nativeNotifier.status().then((st) => setNotifOn(st.enabled)).catch(() => setNotifOn(null));
   }, [repos, today, version, entryDate]);
 
   useFocusEffect(
@@ -52,6 +61,16 @@ export function FoodScreen() {
       load().catch((e) => Alert.alert('Could not load', message(e)));
     }, [load]),
   );
+
+  const saveMeals = async (next: MealReminderSettings) => {
+    try {
+      await repos.setMealReminderSettings(next);
+      changed();
+    } catch (e) {
+      Alert.alert('Could not save', message(e));
+    }
+  };
+  const withTimes = (r: MealReminderSettings): MealReminderSettings => ({ ...r, slots: r.slots.map((x) => ({ ...x, time: times[x.meal] ?? x.time })) });
 
   const num = (text: string, label: string): number | null | undefined => {
     if (!text.trim()) {
@@ -129,6 +148,36 @@ export function FoodScreen() {
           ))}
         </Row>
         <Button title="Add food" onPress={add} />
+      </Card>
+
+      <Card>
+        <Heading>Meal times</Heading>
+        <Row>
+          <Chip label="Remind me" active={mealRem.enabled} onPress={() => saveMeals(withTimes({ ...mealRem, enabled: true }))} />
+          <Chip label="Off" active={!mealRem.enabled} onPress={() => saveMeals(withTimes({ ...mealRem, enabled: false }))} />
+        </Row>
+        {mealRem.slots.map((slot) => (
+          <Row key={slot.meal}>
+            <Chip
+              label={slot.label}
+              active={slot.enabled}
+              onPress={() => saveMeals(withTimes({ ...mealRem, slots: mealRem.slots.map((x) => (x.meal === slot.meal ? { ...x, enabled: !x.enabled } : x)) }))}
+            />
+            <View style={{ flex: 1, minWidth: 110 }}>
+              <Input label={`${slot.label} time (24 hour)`} value={times[slot.meal] ?? slot.time} onChangeText={(v) => setTimes({ ...times, [slot.meal]: v })} placeholder="13:00" />
+            </View>
+          </Row>
+        ))}
+        <Button title="Save meal times" kind="secondary" onPress={() => saveMeals(withTimes(mealRem))} />
+        {notifOn === false && (
+          <Row>
+            <Badge text="NOTIFICATIONS ARE BLOCKED" />
+            <Button title="Allow notifications" onPress={() => nativeNotifier.requestPermission().then(() => setTimeout(() => load().catch(() => {}), 1500))} />
+          </Row>
+        )}
+        <Muted>
+          You are reminded at each time you keep switched on. A meal you have already added today is not reminded again. Reminders cover today and the next two days and are refreshed whenever you open the app, so open it now and then.
+        </Muted>
       </Card>
 
       <Card>

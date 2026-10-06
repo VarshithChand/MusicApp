@@ -2,12 +2,14 @@ import React, { useCallback, useState } from 'react';
 import { Alert, Pressable, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { WaterRow } from '../analytics/types';
+import { DEFAULT_WATER_REMINDERS, WATER_INTERVALS, WaterReminderSettings } from '../analytics/waterReminders';
 import { recentWater, waterGoalProgress } from '../analytics/wellness';
 import { DateField, entryTime, useEntryDate } from '../components/DateField';
-import { Button, Card, Heading, Input, Muted, Page, Progress, Row, Title } from '../components/ui';
+import { Badge, Button, Card, Chip, Heading, Input, Muted, Page, Progress, Row, Title } from '../components/ui';
 import { useData } from '../data';
 import { addDays } from '../lib/dates';
 import { message } from '../lib/errors';
+import { nativeNotifier } from '../notify/native';
 import { useColors } from '../theme';
 
 export function WaterScreen() {
@@ -18,13 +20,21 @@ export function WaterScreen() {
   const [target, setTarget] = useState(3000);
   const [targetText, setTargetText] = useState('3000');
   const [custom, setCustom] = useState('');
+  const [rem, setRem] = useState<WaterReminderSettings>(DEFAULT_WATER_REMINDERS);
+  const [startText, setStartText] = useState(DEFAULT_WATER_REMINDERS.start);
+  const [endText, setEndText] = useState(DEFAULT_WATER_REMINDERS.end);
+  const [notifOn, setNotifOn] = useState<boolean | null>(null);
 
   const load = useCallback(async () => {
     const weekAgo = addDays(today, -6);
-    const [w, t] = await Promise.all([repos.waterBetween(entryDate < weekAgo ? entryDate : weekAgo, today), repos.waterTargetMl()]);
+    const [w, t, wr] = await Promise.all([repos.waterBetween(entryDate < weekAgo ? entryDate : weekAgo, today), repos.waterTargetMl(), repos.waterReminderSettings()]);
     setRows(w);
     setTarget(t);
     setTargetText(String(t));
+    setRem(wr);
+    setStartText(wr.start);
+    setEndText(wr.end);
+    nativeNotifier.status().then((s) => setNotifOn(s.enabled)).catch(() => setNotifOn(null));
   }, [repos, today, version, entryDate]);
 
   useFocusEffect(
@@ -46,6 +56,15 @@ export function WaterScreen() {
     const v = Number(targetText);
     try {
       await repos.setWaterTargetMl(Math.round(v));
+      changed();
+    } catch (e) {
+      Alert.alert('Could not save', message(e));
+    }
+  };
+
+  const saveReminders = async (next: WaterReminderSettings) => {
+    try {
+      await repos.setWaterReminderSettings(next);
       changed();
     } catch (e) {
       Alert.alert('Could not save', message(e));
@@ -104,6 +123,41 @@ export function WaterScreen() {
           </View>
           <Button title="Save" kind="secondary" onPress={saveTarget} />
         </Row>
+      </Card>
+
+      <Card>
+        <Heading>Drink-water reminders</Heading>
+        <Row>
+          <Chip label="On" active={rem.enabled} onPress={() => saveReminders({ ...rem, enabled: true })} />
+          <Chip label="Off" active={!rem.enabled} onPress={() => saveReminders({ ...rem, enabled: false })} />
+        </Row>
+        <Row>
+          <View style={{ flex: 1 }}>
+            <Input label="First reminder (24 hour)" value={startText} onChangeText={setStartText} placeholder="09:00" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Input label="Last reminder (24 hour)" value={endText} onChangeText={setEndText} placeholder="21:00" />
+          </View>
+        </Row>
+        <Muted>Every:</Muted>
+        <Row>
+          {WATER_INTERVALS.map((m) => (
+            <Chip key={m} label={m % 60 === 0 ? `${m / 60} h` : `${m} min`} active={rem.intervalMin === m} onPress={() => saveReminders({ ...rem, intervalMin: m })} />
+          ))}
+        </Row>
+        <Row>
+          <Chip label="Stop when target is reached" active={rem.stopAtTarget} onPress={() => saveReminders({ ...rem, stopAtTarget: !rem.stopAtTarget })} />
+        </Row>
+        <Button title="Save times" kind="secondary" onPress={() => saveReminders({ ...rem, start: startText, end: endText })} />
+        {notifOn === false && (
+          <Row>
+            <Badge text="NOTIFICATIONS ARE BLOCKED" />
+            <Button title="Allow notifications" onPress={() => nativeNotifier.requestPermission().then(() => setTimeout(() => load().catch(() => {}), 1500))} />
+          </Row>
+        )}
+        <Muted>
+          Reminders are set on this phone and need no internet. They cover today and the next two days and are refreshed each time you open the app or add water, so open the app now and then. Android can deliver them a few minutes late when the battery saver is on.
+        </Muted>
       </Card>
 
       <Card>

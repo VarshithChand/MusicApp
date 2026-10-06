@@ -16,15 +16,24 @@ class ReminderReceiver : BroadcastReceiver() {
     val title = intent.getStringExtra("title") ?: return
     val text = intent.getStringExtra("text") ?: ""
 
+    val kind = intent.getStringExtra("channel")
+    val channel = when (kind) {
+      "water" -> WATER_CHANNEL
+      "food" -> FOOD_CHANNEL
+      else -> CHANNEL
+    }
     val nm = ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-    if (nm.getNotificationChannel(CHANNEL) == null) {
-      nm.createNotificationChannel(NotificationChannel(CHANNEL, "Money reminders", NotificationManager.IMPORTANCE_DEFAULT).apply {
-        description = "EMI due dates and salary day"
-      })
+    if (nm.getNotificationChannel(channel) == null) {
+      val (name, about) = when (kind) {
+        "water" -> "Water reminders" to "Reminders to drink water"
+        "food" -> "Food reminders" to "Meal-time reminders"
+        else -> "Money reminders" to "EMI due dates and salary day"
+      }
+      nm.createNotificationChannel(NotificationChannel(channel, name, NotificationManager.IMPORTANCE_DEFAULT).apply { description = about })
     }
     val open = ctx.packageManager.getLaunchIntentForPackage(ctx.packageName)
     val tap = open?.let { PendingIntent.getActivity(ctx, 0, it, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT) }
-    val n = NotificationCompat.Builder(ctx, CHANNEL)
+    val n = NotificationCompat.Builder(ctx, channel)
       .setSmallIcon(android.R.drawable.ic_dialog_info)
       .setContentTitle(title)
       .setContentText(text)
@@ -42,5 +51,7 @@ class ReminderReceiver : BroadcastReceiver() {
 
   companion object {
     const val CHANNEL = "money_reminders"
+    const val WATER_CHANNEL = "water_reminders"
+    const val FOOD_CHANNEL = "food_reminders"
   }
 }

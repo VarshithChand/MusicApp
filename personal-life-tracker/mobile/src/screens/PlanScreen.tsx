@@ -299,7 +299,7 @@ export function PlanScreen() {
       </Card>
 
       <Card>
-        <Heading>Reminders</Heading>
+        <Heading>Money reminders</Heading>
         <Row>
           <Chip label="On" active={rem.enabled} onPress={() => run(() => repos.setReminderSettings(true, rem.time))} />
           <Chip label="Off" active={!rem.enabled} onPress={() => run(() => repos.setReminderSettings(false, rem.time))} />

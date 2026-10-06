@@ -8,7 +8,7 @@ Plan tab (salary day, loans with EMI/deduction day/tenure, savings, reminders), 
 ## Develop
 ```
 npm install
-npm run typecheck && npm test          # 134 tests: dates, money, analytics, insights, database (in-memory SQLite)
+npm run typecheck && npm test          # 175 tests: dates, money, analytics, insights, database (in-memory SQLite)
 ```
 `npm test` needs Node 22+ (the database tests use Node's built-in `node:sqlite`).
 

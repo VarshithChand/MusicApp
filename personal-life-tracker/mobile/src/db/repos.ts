@@ -1,6 +1,9 @@
 import { isValidDate, isValidMonth, toLocalDateString, tzOffsetMinutes } from '../lib/dates';
 import { LoanRow, SalaryRow, startMonthFor } from '../analytics/plan';
 import { parseReminderTime } from '../analytics/reminders';
+import { CardId, parseCards, serializeCards } from '../analytics/dashboard';
+import { DEFAULT_MEAL_REMINDERS, DEFAULT_MEAL_SLOTS, MealReminderSettings, MealSlot, validateMealSlots } from '../analytics/mealReminders';
+import { DEFAULT_WATER_REMINDERS, validateWaterReminders, WaterReminderSettings } from '../analytics/waterReminders';
 import { DayRow, ExpenseRow, FoodRow, Place, WaterRow } from '../analytics/types';
 import { Db } from './types';
 
@@ -334,6 +337,67 @@ export class Repos {
       [from, to],
     );
     return r.map((x) => ({ id: x.id, localDate: x.local_date, amountMinor: x.amount_minor, note: x.note }));
+  }
+
+  // ------------------------------------------------------------ dashboard
+  async dashboardCards(): Promise<CardId[]> {
+    return parseCards(await this.getSetting('dashboard_cards'));
+  }
+
+  async setDashboardCards(cards: CardId[]): Promise<void> {
+    await this.setSetting('dashboard_cards', serializeCards(cards));
+  }
+
+  // ------------------------------------------------------------ meal-time reminders
+  async mealReminderSettings(): Promise<MealReminderSettings> {
+    const slots: MealSlot[] = [];
+    for (const d of DEFAULT_MEAL_SLOTS) {
+      slots.push({
+        ...d,
+        time: (await this.getSetting(`meal_time_${d.meal}`)) ?? d.time,
+        enabled: (await this.getSetting(`meal_on_${d.meal}`)) !== '0',
+      });
+    }
+    const enabled = (await this.getSetting('meal_reminders_enabled')) === '1';
+    return validateMealSlots(slots) === null ? { enabled, slots } : { ...DEFAULT_MEAL_REMINDERS, enabled };
+  }
+
+  async setMealReminderSettings(s: MealReminderSettings): Promise<void> {
+    const problem = validateMealSlots(s.slots);
+    if (problem) {
+      throw new Error(problem);
+    }
+    await this.setSetting('meal_reminders_enabled', s.enabled ? '1' : '0');
+    for (const slot of s.slots) {
+      await this.setSetting(`meal_time_${slot.meal}`, slot.time.trim());
+      await this.setSetting(`meal_on_${slot.meal}`, slot.enabled ? '1' : '0');
+    }
+  }
+
+  // ------------------------------------------------------------ water reminder settings
+  async waterReminderSettings(): Promise<WaterReminderSettings> {
+    const d = DEFAULT_WATER_REMINDERS;
+    const interval = Number(await this.getSetting('water_reminder_interval_min'));
+    const s: WaterReminderSettings = {
+      enabled: (await this.getSetting('water_reminders_enabled')) === '1',
+      start: (await this.getSetting('water_reminder_start')) ?? d.start,
+      end: (await this.getSetting('water_reminder_end')) ?? d.end,
+      intervalMin: Number.isInteger(interval) && interval > 0 ? interval : d.intervalMin,
+      stopAtTarget: (await this.getSetting('water_reminder_stop_at_target')) !== '0',
+    };
+    return validateWaterReminders(s) === null ? s : { ...d, enabled: s.enabled };
+  }
+
+  async setWaterReminderSettings(s: WaterReminderSettings): Promise<void> {
+    const problem = validateWaterReminders(s);
+    if (problem) {
+      throw new Error(problem);
+    }
+    await this.setSetting('water_reminders_enabled', s.enabled ? '1' : '0');
+    await this.setSetting('water_reminder_start', s.start.trim());
+    await this.setSetting('water_reminder_end', s.end.trim());
+    await this.setSetting('water_reminder_interval_min', String(s.intervalMin));
+    await this.setSetting('water_reminder_stop_at_target', s.stopAtTarget ? '1' : '0');
   }
 
   // ------------------------------------------------------------ reminder settings

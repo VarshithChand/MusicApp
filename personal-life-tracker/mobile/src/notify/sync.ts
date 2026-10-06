@@ -1,4 +1,7 @@
 import { buildReminders, ReminderItem } from '../analytics/reminders';
+import { buildMealReminders } from '../analytics/mealReminders';
+import { buildWaterReminders } from '../analytics/waterReminders';
+import { waterForDay } from '../analytics/wellness';
 import { Repos } from '../db/repos';
 import { toLocalDateString } from '../lib/dates';
 
@@ -16,13 +19,25 @@ export interface Notifier {
  */
 export async function syncReminders(repos: Repos, notifier: Notifier, now: Date = new Date()): Promise<number> {
   const settings = await repos.reminderSettings();
-  const items = buildReminders({
+  const today = toLocalDateString(now);
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  const money = buildReminders({
     ...settings,
-    today: toLocalDateString(now),
-    nowMinutes: now.getHours() * 60 + now.getMinutes(),
+    today,
+    nowMinutes,
     salary: await repos.getSalary(),
     savingsTargetMinor: await repos.savingsTargetMinor(),
     loans: await repos.loans(),
   });
+  const water = buildWaterReminders({
+    settings: await repos.waterReminderSettings(),
+    today,
+    nowMinutes,
+    todayMl: waterForDay(await repos.waterBetween(today, today), today),
+    targetMl: await repos.waterTargetMl(),
+  });
+  const loggedToday = (await repos.foodBetween(today, today)).map((f) => f.mealType);
+  const food = buildMealReminders({ settings: await repos.mealReminderSettings(), today, nowMinutes, loggedToday });
+  const items = [...money, ...water, ...food].sort((x, y) => (x.date + x.time + x.id).localeCompare(y.date + y.time + y.id));
   return notifier.setSchedule(items);
 }

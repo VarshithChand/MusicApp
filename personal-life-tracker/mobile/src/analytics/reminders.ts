@@ -14,6 +14,8 @@ export interface ReminderItem {
   time: string; // HH:MM, 24 hour
   title: string;
   text: string;
+  /** Which notification channel shows it, so each kind can be silenced on its own. Money when missing. */
+  channel?: 'money' | 'water' | 'food';
 }
 
 export interface ReminderInput {
