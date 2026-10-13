@@ -3,7 +3,7 @@
 A single static page that lists our Android apps with two sections:
 
 1. **Latest**: one card per app with its newest version and a **Download APK** button.
-2. **Previous versions**: a table per app with every earlier version (version, date, size, APK and SHA-256 links).
+2. **Previous versions**: a table per app with every earlier version (version, date, size, APK link).
 
 It reads the public GitHub releases of this repository in the visitor's browser, so there is **nothing to update by hand**: when a pipeline publishes a new version, the page shows it, and the old one moves to "Previous versions". No server, database or key is involved.
 

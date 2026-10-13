@@ -66,7 +66,6 @@
       <li>Updating over an older version works only if both versions were signed with the same key. A <b>TEST</b> build is signed with a public test key, so uninstall it before installing a properly signed version.</li>
       <li>Some apps need extra Android settings. Each app explains them on first start.</li>
     </ol>
-    <p class="small">Check a download: compare its SHA-256 (the “SHA-256” link next to each file) with the file you got.</p>
   </details>
 </main>
 
@@ -147,10 +146,8 @@
   function apkOf(release) {
     var a = (release.assets || []).filter(function (x) { return /\.apk$/i.test(x.name); })[0];
     if (!a) return null;
-    var sha = (release.assets || []).filter(function (x) { return x.name === a.name + ".sha256"; })[0];
     return {
       url: a.browser_download_url, size: a.size, name: a.name, tag: release.tag_name,
-      sha: sha ? sha.browser_download_url : null, shaName: sha ? sha.name : null,
       time: a.updated_at || a.created_at || null
     };
   }
@@ -214,7 +211,6 @@
     }
     if (link) {
       body.appendChild(el("a", { class: "btn", href: dlUrl(link), download: link.name, rel: "noopener", text: "Download APK" }));
-      if (link.sha) body.appendChild(el("span", { class: "small" }, [document.createTextNode("  "), el("a", { class: "link", href: dlUrl({ url: link.sha, tag: link.tag, name: link.shaName }), download: link.shaName, rel: "noopener", text: "SHA-256" })]));
     } else {
       body.appendChild(el("p", { class: "small", text: "No download is available yet." }));
     }
@@ -239,10 +235,6 @@
       var ver = el("td", { text: v.version });
       if (v.test) ver.appendChild(el("span", { class: "badge", text: "TEST" }));
       var dl = el("td", { class: "right" }, [el("a", { class: "link", href: dlUrl(v.apk), download: v.apk.name, rel: "noopener", text: "APK" })]);
-      if (v.apk.sha) {
-        dl.appendChild(document.createTextNode(" · "));
-        dl.appendChild(el("a", { class: "link", href: dlUrl({ url: v.apk.sha, tag: v.apk.tag, name: v.apk.shaName }), download: v.apk.shaName, rel: "noopener", text: "SHA-256" }));
-      }
       tbody.appendChild(el("tr", {}, [ver, el("td", { class: "hide-sm", text: fmtDate(v.date) }), el("td", { class: "hide-sm", text: fmtSize(v.apk.size) }), dl]));
     });
     card.appendChild(el("table", {}, [el("thead", {}, [thead]), tbody]));
