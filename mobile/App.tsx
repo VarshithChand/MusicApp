@@ -4,9 +4,11 @@ import React, { useEffect, useMemo } from 'react';
 import { StatusBar } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AddToPlaylistSheet } from './src/components/AddToPlaylistSheet';
+import { YouTubeFloatingPlayer } from './src/components/YouTubeFloatingPlayer';
 import { AppNavigator } from './src/navigation/AppNavigator';
 import { setupPlayer } from './src/player/controls';
 import { useAuth } from './src/store/auth';
+import { useYouTubePlayer } from './src/store/youtubePlayer';
 import { colors } from './src/theme/theme';
 
 const navTheme = {
@@ -22,9 +24,12 @@ export default function App() {
     setupPlayer();
   }, []);
 
-  // Don't show one account's playlists/likes to the next person who logs in.
+  // Don't show one account's playlists/likes (or a still-playing video) to the next person who logs in.
   useEffect(() => {
-    if (!signedIn) queryClient.clear();
+    if (!signedIn) {
+      queryClient.clear();
+      useYouTubePlayer.getState().close();
+    }
   }, [signedIn, queryClient]);
 
   return (
@@ -34,6 +39,7 @@ export default function App() {
         <NavigationContainer theme={navTheme}>
           <AppNavigator />
           {signedIn && <AddToPlaylistSheet />}
+          {signedIn && <YouTubeFloatingPlayer />}
         </NavigationContainer>
       </QueryClientProvider>
     </SafeAreaProvider>

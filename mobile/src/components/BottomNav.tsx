@@ -9,7 +9,9 @@ import { MiniPlayer } from './MiniPlayer';
 const TABS: Record<string, { label: string; icon: IconName }> = {
   Home: { label: 'Home', icon: 'home' },
   Search: { label: 'Search', icon: 'search' },
+  YouTube: { label: 'YouTube', icon: 'video' },
   Library: { label: 'Library', icon: 'library' },
+  LocalMedia: { label: 'Local', icon: 'folder' },
 };
 
 /** Tab bar with the mini player stacked above it. */
@@ -31,8 +33,10 @@ export function BottomNav({ state, navigation }: BottomTabBarProps) {
               accessibilityState={{ selected: active }}
               onPress={() => !active && navigation.navigate(route.name)}
             >
-              <Icon name={tab.icon} color={color} />
-              <Text style={[styles.label, { color }]}>{tab.label}</Text>
+              <Icon name={tab.icon} size={21} color={color} />
+              <Text style={[styles.label, { color }]} numberOfLines={1}>
+                {tab.label}
+              </Text>
             </Pressable>
           );
         })}
@@ -43,6 +47,6 @@ export function BottomNav({ state, navigation }: BottomTabBarProps) {
 
 const styles = StyleSheet.create({
   bar: { flexDirection: 'row', justifyContent: 'space-around', paddingTop: 6, borderTopWidth: 1, borderTopColor: colors.surface2 },
-  tab: { minWidth: 72, minHeight: 48, alignItems: 'center', justifyContent: 'center', gap: 4 },
-  label: { fontSize: 11, fontWeight: '600' },
+  tab: { flex: 1, minHeight: 48, alignItems: 'center', justifyContent: 'center', gap: 3 },
+  label: { fontSize: 10, fontWeight: '600' },
 });

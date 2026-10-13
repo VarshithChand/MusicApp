@@ -1,14 +1,14 @@
 import { useNavigation } from '@react-navigation/native';
-import React, { useState } from 'react';
+import React from 'react';
 import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useArtists, useRecentlyPlayed, useSongs, useTrending } from '../api/hooks';
 import { Cover } from '../components/Cover';
 import { Icon } from '../components/Icon';
 import { SongRow } from '../components/SongRow';
-import { YouTubeModal } from '../components/YouTubeModal';
 import { YouTubeResult } from '../api/types';
 import { playQueue } from '../player/controls';
+import { useYouTubePlayer } from '../store/youtubePlayer';
 import { colors } from '../theme/theme';
 
 function greeting() {
@@ -24,7 +24,7 @@ export function HomeScreen() {
   const artists = useArtists();
   const trending = useTrending('trending');
   const hits = useTrending('popular');
-  const [video, setVideo] = useState<{ videoId: string; title: string } | null>(null);
+  const playVideo = useYouTubePlayer((s) => s.play);
 
   const videoRow = (title: string, q: typeof trending) =>
     !!q.data?.results.length && (
@@ -32,7 +32,7 @@ export function HomeScreen() {
         <Text style={styles.h2}>{title}</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hrow}>
           {q.data.results.map((v: YouTubeResult) => (
-            <Pressable key={v.videoId} style={styles.vcard} onPress={() => setVideo({ videoId: v.videoId, title: v.title })} accessibilityLabel={`Play ${v.title}`}>
+            <Pressable key={v.videoId} style={styles.vcard} onPress={() => playVideo(v.videoId, v.title)} accessibilityLabel={`Play ${v.title}`}>
               {v.thumbnail ? <Image source={{ uri: v.thumbnail }} style={styles.thumb} /> : <View style={styles.thumb} />}
               <Text style={styles.cardTitle} numberOfLines={2}>{v.title}</Text>
               <Text style={styles.vchannel} numberOfLines={1}>{v.channel}</Text>
@@ -108,7 +108,6 @@ export function HomeScreen() {
           </ScrollView>
         </View>
       )}
-      <YouTubeModal videoId={video?.videoId ?? null} title={video?.title ?? ''} onClose={() => setVideo(null)} />
     </ScrollView>
   );
 }

@@ -24,7 +24,9 @@ function MainTabs() {
     <Tabs.Navigator tabBar={(props) => <BottomNav {...props} />} screenOptions={{ headerShown: false }}>
       <Tabs.Screen name="Home" component={HomeScreen} />
       <Tabs.Screen name="Search" component={SearchScreen} />
+      <Tabs.Screen name="YouTube" component={YouTubeScreen} />
       <Tabs.Screen name="Library" component={LibraryScreen} />
+      <Tabs.Screen name="LocalMedia" component={LocalMediaScreen} />
     </Tabs.Navigator>
   );
 }
@@ -48,8 +50,6 @@ export function AppNavigator() {
           <Stack.Screen name="Tabs" component={MainTabs} />
           <Stack.Screen name="SongList" component={SongListScreen} />
           <Stack.Screen name="MovieDetail" component={MovieDetailScreen} />
-          <Stack.Screen name="YouTube" component={YouTubeScreen} />
-          <Stack.Screen name="LocalMedia" component={LocalMediaScreen} />
           <Stack.Screen name="Account" component={AccountScreen} />
           <Stack.Screen name="NowPlaying" component={NowPlayingScreen} options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
         </>

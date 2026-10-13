@@ -34,23 +34,6 @@ export function LibraryScreen() {
         </Pressable>
       </View>
 
-      <View style={styles.entryRow}>
-        <Pressable style={styles.entryCard} onPress={() => navigation.navigate('YouTube')} accessibilityLabel="YouTube videos">
-          <View style={[styles.art, { backgroundColor: '#c4302b' }]}>
-            <Icon name="video" size={26} color="#fff" />
-          </View>
-          <Text style={styles.title}>YouTube</Text>
-          <Text style={styles.sub}>Paste a link, watch, favorite</Text>
-        </Pressable>
-        <Pressable style={styles.entryCard} onPress={() => navigation.navigate('LocalMedia')} accessibilityLabel="Local audio and video">
-          <View style={[styles.art, { backgroundColor: colors.surface2 }]}>
-            <Icon name="folder" size={26} color={colors.text} />
-          </View>
-          <Text style={styles.title}>Local Media</Text>
-          <Text style={styles.sub}>Audio and video on this phone</Text>
-        </Pressable>
-      </View>
-
       <View style={styles.chips}>
         <Chip label="Playlists" active={tab === 'playlists'} onPress={() => setTab('playlists')} />
         <Chip label="Albums" active={tab === 'albums'} onPress={() => setTab('albums')} />
@@ -135,8 +118,6 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   h1: { color: colors.text, fontSize: 30, fontWeight: '700', letterSpacing: -0.5 },
   add: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.surface2, alignItems: 'center', justifyContent: 'center' },
-  entryRow: { flexDirection: 'row', gap: 12 },
-  entryCard: { flex: 1, gap: 4 },
   chips: { flexDirection: 'row', gap: 8 },
   list: { gap: 6 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 14, minHeight: 68 },

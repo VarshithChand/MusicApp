@@ -31,6 +31,7 @@ const ICONS = {
   edit: { d: ['M4 20h4L19 9l-4-4L4 16z'] },
   video: { d: ['M3 6a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z', 'M15 9.5l6-3.5v12l-6-3.5z'] },
   folder: { d: ['M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'] },
+  close: { d: ['M6 6l12 12M18 6L6 18'] },
 } as const;
 
 export type IconName = keyof typeof ICONS;

@@ -1,11 +1,10 @@
-import { useNavigation } from '@react-navigation/native';
 import Clipboard from '@react-native-clipboard/clipboard';
 import React, { useState } from 'react';
 import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useToggleYouTubeFavorite, useYouTubeFavorites, useYouTubeVideo } from '../api/hooks';
 import { Icon } from '../components/Icon';
-import { YouTubeModal } from '../components/YouTubeModal';
+import { useYouTubePlayer } from '../store/youtubePlayer';
 import { colors } from '../theme/theme';
 
 /** Accepts watch?v=, youtu.be/, and /shorts/ links, with or without extra query params. */
@@ -30,11 +29,10 @@ const formatDuration = (seconds: number | null) => {
 
 export function YouTubeScreen() {
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation<any>();
   const [text, setText] = useState('');
   const [lookupId, setLookupId] = useState<string | null>(null);
   const [badLink, setBadLink] = useState(false);
-  const [playing, setPlaying] = useState<{ videoId: string; title: string } | null>(null);
+  const play = useYouTubePlayer((s) => s.play);
   const video = useYouTubeVideo(lookupId);
   const favorites = useYouTubeFavorites();
   const { add, remove } = useToggleYouTubeFavorite();
@@ -65,12 +63,7 @@ export function YouTubeScreen() {
 
   return (
     <ScrollView style={styles.flex} contentContainerStyle={[styles.content, { paddingTop: insets.top + 24 }]}>
-      <View style={styles.header}>
-        <Pressable style={styles.iconBtn} onPress={() => navigation.goBack()} accessibilityLabel="Back">
-          <Icon name="back" size={26} color={colors.text} />
-        </Pressable>
-        <Text style={styles.h1}>YouTube</Text>
-      </View>
+      <Text style={styles.h1}>YouTube</Text>
       <Text style={styles.muted}>Paste a link, watch it here, and save the ones you want to find again.</Text>
 
       <View>
@@ -120,7 +113,7 @@ export function YouTubeScreen() {
           <View style={styles.row}>
             <Pressable
               style={styles.playBtn}
-              onPress={() => setPlaying({ videoId: result.videoId, title: result.title })}
+              onPress={() => play(result.videoId, result.title)}
               accessibilityLabel={`Play ${result.title}`}
             >
               <Icon name="play" size={18} color={colors.onAccent} />
@@ -141,7 +134,7 @@ export function YouTubeScreen() {
       {favorites.isLoading && <ActivityIndicator color={colors.accent} />}
       {favorites.isSuccess && favorites.data.length === 0 && <Text style={styles.muted}>Nothing saved yet.</Text>}
       {favorites.data?.map((v) => (
-        <Pressable key={v.videoId} style={styles.favRow} onPress={() => setPlaying({ videoId: v.videoId, title: v.title })}>
+        <Pressable key={v.videoId} style={styles.favRow} onPress={() => play(v.videoId, v.title)}>
           {v.thumbnail ? <Image source={{ uri: v.thumbnail }} style={styles.favThumb} /> : <View style={styles.favThumb} />}
           <View style={styles.flex1}>
             <Text style={styles.rowTitle} numberOfLines={1}>
@@ -159,7 +152,6 @@ export function YouTubeScreen() {
         </Pressable>
       ))}
 
-      <YouTubeModal videoId={playing?.videoId ?? null} title={playing?.title ?? ''} onClose={() => setPlaying(null)} />
     </ScrollView>
   );
 }

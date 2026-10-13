@@ -5,7 +5,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { hasLocalMediaPermission, listLocalAudio, listLocalVideo, requestLocalMediaPermission } from '../api/localMedia';
 import { LocalAudioFile, LocalVideoFile } from '../api/types';
 import { Chip } from '../components/Chip';
-import { Icon } from '../components/Icon';
 import { LocalMediaRow } from '../components/LocalMediaRow';
 import { LocalVideoModal } from '../components/LocalVideoModal';
 import { useLocalFavorites } from '../store/localFavorites';
@@ -66,12 +65,7 @@ export function LocalMediaScreen() {
 
   return (
     <View style={[styles.flex, { paddingTop: insets.top }]}>
-      <View style={styles.header}>
-        <Pressable style={styles.iconBtn} onPress={() => navigation.goBack()} accessibilityLabel="Back">
-          <Icon name="back" size={26} color={colors.text} />
-        </Pressable>
-        <Text style={styles.h1}>Local Media</Text>
-      </View>
+      <Text style={[styles.h1, styles.h1Padded]}>Local Media</Text>
 
       <View style={styles.chips}>
         <Chip label="Audio" active={tab === 'audio'} onPress={() => setTab('audio')} />
@@ -147,9 +141,8 @@ export function LocalMediaScreen() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: colors.bg },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 20 },
-  iconBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', marginLeft: -10 },
   h1: { color: colors.text, fontSize: 26, fontWeight: '700', letterSpacing: -0.5 },
+  h1Padded: { paddingHorizontal: 20, marginTop: 24 },
   chips: { flexDirection: 'row', gap: 8, paddingHorizontal: 20, marginTop: 16 },
   search: {
     marginHorizontal: 20,

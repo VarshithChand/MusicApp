@@ -9,7 +9,7 @@ import { Cover } from '../components/Cover';
 import { Icon } from '../components/Icon';
 import { LabelBrowser } from '../components/LabelBrowser';
 import { SongRow } from '../components/SongRow';
-import { YouTubeModal } from '../components/YouTubeModal';
+import { useYouTubePlayer } from '../store/youtubePlayer';
 import { playQueue } from '../player/controls';
 import { colors } from '../theme/theme';
 
@@ -33,7 +33,7 @@ export function SearchScreen() {
   const movies = useMovies(kind === 'movies' ? q : '');
   const discover = useDiscover(q);
   const youtube = useYouTube(q);
-  const [video, setVideo] = useState<{ videoId: string; title: string } | null>(null);
+  const playYouTube = useYouTubePlayer((s) => s.play);
   const importSong = useImportSong();
   const [importingId, setImportingId] = useState<string | null>(null);
 
@@ -189,7 +189,7 @@ export function SearchScreen() {
               style={styles.webRow}
               onPress={() => {
                 TrackPlayer.pause().catch(() => {});
-                setVideo({ videoId: v.videoId, title: v.title });
+                playYouTube(v.videoId, v.title);
               }}
               accessibilityLabel={`Play ${v.title} on YouTube`}
             >
@@ -207,7 +207,6 @@ export function SearchScreen() {
         </View>
       )}
 
-      <YouTubeModal videoId={video?.videoId ?? null} title={video?.title ?? ''} onClose={() => setVideo(null)} />
 
       {data && kind === 'artists' &&
         data.artists.map((a) => (
