@@ -1,7 +1,7 @@
 import { DarkTheme, DefaultTheme, NavigationContainer } from '@react-navigation/native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { StatusBar } from 'react-native';
+import { AppState, StatusBar } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AddToPlaylistSheet } from './src/components/AddToPlaylistSheet';
 import { SplashAnimation } from './src/components/SplashAnimation';
@@ -25,8 +25,17 @@ export default function App() {
     appliedMode.current = resolved;
   }
   const isLight = resolved.endsWith('light');
+  const iconVariant = useRef<'dark' | 'light'>('dark');
   useEffect(() => {
-    setAppIconVariant(resolved === 'dark' ? 'dark' : 'light');
+    iconVariant.current = resolved === 'dark' ? 'dark' : 'light';
+  }, [resolved]);
+
+  // Switching the launcher icon closes the app's own screen, so it only changes once the app is in the background.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'background') setAppIconVariant(iconVariant.current);
+    });
+    return () => sub.remove();
   }, [resolved]);
   const navTheme = useMemo(
     () => ({
