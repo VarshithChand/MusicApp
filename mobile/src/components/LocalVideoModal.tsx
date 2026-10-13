@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, View } from 'react-native';
+import { AppText as Text } from './AppText';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Video from 'react-native-video';
-import { colors } from '../theme/theme';
+import { colors, themedStyles } from '../theme/theme';
 import { Icon } from './Icon';
 
 interface Props {
@@ -46,7 +47,7 @@ export function LocalVideoModal({ uri, title, onClose }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   flex: { flex: 1, backgroundColor: '#000' },
   header: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 8 },
   close: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
@@ -54,4 +55,4 @@ const styles = StyleSheet.create({
   video: { flex: 1, backgroundColor: '#000' },
   errorBox: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
   errorText: { color: colors.muted, fontSize: 14, textAlign: 'center' },
-});
+}));

@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { ActivityIndicator, FlatList, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Modal, Pressable, StyleSheet, View } from 'react-native';
+import { AppText as Text } from './AppText';
 import { usePlaylistMutations, usePlaylists } from '../api/hooks';
 import { useSheet } from '../store/sheet';
-import { colors } from '../theme/theme';
+import { colors, themedStyles } from '../theme/theme';
 import { Icon } from './Icon';
 import { NameModal } from './NameModal';
 
@@ -75,7 +76,7 @@ export function AddToPlaylistSheet() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
   sheet: { backgroundColor: colors.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: 32, maxHeight: '70%' },
   title: { color: colors.text, fontSize: 18, fontWeight: '700', marginBottom: 8 },
@@ -85,4 +86,4 @@ const styles = StyleSheet.create({
   plIcon: { width: 44, height: 44, borderRadius: 12, backgroundColor: colors.surface2, alignItems: 'center', justifyContent: 'center' },
   name: { color: colors.text, fontSize: 16, fontWeight: '600' },
   sub: { color: colors.muted, fontSize: 13 },
-});
+}));

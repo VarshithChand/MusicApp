@@ -1,13 +1,14 @@
 import { useNavigation, useRoute } from '@react-navigation/native';
 import React from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { AppText as Text } from '../components/AppText';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMovie } from '../api/hooks';
 import { Cover } from '../components/Cover';
 import { Icon } from '../components/Icon';
 import { SongRow } from '../components/SongRow';
 import { playQueue } from '../player/controls';
-import { colors } from '../theme/theme';
+import { colors, themedStyles } from '../theme/theme';
 
 export interface MovieDetailParams {
   id: number;
@@ -69,7 +70,7 @@ export function MovieDetailScreen() {
                     <Pressable
                       key={slug}
                       style={styles.moodTag}
-                      onPress={() => navigation.navigate('Tabs', { screen: 'Search', params: { label: slug } })}
+                      onPress={() => navigation.navigate('Search', { label: slug })}
                     >
                       <Text style={styles.moodText}>{slug}</Text>
                     </Pressable>
@@ -84,7 +85,7 @@ export function MovieDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   flex: { flex: 1, backgroundColor: colors.bg },
   content: { paddingHorizontal: 20, paddingBottom: 24, gap: 4 },
   back: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', marginLeft: -10 },
@@ -112,4 +113,4 @@ const styles = StyleSheet.create({
   moodRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingLeft: 64, marginTop: -4, marginBottom: 8 },
   moodTag: { paddingHorizontal: 10, height: 26, borderRadius: 13, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
   moodText: { color: colors.muted, fontSize: 12, fontWeight: '600', textTransform: 'capitalize' },
-});
+}));

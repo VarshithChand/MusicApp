@@ -1,17 +1,18 @@
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { AppText as Text } from './AppText';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors } from '../theme/theme';
+import { colors, themedStyles } from '../theme/theme';
 import { Icon, IconName } from './Icon';
 import { MiniPlayer } from './MiniPlayer';
 
 const TABS: Record<string, { label: string; icon: IconName }> = {
   Home: { label: 'Home', icon: 'home' },
-  Search: { label: 'Search', icon: 'search' },
   YouTube: { label: 'YouTube', icon: 'video' },
   Library: { label: 'Library', icon: 'library' },
   LocalMedia: { label: 'Local', icon: 'folder' },
+  Settings: { label: 'Settings', icon: 'sliders' },
 };
 
 /** Tab bar with the mini player stacked above it. */
@@ -45,8 +46,8 @@ export function BottomNav({ state, navigation }: BottomTabBarProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   bar: { flexDirection: 'row', justifyContent: 'space-around', paddingTop: 6, borderTopWidth: 1, borderTopColor: colors.surface2 },
   tab: { flex: 1, minHeight: 48, alignItems: 'center', justifyContent: 'center', gap: 3 },
   label: { fontSize: 10, fontWeight: '600' },
-});
+}));

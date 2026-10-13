@@ -11,6 +11,9 @@ import { LoginScreen } from '../screens/LoginScreen';
 import { MovieDetailScreen } from '../screens/MovieDetailScreen';
 import { NowPlayingScreen } from '../screens/NowPlayingScreen';
 import { SearchScreen } from '../screens/SearchScreen';
+import { AdminScreen } from '../screens/AdminScreen';
+import { AppearanceScreen } from '../screens/AppearanceScreen';
+import { SettingsScreen } from '../screens/SettingsScreen';
 import { SongListScreen } from '../screens/SongListScreen';
 import { YouTubeScreen } from '../screens/YouTubeScreen';
 import { useAuth } from '../store/auth';
@@ -23,10 +26,10 @@ function MainTabs() {
   return (
     <Tabs.Navigator tabBar={(props) => <BottomNav {...props} />} screenOptions={{ headerShown: false }}>
       <Tabs.Screen name="Home" component={HomeScreen} />
-      <Tabs.Screen name="Search" component={SearchScreen} />
       <Tabs.Screen name="YouTube" component={YouTubeScreen} />
       <Tabs.Screen name="Library" component={LibraryScreen} />
       <Tabs.Screen name="LocalMedia" component={LocalMediaScreen} />
+      <Tabs.Screen name="Settings" component={SettingsScreen} />
     </Tabs.Navigator>
   );
 }
@@ -48,6 +51,9 @@ export function AppNavigator() {
       {signedIn ? (
         <>
           <Stack.Screen name="Tabs" component={MainTabs} />
+          <Stack.Screen name="Search" component={SearchScreen} />
+          <Stack.Screen name="Admin" component={AdminScreen} />
+          <Stack.Screen name="Appearance" component={AppearanceScreen} />
           <Stack.Screen name="SongList" component={SongListScreen} />
           <Stack.Screen name="MovieDetail" component={MovieDetailScreen} />
           <Stack.Screen name="Account" component={AccountScreen} />

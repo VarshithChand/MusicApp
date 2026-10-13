@@ -1,6 +1,7 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text } from 'react-native';
-import { colors } from '../theme/theme';
+import { Pressable, StyleSheet } from 'react-native';
+import { AppText as Text } from './AppText';
+import { colors, themedStyles } from '../theme/theme';
 
 interface Props {
   label: string;
@@ -21,7 +22,7 @@ export function Chip({ label, active, onPress }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   chip: {
     height: 44,
     paddingHorizontal: 16,
@@ -33,4 +34,4 @@ const styles = StyleSheet.create({
   active: { backgroundColor: colors.accent, borderColor: colors.accent },
   text: { color: colors.text, fontSize: 14, fontWeight: '600' },
   activeText: { color: colors.onAccent },
-});
+}));

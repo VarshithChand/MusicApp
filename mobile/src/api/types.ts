@@ -3,6 +3,7 @@ export interface User {
   name: string;
   email: string;
   is_admin?: boolean;
+  gender?: 'male' | 'female' | null;
 }
 
 export interface Song {
@@ -112,6 +113,7 @@ export interface YouTubeResult {
   title: string;
   channel: string;
   thumbnail: string | null;
+  durationSeconds?: number | null;
 }
 
 export interface YouTubeResponse {

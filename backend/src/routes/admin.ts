@@ -344,6 +344,14 @@ adminRouter.post("/movies/:id/classify", async (req, res) => {
   res.status(202).json({ queued: songs.length });
 });
 
+/** Registered accounts, and how many were seen in the last 30 days (the rest are inactive). */
+adminRouter.get("/user-stats", async (_req, res) => {
+  const [row] = await query<{ total: number; active: number }>(
+    "SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE last_seen_at >= now() - interval '30 days')::int AS active FROM users",
+  );
+  res.json({ total: row.total, active: row.active, inactive: row.total - row.active, windowDays: 30 });
+});
+
 /** The label vocabulary, grouped by kind, for the review screen. */
 adminRouter.get("/labels", async (_req, res) => {
   res.json(await query("SELECT slug, name, kind FROM moods ORDER BY CASE kind WHEN 'style' THEN 0 WHEN 'mood' THEN 1 ELSE 2 END, name"));

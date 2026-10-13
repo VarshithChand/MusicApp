@@ -1,8 +1,9 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { AppText as Text } from './AppText';
 import { Song } from '../api/types';
 import { useSheet } from '../store/sheet';
-import { colors } from '../theme/theme';
+import { colors, themedStyles } from '../theme/theme';
 import { Cover } from './Cover';
 import { Icon } from './Icon';
 
@@ -34,10 +35,10 @@ export function SongRow({ song, onPress, onLongPress, subtitle }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 60 },
   text: { flex: 1, minWidth: 0 },
   title: { color: colors.text, fontSize: 15, fontWeight: '600' },
   sub: { color: colors.muted, fontSize: 13, marginTop: 2 },
   action: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-});
+}));

@@ -1,10 +1,11 @@
 import { useNavigation } from '@react-navigation/native';
 import React, { useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { AppText as Text } from './AppText';
 import { useFilteredSongs, useMoods } from '../api/hooks';
 import { MoodCount } from '../api/types';
 import { playQueue } from '../player/controls';
-import { colors } from '../theme/theme';
+import { colors, themedStyles } from '../theme/theme';
 import { Chip } from './Chip';
 import { SongRow } from './SongRow';
 
@@ -75,7 +76,7 @@ export function LabelBrowser({ initialLabel }: { initialLabel?: string }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   section: { marginTop: 8, paddingTop: 16, borderTopWidth: 1, borderTopColor: colors.surface2, gap: 12 },
   h2: { color: colors.text, fontSize: 18, fontWeight: '600' },
   group: { gap: 8 },
@@ -83,4 +84,4 @@ const styles = StyleSheet.create({
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   results: { gap: 4, marginTop: 4 },
   muted: { color: colors.muted, fontSize: 14 },
-});
+}));

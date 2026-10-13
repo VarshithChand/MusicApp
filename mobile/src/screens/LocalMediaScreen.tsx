@@ -1,6 +1,8 @@
 import { useNavigation } from '@react-navigation/native';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, FlatList, Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { FlatList, Linking, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { AppText as Text } from '../components/AppText';
+import { LoadingBars } from '../components/LoadingBars';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { hasLocalMediaPermission, listLocalAudio, listLocalVideo, requestLocalMediaPermission } from '../api/localMedia';
 import { LocalAudioFile, LocalVideoFile } from '../api/types';
@@ -9,7 +11,7 @@ import { LocalMediaRow } from '../components/LocalMediaRow';
 import { LocalVideoModal } from '../components/LocalVideoModal';
 import { useLocalFavorites } from '../store/localFavorites';
 import { playLocalQueue } from '../player/controls';
-import { colors } from '../theme/theme';
+import { colors, themedStyles } from '../theme/theme';
 
 type Tab = 'audio' | 'video';
 type LoadState = 'checking' | 'denied' | 'loading' | 'ready' | 'error';
@@ -86,7 +88,7 @@ export function LocalMediaScreen() {
 
       {(state === 'checking' || state === 'loading') && (
         <View style={styles.centerBox}>
-          <ActivityIndicator color={colors.accent} />
+          <LoadingBars />
         </View>
       )}
 
@@ -139,7 +141,7 @@ export function LocalMediaScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   flex: { flex: 1, backgroundColor: colors.bg },
   h1: { color: colors.text, fontSize: 26, fontWeight: '700', letterSpacing: -0.5 },
   h1Padded: { paddingHorizontal: 20, marginTop: 24 },
@@ -163,4 +165,4 @@ const styles = StyleSheet.create({
   retryBtn: { height: 44, paddingHorizontal: 22, borderRadius: 22, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' },
   retryText: { color: colors.onAccent, fontSize: 14, fontWeight: '700' },
   linkText: { color: colors.accent, fontSize: 13, fontWeight: '600' },
-});
+}));

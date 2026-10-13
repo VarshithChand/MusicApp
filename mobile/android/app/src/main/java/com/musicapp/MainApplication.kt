@@ -6,6 +6,7 @@ import com.facebook.react.ReactApplication
 import com.facebook.react.ReactHost
 import com.facebook.react.ReactNativeApplicationEntryPoint.loadReactNative
 import com.facebook.react.defaults.DefaultReactHost.getDefaultReactHost
+import com.musicapp.appicon.AppIconPackage
 import com.musicapp.media.LocalMediaPackage
 
 class MainApplication : Application(), ReactApplication {
@@ -16,6 +17,7 @@ class MainApplication : Application(), ReactApplication {
       packageList =
         PackageList(this).packages.apply {
           add(LocalMediaPackage())
+          add(AppIconPackage())
         },
     )
   }

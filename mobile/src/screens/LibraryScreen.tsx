@@ -1,13 +1,14 @@
 import { useNavigation } from '@react-navigation/native';
 import React, { useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { AppText as Text } from '../components/AppText';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAlbums, useArtists, useLikedSongs, usePlaylistMutations, usePlaylists } from '../api/hooks';
 import { Chip } from '../components/Chip';
 import { Cover } from '../components/Cover';
 import { Icon } from '../components/Icon';
 import { NameModal } from '../components/NameModal';
-import { colors } from '../theme/theme';
+import { colors, themedStyles } from '../theme/theme';
 
 type Tab = 'playlists' | 'albums' | 'artists';
 
@@ -112,7 +113,7 @@ export function LibraryScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   flex: { flex: 1, backgroundColor: colors.bg },
   content: { paddingHorizontal: 20, paddingBottom: 24, gap: 20 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
@@ -125,4 +126,4 @@ const styles = StyleSheet.create({
   text: { flex: 1, minWidth: 0 },
   title: { color: colors.text, fontSize: 16, fontWeight: '600' },
   sub: { color: colors.muted, fontSize: 13, marginTop: 2 },
-});
+}));

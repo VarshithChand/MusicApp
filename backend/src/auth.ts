@@ -1,5 +1,6 @@
 import { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
+import { query } from "./db";
 
 export interface AuthedRequest extends Request {
   userId?: number;
@@ -31,6 +32,7 @@ export function requireAuth(req: AuthedRequest, res: Response, next: NextFunctio
     const decoded = jwt.verify(header.slice(7), secret("JWT_SECRET")) as any;
     req.userId = decoded.sub;
     req.isAdmin = !!decoded.admin;
+    query("UPDATE users SET last_seen_at = now() WHERE id = $1 AND (last_seen_at IS NULL OR last_seen_at < now() - interval '10 minutes')", [req.userId]).catch(() => {});
     next();
   } catch {
     res.status(401).json({ error: "Invalid or expired token" });

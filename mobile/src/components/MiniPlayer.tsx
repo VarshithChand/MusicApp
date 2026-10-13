@@ -1,13 +1,14 @@
 import { useNavigation } from '@react-navigation/native';
 import React from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { AppText as Text } from './AppText';
 import TrackPlayer, {
   State,
   useActiveTrack,
   usePlaybackState,
   useProgress,
 } from 'react-native-track-player';
-import { colors } from '../theme/theme';
+import { colors, themedStyles } from '../theme/theme';
 import { Cover } from './Cover';
 import { Icon } from './Icon';
 import { ProgressBar } from './ProgressBar';
@@ -54,7 +55,7 @@ export function MiniPlayer() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   wrap: { marginHorizontal: 12, marginBottom: 8, padding: 8, paddingBottom: 0, borderRadius: 16, backgroundColor: colors.surface2 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   info: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 44 },
@@ -62,4 +63,4 @@ const styles = StyleSheet.create({
   title: { color: colors.text, fontSize: 14, fontWeight: '600' },
   artist: { color: colors.muted, fontSize: 12 },
   play: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' },
-});
+}));

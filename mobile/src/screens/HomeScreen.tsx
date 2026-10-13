@@ -1,7 +1,9 @@
 import { useNavigation } from '@react-navigation/native';
 import { useQueryClient } from '@tanstack/react-query';
 import React, { useState } from 'react';
-import { ActivityIndicator, Image, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { AppText as Text } from '../components/AppText';
+import { LoadingBars } from '../components/LoadingBars';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api } from '../api';
 import { useArtists, useLikedSongs, useRecentlyPlayed, useSongs, useTrending, useYouTubeFavorites } from '../api/hooks';
@@ -11,7 +13,7 @@ import { SongRow } from '../components/SongRow';
 import { YouTubeResponse, YouTubeResult } from '../api/types';
 import { playQueue } from '../player/controls';
 import { useYouTubePlayer } from '../store/youtubePlayer';
-import { colors } from '../theme/theme';
+import { colors, themedStyles } from '../theme/theme';
 
 function greeting() {
   const h = new Date().getHours();
@@ -84,12 +86,17 @@ export function HomeScreen() {
     >
       <View style={styles.header}>
         <Text style={styles.h1}>{greeting()}</Text>
-        <Pressable style={styles.avatar} onPress={() => navigation.navigate('Account')} accessibilityLabel="Account">
-          <Icon name="user" size={22} color={colors.text} />
-        </Pressable>
+        <View style={styles.headerActions}>
+          <Pressable style={styles.avatar} onPress={() => navigation.navigate('Search')} accessibilityLabel="Search">
+            <Icon name="search" size={22} color={colors.text} />
+          </Pressable>
+          <Pressable style={styles.avatar} onPress={() => navigation.navigate('Account')} accessibilityLabel="Account">
+            <Icon name="user" size={22} color={colors.text} />
+          </Pressable>
+        </View>
       </View>
 
-      {popular.isLoading && <ActivityIndicator color={colors.accent} />}
+      {popular.isLoading && <LoadingBars />}
       {popular.isError && <Text style={styles.error}>Couldn't load music. Check your connection.</Text>}
 
       {videoRow('Trending Telugu videos', trending)}
@@ -176,11 +183,12 @@ export function HomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   flex: { flex: 1, backgroundColor: colors.bg },
   content: { paddingHorizontal: 20, paddingBottom: 24, gap: 28 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   h1: { color: colors.text, fontSize: 30, fontWeight: '700', letterSpacing: -0.5 },
+  headerActions: { flexDirection: 'row', gap: 10 },
   avatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.surface2, alignItems: 'center', justifyContent: 'center' },
   section: { gap: 6 },
   h2: { color: colors.text, fontSize: 18, fontWeight: '600', marginBottom: 8 },
@@ -193,4 +201,4 @@ const styles = StyleSheet.create({
   artist: { width: 76, alignItems: 'center', gap: 8 },
   artistName: { color: colors.text, fontSize: 13, fontWeight: '500' },
   error: { color: colors.danger, fontSize: 14 },
-});
+}));

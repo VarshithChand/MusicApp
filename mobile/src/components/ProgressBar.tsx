@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { GestureResponderEvent, LayoutChangeEvent, Pressable, StyleSheet, View } from 'react-native';
-import { colors } from '../theme/theme';
+import { colors, themedStyles } from '../theme/theme';
 
 interface Props {
   /** 0..1 */
@@ -33,9 +33,9 @@ export function ProgressBar({ value, onSeek, color = colors.accent, thumb }: Pro
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   hit: { height: 24, justifyContent: 'center' },
   track: { position: 'absolute', left: 0, right: 0, height: 4, borderRadius: 2, backgroundColor: colors.track },
   fill: { position: 'absolute', left: 0, height: 4, borderRadius: 2 },
   thumb: { position: 'absolute', width: 16, height: 16, marginLeft: -8, borderRadius: 8, backgroundColor: colors.text },
-});
+}));

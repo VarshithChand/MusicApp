@@ -1,8 +1,9 @@
 import React from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, View } from 'react-native';
+import { AppText as Text } from './AppText';
 import { LocalAudioFile, LocalVideoFile } from '../api/types';
 import { useLocalFavorites } from '../store/localFavorites';
-import { colors } from '../theme/theme';
+import { colors, themedStyles } from '../theme/theme';
 import { Icon } from './Icon';
 
 const formatDuration = (ms: number) => {
@@ -61,7 +62,7 @@ export function LocalMediaRow({ kind, item, onPress }: AudioProps | VideoProps) 
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 64 },
   art: { width: 52, height: 52, borderRadius: 10, backgroundColor: colors.surface2 },
   videoArt: { width: 84, height: 52, borderRadius: 8 },
@@ -70,4 +71,4 @@ const styles = StyleSheet.create({
   title: { color: colors.text, fontSize: 15, fontWeight: '600' },
   sub: { color: colors.muted, fontSize: 13, marginTop: 2 },
   favBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-});
+}));

@@ -1,7 +1,9 @@
 import { useNavigation, useRoute } from '@react-navigation/native';
 import React, { useEffect, useState } from 'react';
 import TrackPlayer from 'react-native-track-player';
-import { ActivityIndicator, Image, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Image, Linking, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { AppText as Text } from '../components/AppText';
+import { LoadingBars } from '../components/LoadingBars';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDiscover, useImportSong, useMovies, useSearch, useYouTube } from '../api/hooks';
 import { Chip } from '../components/Chip';
@@ -11,7 +13,7 @@ import { LabelBrowser } from '../components/LabelBrowser';
 import { SongRow } from '../components/SongRow';
 import { useYouTubePlayer } from '../store/youtubePlayer';
 import { playQueue } from '../player/controls';
-import { colors } from '../theme/theme';
+import { colors, themedStyles } from '../theme/theme';
 
 type Kind = 'songs' | 'artists' | 'albums' | 'genres' | 'movies';
 const KINDS: { key: Kind; label: string }[] = [
@@ -66,7 +68,12 @@ export function SearchScreen() {
       contentContainerStyle={[styles.content, { paddingTop: insets.top + 24 }]}
       keyboardShouldPersistTaps="handled"
     >
-      <Text style={styles.h1}>Search</Text>
+      <View style={styles.header}>
+        <Pressable style={styles.backBtn} onPress={() => navigation.goBack()} accessibilityLabel="Back">
+          <Icon name="back" size={24} color={colors.text} />
+        </Pressable>
+        <Text style={styles.h1}>Search</Text>
+      </View>
 
       <View>
         <View style={styles.searchIcon} pointerEvents="none">
@@ -90,12 +97,12 @@ export function SearchScreen() {
         ))}
       </ScrollView>
 
-      {kind !== 'movies' && isFetching && <ActivityIndicator color={colors.accent} />}
+      {kind !== 'movies' && isFetching && <LoadingBars />}
       {kind !== 'movies' && isError && <Text style={styles.muted}>Search failed. Check your connection.</Text>}
       {kind !== 'movies' && !q && <Text style={styles.muted}>Find songs, artists, albums and genres.</Text>}
       {empty && <Text style={styles.muted}>No {kind} found for "{q}".</Text>}
 
-      {kind === 'movies' && movies.isFetching && <ActivityIndicator color={colors.accent} />}
+      {kind === 'movies' && movies.isFetching && <LoadingBars />}
       {kind === 'movies' && movies.isError && <Text style={styles.muted}>Couldn't load movies. Check your connection.</Text>}
       {kind === 'movies' && moviesEmpty && <Text style={styles.muted}>No movies found for "{q}".</Text>}
       {kind === 'movies' && !q && !movies.data?.length && !movies.isFetching && (
@@ -137,7 +144,7 @@ export function SearchScreen() {
         <View style={styles.web}>
           <Text style={styles.webTitle}>From the web</Text>
           <Text style={styles.muted}>Free, Creative Commons music. Tap a song to listen — it's also saved to your library.</Text>
-          {discover.isFetching && <ActivityIndicator color={colors.accent} />}
+          {discover.isFetching && <LoadingBars />}
           {discover.isError && <Text style={styles.muted}>The web catalogue is unavailable right now.</Text>}
           {!discover.isFetching && discover.data.results.length === 0 && <Text style={styles.muted}>No free songs found on the web.</Text>}
           {importSong.isError && <Text style={styles.muted}>Couldn't add that song. Try another.</Text>}
@@ -153,7 +160,7 @@ export function SearchScreen() {
                   <Cover id={Number(t.externalId)} uri={t.cover} size={52} radius={12} />
                   {importingId === t.externalId && (
                     <View style={styles.webLoading}>
-                      <ActivityIndicator color={colors.accent} />
+                      <LoadingBars />
                     </View>
                   )}
                 </View>
@@ -180,7 +187,7 @@ export function SearchScreen() {
         <View style={styles.web}>
           <Text style={styles.webTitle}>On YouTube</Text>
           <Text style={styles.muted}>Plays in YouTube's own player. Nothing is saved to your library.</Text>
-          {youtube.isFetching && <ActivityIndicator color={colors.accent} />}
+          {youtube.isFetching && <LoadingBars />}
           {youtube.isError && <Text style={styles.muted}>YouTube search is unavailable right now.</Text>}
           {!youtube.isFetching && youtube.data.results.length === 0 && <Text style={styles.muted}>No videos found.</Text>}
           {youtube.data.results.map((v) => (
@@ -250,10 +257,12 @@ export function SearchScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   flex: { flex: 1, backgroundColor: colors.bg },
   content: { paddingHorizontal: 20, paddingBottom: 24, gap: 16 },
   h1: { color: colors.text, fontSize: 30, fontWeight: '700', letterSpacing: -0.5 },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', marginLeft: -8 },
   searchIcon: { position: 'absolute', left: 16, top: 16, zIndex: 1 },
   input: {
     height: 52,
@@ -282,4 +291,4 @@ const styles = StyleSheet.create({
   rowSub: { color: colors.muted, fontSize: 13, marginTop: 2 },
   movieGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 16 },
   movieCard: { width: 148, gap: 2 },
-});
+}));

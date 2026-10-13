@@ -17,6 +17,8 @@ const KINDS: { key: Kind; label: string }[] = [
   { key: "genres", label: "Genres" },
 ];
 
+const MOODS = ["Mass", "Class", "Riding", "Traveling", "Alone", "Sad"];
+
 const listLink = (title: string, path: string) =>
   `/list?title=${encodeURIComponent(title)}&path=${encodeURIComponent(path)}`;
 
@@ -26,9 +28,15 @@ export function SearchScreen() {
   const [text, setText] = useState("");
   const [q, setQ] = useState("");
   const [kind, setKind] = useState<Kind>("songs");
+  const [mood, setMood] = useState<string | null>(null);
   const { data, isFetching, isError } = useSearch(q);
   const discover = useDiscover(q);
-  const youtube = useYouTube(q);
+  const youtubeQuery = q
+    ? ["telugu", mood?.toLowerCase(), q].filter(Boolean).join(" ")
+    : mood
+      ? `telugu ${mood.toLowerCase()} songs`
+      : "";
+  const youtube = useYouTube(youtubeQuery);
   const pausePlayer = usePlayer((s) => s.pause);
   const openVideo = useVideo((s) => s.open);
   const importSong = useImportSong();
@@ -74,6 +82,14 @@ export function SearchScreen() {
           <Chip key={k.key} label={k.label} active={kind === k.key} onClick={() => setKind(k.key)} />
         ))}
       </div>
+
+      {kind === "songs" && (
+        <div className="chips" role="group" aria-label="Mood">
+          {MOODS.map((m) => (
+            <Chip key={m} label={m} active={mood === m} onClick={() => setMood(mood === m ? null : m)} />
+          ))}
+        </div>
+      )}
 
       <MovieResults q={q} />
       <MoodBrowser q={q} />
@@ -131,7 +147,7 @@ export function SearchScreen() {
         </section>
       )}
 
-      {kind === "songs" && !!q && youtube.data?.configured && (
+      {kind === "songs" && !!youtubeQuery && youtube.data?.configured && (
         <section className="web-results">
           <h2>On YouTube</h2>
           <p className="muted small">Plays in YouTube's own player. Nothing is saved to your library.</p>

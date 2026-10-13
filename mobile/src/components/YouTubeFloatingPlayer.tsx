@@ -1,21 +1,41 @@
-import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, BackHandler, Image, Pressable, ScrollView, StatusBar, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { BackHandler, Image, Pressable, ScrollView, StatusBar, StyleSheet, Switch, useWindowDimensions, View } from 'react-native';
+import { AppText as Text } from './AppText';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import { useYouTube } from '../api/hooks';
 import { useYouTubePlayer } from '../store/youtubePlayer';
-import { colors } from '../theme/theme';
+import { colors, themedStyles } from '../theme/theme';
 import { Icon } from './Icon';
 
 // YouTube refuses embeds that arrive without a referrer, so the player page is loaded with our website as its base URL.
 const BASE_URL = 'https://music.deploymentportal.in';
 
+// enablejsapi + origin let the page hear YouTube's state changes; state 0 means the video has ended.
 const playerHtml = (videoId: string) => `<!doctype html><html><head>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>html,body{margin:0;height:100%;background:#000}iframe{border:0;width:100%;height:100%}</style>
 </head><body>
-<iframe src="https://www.youtube.com/embed/${encodeURIComponent(videoId)}?autoplay=1&playsinline=1"
+<iframe id="yt" src="https://www.youtube.com/embed/${encodeURIComponent(videoId)}?autoplay=1&playsinline=1&enablejsapi=1&origin=${encodeURIComponent(BASE_URL)}"
   allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>
+<script>
+var frame = document.getElementById('yt');
+frame.addEventListener('load', function () {
+  frame.contentWindow.postMessage(JSON.stringify({ event: 'listening', id: 'yt', channel: 'widget' }), 'https://www.youtube.com');
+});
+var now = 0;
+window.addEventListener('message', function (e) {
+  if (e.origin !== 'https://www.youtube.com') return;
+  var d;
+  try { d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data; } catch (err) { return; }
+  if (!d || d.event !== 'infoDelivery' || !d.info) return;
+  if (typeof d.info.currentTime === 'number') now = d.info.currentTime;
+  if (d.info.playerState === 0) window.ReactNativeWebView.postMessage('ended');
+});
+function seekBy(seconds) {
+  frame.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'seekTo', args: [Math.max(0, now + seconds), true] }), 'https://www.youtube.com');
+}
+</script>
 </body></html>`;
 
 /**
@@ -28,8 +48,21 @@ const playerHtml = (videoId: string) => `<!doctype html><html><head>
 export function YouTubeFloatingPlayer() {
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
-  const { videoId, title, mode, minimize, maximize, close, play } = useYouTubePlayer();
+  const { videoId, title, mode, minimize, maximize, close, play, playNext, autoplay, setAutoplay } = useYouTubePlayer();
   const related = useYouTube(title.slice(0, 80));
+  const webRef = useRef<React.ComponentRef<typeof WebView>>(null);
+  const lastSeekTap = useRef<{ seconds: number; at: number } | null>(null);
+
+  const onSeekTap = (seconds: number) => {
+    const now = Date.now();
+    const last = lastSeekTap.current;
+    if (last && last.seconds === seconds && now - last.at < 350) {
+      webRef.current?.injectJavaScript(`seekBy(${seconds}); true;`);
+      lastSeekTap.current = null;
+    } else {
+      lastSeekTap.current = { seconds, at: now };
+    }
+  };
   // Our own landscape view: YouTube's in-player fullscreen button depends on the phone's WebView and
   // auto-rotate setting and doesn't work everywhere, so this rotates the same player to fill the screen.
   const [landscape, setLandscape] = useState(false);
@@ -84,14 +117,24 @@ export function YouTubeFloatingPlayer() {
       )}
       <View style={mini ? styles.miniBox : landscape ? [styles.landBox, landscapeBox] : styles.fullBox}>
         <WebView
+          ref={webRef}
           source={{ html: playerHtml(videoId), baseUrl: BASE_URL }}
           allowsInlineMediaPlayback
           mediaPlaybackRequiresUserAction={false}
           javaScriptEnabled
           allowsFullscreenVideo
+          onMessage={(e) => {
+            if (e.nativeEvent.data === 'ended') playNext();
+          }}
           pointerEvents={mini ? 'none' : 'auto'}
           style={styles.web}
         />
+        {!mini && (
+          <>
+            <Pressable style={[styles.seekZone, styles.seekLeft]} onPress={() => onSeekTap(-10)} accessibilityLabel="Double tap to go back 10 seconds" />
+            <Pressable style={[styles.seekZone, styles.seekRight]} onPress={() => onSeekTap(10)} accessibilityLabel="Double tap to go forward 10 seconds" />
+          </>
+        )}
         {mini && (
           <>
             <Pressable style={styles.miniTap} onPress={maximize} accessibilityLabel={`Open ${title}`} />
@@ -108,7 +151,15 @@ export function YouTubeFloatingPlayer() {
       </View>
       {!mini && !landscape && (
         <ScrollView style={styles.upNext} contentContainerStyle={styles.upNextContent}>
-          <Text style={styles.note}>Playing from YouTube. Tap the corners icon for full screen.</Text>
+          <View style={styles.switchRow}>
+            <Text style={styles.toggleText}>Autoplay next</Text>
+            <Switch
+              value={autoplay}
+              onValueChange={setAutoplay}
+              trackColor={{ false: colors.surface2, true: colors.accent }}
+              thumbColor="#fff"
+            />
+          </View>
           <Text style={styles.upNextTitle}>Up next</Text>
           {related.data?.results
             .filter((r) => r.videoId !== videoId)
@@ -125,7 +176,6 @@ export function YouTubeFloatingPlayer() {
                 </View>
               </Pressable>
             ))}
-          {related.isFetching && <ActivityIndicator color={colors.accent} />}
         </ScrollView>
       )}
       <StatusBar hidden={landscape} />
@@ -133,7 +183,7 @@ export function YouTubeFloatingPlayer() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   root: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
   fullRoot: { backgroundColor: colors.bg },
   // Flex alignment (not raw top/right/bottom/left math) to place the mini box at the bottom-right: pushes it there
@@ -157,9 +207,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   web: { flex: 1, backgroundColor: '#000' },
-  note: { color: colors.muted, fontSize: 13, paddingTop: 12 },
   upNext: { flex: 1 },
   upNextContent: { paddingHorizontal: 16, paddingBottom: 24, gap: 12 },
+  seekZone: { position: 'absolute', top: 0, width: '40%', height: '70%' },
+  seekLeft: { left: 0 },
+  seekRight: { right: 0 },
+  switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 4 },
+  toggleText: { color: colors.text, fontSize: 15, fontWeight: '600' },
   upNextTitle: { color: colors.text, fontSize: 16, fontWeight: '700', marginTop: 4 },
   upNextRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   upNextThumb: { width: 120, height: 68, borderRadius: 8, backgroundColor: colors.surface2 },
@@ -191,4 +245,4 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-});
+}));

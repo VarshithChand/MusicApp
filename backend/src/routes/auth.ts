@@ -12,12 +12,13 @@ const registerSchema = z.object({
   name: z.string().min(1).max(100),
   email: z.string().email(),
   password: z.string().min(8).max(200),
+  gender: z.enum(["male", "female"]),
 });
 
 authRouter.post("/register", async (req, res) => {
   const parsed = registerSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
-  const { name, password } = parsed.data;
+  const { name, password, gender } = parsed.data;
   const email = parsed.data.email.toLowerCase();
 
   const existing = await query("SELECT id FROM users WHERE email = $1", [email]);
@@ -25,8 +26,8 @@ authRouter.post("/register", async (req, res) => {
 
   const hash = await bcrypt.hash(password, 10);
   const [user] = await query(
-    "INSERT INTO users (name, email, password_hash) VALUES ($1, $2, $3) RETURNING id, name, email, is_admin",
-    [name, email, hash],
+    "INSERT INTO users (name, email, password_hash, gender) VALUES ($1, $2, $3, $4) RETURNING id, name, email, is_admin, gender",
+    [name, email, hash, gender],
   );
   res.status(201).json({ user, ...signTokens(user.id, user.is_admin) });
 });
@@ -39,7 +40,7 @@ authRouter.post("/login", async (req, res) => {
   const ok = row && (await bcrypt.compare(parsed.data.password, row.password_hash));
   if (!ok) return res.status(401).json({ error: "Invalid email or password" });
 
-  const user = { id: row.id, name: row.name, email: row.email, is_admin: row.is_admin };
+  const user = { id: row.id, name: row.name, email: row.email, is_admin: row.is_admin, gender: row.gender ?? null };
   res.json({ user, ...signTokens(row.id, row.is_admin) });
 });
 
@@ -58,11 +59,18 @@ authRouter.post("/refresh", async (req, res) => {
 
 authRouter.get("/me", requireAuth, async (req: AuthedRequest, res) => {
   const [user] = await query(
-    "SELECT id, name, email, profile_image, is_admin, created_at FROM users WHERE id = $1",
+    "SELECT id, name, email, profile_image, is_admin, gender, created_at FROM users WHERE id = $1",
     [req.userId],
   );
   if (!user) return res.status(404).json({ error: "User not found" });
   res.json(user);
+});
+
+authRouter.put("/me/gender", requireAuth, async (req: AuthedRequest, res) => {
+  const parsed = z.object({ gender: z.enum(["male", "female"]) }).safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "Choose male or female." });
+  const [user] = await query("UPDATE users SET gender = $1 WHERE id = $2 RETURNING gender", [parsed.data.gender, req.userId]);
+  res.json({ gender: user.gender });
 });
 
 // --- Continue with Google ------------------------------------------------------
@@ -110,6 +118,6 @@ authRouter.post("/google", async (req, res) => {
     );
   }
 
-  const user = { id: row.id, name: row.name, email: row.email, is_admin: row.is_admin };
+  const user = { id: row.id, name: row.name, email: row.email, is_admin: row.is_admin, gender: row.gender ?? null };
   res.json({ user, ...signTokens(row.id, row.is_admin) });
 });

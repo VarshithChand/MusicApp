@@ -8,6 +8,9 @@ CREATE TABLE IF NOT EXISTS users (
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMPTZ;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS gender TEXT CHECK (gender IN ('male', 'female'));
+
 CREATE TABLE IF NOT EXISTS artists (
   id         SERIAL PRIMARY KEY,
   name       TEXT NOT NULL,

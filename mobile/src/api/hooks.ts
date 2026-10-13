@@ -27,6 +27,14 @@ export const useAlbums = () => useQuery({ queryKey: ['albums'], queryFn: () => a
 
 export const usePlaylists = () => useQuery({ queryKey: ['playlists'], queryFn: () => api<Playlist[]>('/playlists') });
 
+/** Account counts for the admin page: everyone who can log in, and how many were active recently. */
+export const useAdminUserStats = () =>
+  useQuery({
+    queryKey: ['admin-user-stats'],
+    queryFn: () => api<{ total: number; active: number; inactive: number; windowDays: number }>('/admin/user-stats'),
+    staleTime: 60_000,
+  });
+
 export const useLikedSongs = () =>
   useQuery({ queryKey: ['liked'], queryFn: () => api<Song[]>('/users/me/liked-songs') });
 
@@ -136,10 +144,10 @@ export function useImportSong() {
 }
 
 /** Searches YouTube's Music category (empty until the server has a YouTube key). */
-export function useYouTube(q: string) {
+export function useYouTube(q: string, order: 'relevance' | 'viewCount' | 'date' = 'relevance') {
   return useQuery({
-    queryKey: ['youtube', q],
-    queryFn: () => api<YouTubeResponse>(`/discover/youtube?q=${encodeURIComponent(q)}`),
+    queryKey: ['youtube', q, order],
+    queryFn: () => api<YouTubeResponse>(`/discover/youtube?q=${encodeURIComponent(q)}&order=${order}`),
     enabled: q.trim().length > 1,
     staleTime: 10 * 60_000,
   });

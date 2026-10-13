@@ -154,12 +154,26 @@ const ytCache = new Map<string, { at: number; results: unknown[] }>();
 const decode = (s: string) =>
   s.replace(/&amp;/g, "&").replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">");
 
+// Looks up video lengths for a batch of IDs (one quota unit per call, however many IDs).
+async function fetchDurations(ids: string[], key: string) {
+  const durations = new Map<string, number | null>();
+  if (!ids.length) return durations;
+  const url = new URL("https://www.googleapis.com/youtube/v3/videos");
+  url.search = new URLSearchParams({ part: "contentDetails", id: ids.join(","), key }).toString();
+  const body = (await fetch(url).then((r) => (r.ok ? r.json() : null)).catch(() => null)) as
+    | { items?: { id: string; contentDetails: { duration: string } }[] }
+    | null;
+  for (const d of body?.items ?? []) durations.set(d.id, isoDurationToSeconds(d.contentDetails.duration));
+  return durations;
+}
+
 discoverRouter.get("/youtube", async (req, res) => {
   if (!YT_KEY) return res.json({ configured: false, results: [] });
   const q = String(req.query.q ?? "").trim();
   if (q.length < 2) return res.json({ configured: true, results: [] });
 
-  const cacheKey = q.toLowerCase();
+  const order = ["relevance", "viewCount", "date"].includes(String(req.query.order)) ? String(req.query.order) : "relevance";
+  const cacheKey = `${order}:${q.toLowerCase()}`;
   const hit = ytCache.get(cacheKey);
   if (hit && Date.now() - hit.at < 10 * 60_000) return res.json({ configured: true, results: hit.results });
 
@@ -171,9 +185,11 @@ discoverRouter.get("/youtube", async (req, res) => {
     videoEmbeddable: "true",
     videoSyndicated: "true", // plays outside youtube.com
     maxResults: "8",
+    order,
     q,
     key: YT_KEY,
   }).toString();
+  if (order === "date") url.searchParams.set("publishedAfter", new Date(Date.now() - 30 * 86400_000).toISOString());
 
   const response = await fetch(url);
   const body = (await response.json().catch(() => null)) as
@@ -184,11 +200,13 @@ discoverRouter.get("/youtube", async (req, res) => {
     return res.status(502).json({ error: "YouTube search is unavailable right now." });
   }
 
+  const durations = await fetchDurations(body.items.map((i) => i.id.videoId), YT_KEY);
   const results = body.items.map((i) => ({
     videoId: i.id.videoId,
     title: decode(i.snippet.title),
     channel: decode(i.snippet.channelTitle),
     thumbnail: i.snippet.thumbnails?.medium?.url ?? null,
+    durationSeconds: durations.get(i.id.videoId) ?? null,
   }));
   if (ytCache.size > 200) ytCache.clear();
   ytCache.set(cacheKey, { at: Date.now(), results });
@@ -299,7 +317,7 @@ const TRENDING_LANGUAGES: Record<string, { query: string; trending: string; popu
 
 // Each search costs 100 of the free 10,000 daily units, so these cache times keep the Home rows fresh without running out.
 const TREND_TTL = { trending: 3 * 60 * 60_000, popular: 12 * 60 * 60_000 } as const;
-const TREND_WINDOW_DAYS = { trending: 30, popular: 365 } as const;
+const TREND_WINDOW_DAYS = { trending: 30, popular: 30 } as const;
 const MIN_FRESH_MS = 10 * 60_000;
 const trendCache = new Map<string, { at: number; results: unknown[] }>();
 
@@ -350,11 +368,13 @@ discoverRouter.get("/trending", async (req, res) => {
     return res.status(502).json({ error: "YouTube is unavailable right now." });
   }
 
+  const durations = await fetchDurations(body.items.map((i) => i.id.videoId), YT_KEY);
   const results = body.items.map((i) => ({
     videoId: i.id.videoId,
     title: decode(i.snippet.title),
     channel: decode(i.snippet.channelTitle),
     thumbnail: i.snippet.thumbnails?.medium?.url ?? null,
+    durationSeconds: durations.get(i.id.videoId) ?? null,
   }));
   trendCache.set(key, { at: Date.now(), results });
   res.json({ configured: true, results });

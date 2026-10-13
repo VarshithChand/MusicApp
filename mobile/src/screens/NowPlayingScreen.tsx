@@ -1,6 +1,7 @@
 import { useNavigation } from '@react-navigation/native';
 import React, { useState } from 'react';
-import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Linking, Pressable, StyleSheet, View } from 'react-native';
+import { AppText as Text } from '../components/AppText';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import TrackPlayer, {
   RepeatMode,
@@ -15,7 +16,7 @@ import { Cover } from '../components/Cover';
 import { Icon, IconName } from '../components/Icon';
 import { ProgressBar } from '../components/ProgressBar';
 import { shuffleUpNext } from '../player/controls';
-import { colors } from '../theme/theme';
+import { colors, themedStyles } from '../theme/theme';
 
 const fmt = (sec: number) => {
   const s = Math.max(0, Math.floor(sec));
@@ -169,7 +170,7 @@ export function NowPlayingScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   flex: { flex: 1, backgroundColor: colors.bg, paddingHorizontal: 24 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   headerText: { alignItems: 'center', flex: 1 },
@@ -190,4 +191,4 @@ const styles = StyleSheet.create({
   skipBtn: { minHeight: 44, paddingHorizontal: 20, borderRadius: 22, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
   skipText: { color: colors.text, fontSize: 15, fontWeight: '600' },
   volume: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 'auto' },
-});
+}));

@@ -156,7 +156,7 @@ export function HomeScreen() {
       {!!popularTelugu.data?.results.length && (
         <VideoRow
           title="Popular Telugu songs"
-          note="The most watched Telugu music videos of all time. Plays in YouTube's own player."
+          note="The most watched Telugu music videos of the last 30 days. Plays in YouTube's own player."
           label="Popular Telugu songs"
           videos={popularTelugu.data.results}
         />

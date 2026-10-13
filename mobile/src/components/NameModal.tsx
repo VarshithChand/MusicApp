@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { colors } from '../theme/theme';
+import { Modal, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { AppText as Text } from './AppText';
+import { colors, themedStyles } from '../theme/theme';
 
 interface Props {
   visible: boolean;
@@ -52,7 +53,7 @@ export function NameModal({ visible, title, initial = '', confirmLabel, onConfir
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 24 },
   card: { backgroundColor: colors.surface, borderRadius: 20, padding: 20, gap: 16 },
   title: { color: colors.text, fontSize: 18, fontWeight: '700' },
@@ -72,4 +73,4 @@ const styles = StyleSheet.create({
   confirm: { height: 44, paddingHorizontal: 20, borderRadius: 22, backgroundColor: colors.accent, justifyContent: 'center' },
   confirmText: { color: colors.onAccent, fontSize: 15, fontWeight: '600' },
   disabled: { opacity: 0.4 },
-});
+}));

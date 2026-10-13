@@ -1,7 +1,8 @@
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useQuery } from '@tanstack/react-query';
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, View } from 'react-native';
+import { AppText as Text } from '../components/AppText';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api } from '../api';
 import { usePlaylistMutations } from '../api/hooks';
@@ -10,7 +11,7 @@ import { Icon } from '../components/Icon';
 import { NameModal } from '../components/NameModal';
 import { SongRow } from '../components/SongRow';
 import { playQueue } from '../player/controls';
-import { colors } from '../theme/theme';
+import { colors, themedStyles } from '../theme/theme';
 
 export interface SongListParams {
   title: string;
@@ -128,7 +129,7 @@ export function SongListScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   flex: { flex: 1, backgroundColor: colors.bg },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12 },
   spacer: { flex: 1 },
@@ -150,4 +151,4 @@ const styles = StyleSheet.create({
   },
   playAllText: { color: colors.onAccent, fontSize: 15, fontWeight: '600' },
   disabled: { opacity: 0.4 },
-});
+}));
