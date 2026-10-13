@@ -297,15 +297,15 @@ const TRENDING_LANGUAGES: Record<string, { query: string; trending: string; popu
   ml: { query: "Malayalam", trending: "new Malayalam songs", popular: "Malayalam hit songs" },
 };
 
-// Trending changes through the day; "popular" barely changes. Long cache times keep us far below the free daily quota
-// (each search costs 100 of 10,000 units).
-const TREND_TTL = { trending: 6 * 60 * 60_000, popular: 24 * 60 * 60_000 } as const;
+// Each search costs 100 of the free 10,000 daily units, so these cache times keep the Home rows fresh without running out.
+const TREND_TTL = { trending: 3 * 60 * 60_000, popular: 12 * 60 * 60_000 } as const;
+const TREND_WINDOW_DAYS = { trending: 30, popular: 365 } as const;
 const trendCache = new Map<string, { at: number; results: unknown[] }>();
 
 /**
  * GET /discover/trending?lang=te&kind=trending|popular
  *  trending = Telugu music videos from the last 30 days, most viewed first
- *  popular  = most viewed Telugu music videos of all time
+ *  popular  = most viewed Telugu music videos from the last year
  */
 discoverRouter.get("/trending", async (req, res) => {
   if (!YT_KEY) return res.json({ configured: false, results: [] });
@@ -331,7 +331,7 @@ discoverRouter.get("/trending", async (req, res) => {
     q: cfg[kind],
     key: YT_KEY,
   };
-  if (kind === "trending") params.publishedAfter = new Date(Date.now() - 30 * 24 * 60 * 60_000).toISOString();
+  params.publishedAfter = new Date(Date.now() - TREND_WINDOW_DAYS[kind] * 24 * 60 * 60_000).toISOString();
 
   const url = new URL("https://www.googleapis.com/youtube/v3/search");
   url.search = new URLSearchParams(params).toString();
