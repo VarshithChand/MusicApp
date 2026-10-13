@@ -174,8 +174,19 @@ function saveResults(key: string, results: unknown[]) {
 // way to tell a spent quota from a bad key was to read the server log.
 
 type YtError = { message?: string; errors?: { reason?: string }[] };
-/** Reasons that mean the day's 10,000 units are gone; they only clear at the daily reset. */
+/** Reasons that always mean the day's 10,000 units are gone; they only clear at the daily reset. */
 const DAILY_LIMIT_REASONS = new Set(["quotaExceeded", "dailyLimitExceeded"]);
+
+/**
+ * Has the daily allowance run out? Searches are the expensive part of the quota, and when they
+ * run out YouTube says so in two different ways: 403 "quotaExceeded", or 429 "rateLimitExceeded"
+ * whose message names a per-day limit. The second looks like ordinary short-term throttling,
+ * so the message is what tells them apart — only the daily kind is worth waiting out.
+ */
+function isDailyLimit(reason: string | null, message: string | null): boolean {
+  if (reason && DAILY_LIMIT_REASONS.has(reason)) return true;
+  return !!message && /per day/i.test(message);
+}
 const QUOTA_MESSAGE = "This app has used up its daily YouTube allowance. Videos come back after the limit resets (midnight Pacific time).";
 
 let lastFailure: { at: string; scope: string; status: number; reason: string | null; message: string | null } | null = null;
@@ -195,18 +206,19 @@ function nextQuotaReset(now: number): number {
   return now - intoDayMs + 24 * 60 * 60_000;
 }
 
-/** Records a failed YouTube call and returns its reason code, if YouTube gave one. */
-function noteFailure(scope: string, status: number, error: YtError | undefined): string | null {
+/** Records a failed YouTube call, starts waiting out a spent daily allowance, and reports what happened. */
+function noteFailure(scope: string, status: number, error: YtError | undefined): { reason: string | null; daily: boolean } {
   const reason = error?.errors?.find((e) => e.reason)?.reason ?? null;
-  lastFailure = { at: new Date().toISOString(), scope, status, reason, message: error?.message ?? null };
-  console.error(`youtube ${scope} failed:`, status, reason ?? "(no reason)", error?.message ?? "");
-  if (reason && DAILY_LIMIT_REASONS.has(reason)) quotaSpentUntil = nextQuotaReset(Date.now());
-  return reason;
+  const message = error?.message ?? null;
+  lastFailure = { at: new Date().toISOString(), scope, status, reason, message };
+  console.error(`youtube ${scope} failed:`, status, reason ?? "(no reason)", message ?? "");
+  const daily = isDailyLimit(reason, message);
+  if (daily) quotaSpentUntil = nextQuotaReset(Date.now());
+  return { reason, daily };
 }
 
 const quotaSpent = () => Date.now() < quotaSpentUntil;
-const failureMessage = (reason: string | null, fallback: string) =>
-  reason && DAILY_LIMIT_REASONS.has(reason) ? QUOTA_MESSAGE : fallback;
+const failureMessage = (daily: boolean, fallback: string) => (daily ? QUOTA_MESSAGE : fallback);
 
 /** For /health: the last YouTube refusal and whether we're waiting out the quota. Never includes the key. */
 export function youtubeStatus() {
@@ -267,9 +279,9 @@ discoverRouter.get("/youtube", async (req, res) => {
     | { items?: { id: { videoId: string }; snippet: { title: string; channelTitle: string; thumbnails?: { medium?: { url: string } } } }[]; error?: YtError }
     | null;
   if (!response.ok || !body?.items) {
-    const reason = noteFailure("search", response.status, body?.error);
+    const { reason, daily } = noteFailure("search", response.status, body?.error);
     if (hit) return res.json({ configured: true, results: hit.results, stale: true });
-    return res.status(502).json({ error: failureMessage(reason, "YouTube search is unavailable right now."), reason });
+    return res.status(502).json({ error: failureMessage(daily, "YouTube search is unavailable right now."), reason });
   }
 
   const durations = await fetchDurations(body.items.map((i) => i.id.videoId), YT_KEY);
@@ -322,8 +334,8 @@ discoverRouter.get("/youtube-video", async (req, res) => {
       }
     | null;
   if (!response.ok) {
-    const reason = noteFailure("video lookup", response.status, body?.error);
-    return res.status(502).json({ error: failureMessage(reason, "YouTube lookup is unavailable right now."), reason });
+    const { reason, daily } = noteFailure("video lookup", response.status, body?.error);
+    return res.status(502).json({ error: failureMessage(daily, "YouTube lookup is unavailable right now."), reason });
   }
   const item = body?.items?.[0];
   if (!item) return res.status(404).json({ error: "That video wasn't found. It may have been removed." });
@@ -441,10 +453,10 @@ discoverRouter.get("/trending", async (req, res) => {
     | { items?: { id: { videoId: string }; snippet: { title: string; channelTitle: string; thumbnails?: { medium?: { url: string } } } }[]; error?: YtError }
     | null;
   if (!response.ok || !body?.items) {
-    const reason = noteFailure("trending", response.status, body?.error);
+    const { reason, daily } = noteFailure("trending", response.status, body?.error);
     // Serve an older cached list rather than an error when YouTube (or the daily quota) is unavailable.
     if (hit) return res.json({ configured: true, results: hit.results, stale: true });
-    return res.status(502).json({ error: failureMessage(reason, "YouTube is unavailable right now."), reason });
+    return res.status(502).json({ error: failureMessage(daily, "YouTube is unavailable right now."), reason });
   }
 
   const durations = await fetchDurations(body.items.map((i) => i.id.videoId), YT_KEY);
