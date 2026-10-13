@@ -5,6 +5,7 @@ import { AppText as Text } from '../components/AppText';
 import { LoadingBars } from '../components/LoadingBars';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useToggleYouTubeFavorite, useTrending, useYouTube, useYouTubeFavorites, useYouTubeVideo } from '../api/hooks';
+import { videoErrorText } from '../api/http';
 import { YouTubeResult } from '../api/types';
 import { Icon } from '../components/Icon';
 import { GENRES } from '../data/genres';
@@ -112,11 +113,11 @@ export function YouTubeScreen() {
 
   const videoRows = (
     list: YouTubeResult[] | undefined,
-    status: { fetching: boolean; error: boolean; configured: boolean | undefined },
+    status: { fetching: boolean; error: unknown; configured: boolean | undefined },
   ) => (
     <>
       {status.fetching && <LoadingBars />}
-      {status.error && <Text style={styles.error}>Couldn't load videos. Try again in a moment.</Text>}
+      {!!status.error && <Text style={styles.error}>{videoErrorText(status.error)}</Text>}
       {status.configured === false && <Text style={styles.error}>Video search isn't set up on the server yet.</Text>}
       {list?.length === 0 && <Text style={styles.muted}>Nothing found.</Text>}
       {list?.map((r, i) => (
@@ -338,18 +339,18 @@ export function YouTubeScreen() {
           <Text style={styles.sectionTitle}>Top hits for "{resultsLabel}"</Text>
           {videoRows(topHits.data?.results, {
             fetching: topHits.isFetching,
-            error: topHits.isError,
+            error: topHits.error,
             configured: topHits.data?.configured,
           })}
           <Text style={styles.sectionTitle}>Latest for "{resultsLabel}"</Text>
-          {videoRows(latest.data?.results, { fetching: latest.isFetching, error: latest.isError, configured: latest.data?.configured })}
+          {videoRows(latest.data?.results, { fetching: latest.isFetching, error: latest.error, configured: latest.data?.configured })}
         </>
       ) : (
         <>
           <Text style={styles.sectionTitle}>Popular Telugu hits</Text>
-          {videoRows(popularTe.data?.results, { fetching: popularTe.isFetching, error: popularTe.isError, configured: popularTe.data?.configured })}
+          {videoRows(popularTe.data?.results, { fetching: popularTe.isFetching, error: popularTe.error, configured: popularTe.data?.configured })}
           <Text style={styles.sectionTitle}>Latest Telugu songs</Text>
-          {videoRows(latestTe.data?.results, { fetching: latestTe.isFetching, error: latestTe.isError, configured: latestTe.data?.configured })}
+          {videoRows(latestTe.data?.results, { fetching: latestTe.isFetching, error: latestTe.error, configured: latestTe.data?.configured })}
         </>
       )}
       </>

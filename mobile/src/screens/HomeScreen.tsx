@@ -7,6 +7,7 @@ import { LoadingBars } from '../components/LoadingBars';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api } from '../api';
 import { useArtists, useLikedSongs, useRecentlyPlayed, useSongs, useTrending, useYouTube, useYouTubeFavorites } from '../api/hooks';
+import { videoErrorText } from '../api/http';
 import { GENRES } from '../data/genres';
 import { Cover } from '../components/Cover';
 import { Icon } from '../components/Icon';
@@ -123,7 +124,7 @@ export function HomeScreen() {
       {genre ? (
         <>
           {genreVideos.isFetching && <LoadingBars />}
-          {genreVideos.isError && <Text style={styles.error}>Couldn't load {genreLabel.toLowerCase()} songs. Try again in a moment.</Text>}
+          {genreVideos.isError && <Text style={styles.error}>{videoErrorText(genreVideos.error)}</Text>}
           {genreVideos.data && !genreVideos.data.configured && <Text style={styles.error}>Video search isn't set up on the server yet.</Text>}
           {genreVideos.data?.configured && !genreVideos.data.results.length && (
             <Text style={styles.muted}>No {genreLabel.toLowerCase()} songs found right now.</Text>

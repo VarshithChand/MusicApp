@@ -7,7 +7,7 @@ import { adminRouter } from "./routes/admin";
 import { appRouter } from "./routes/app";
 import { authRouter } from "./routes/auth";
 import { albumsRouter, artistsRouter, genresRouter, moodsRouter, moviesRouter, songsRouter } from "./routes/catalog";
-import { discoverRouter } from "./routes/discover";
+import { discoverRouter, youtubeStatus } from "./routes/discover";
 import { playlistsRouter, usersRouter } from "./routes/playlists";
 import { failInterruptedJobs, uploadsRouter } from "./routes/uploads";
 import { storageStatus } from "./storage";
@@ -29,6 +29,8 @@ app.get("/health", (_req, res) =>
       youtube: !!process.env.YOUTUBE_API_KEY,
       jamendo: !!process.env.JAMENDO_CLIENT_ID,
     },
+    // Why YouTube last turned us away (a spent daily quota looks the same as a bad key from the app).
+    youtube: youtubeStatus(),
   }),
 );
 

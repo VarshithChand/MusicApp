@@ -1,9 +1,19 @@
 import { API_URL } from '../config';
 
 export class ApiError extends Error {
-  constructor(public status: number, message: string) {
+  /** `reason` is the server's machine-readable code, where it sends one (e.g. YouTube's "quotaExceeded"). */
+  constructor(public status: number, message: string, public reason: string | null = null) {
     super(message);
   }
+}
+
+/**
+ * What to tell the viewer when a video list fails. The server explains the cases it knows about
+ * (mainly the daily YouTube allowance), and retrying those doesn't help, so don't invite it.
+ */
+export function videoErrorText(error: unknown): string {
+  if (error instanceof ApiError && error.status === 502 && error.message) return error.message;
+  return "Couldn't load videos. Try again in a moment.";
 }
 
 interface RequestOptions {
@@ -24,7 +34,11 @@ export async function request<T>(path: string, opts: RequestOptions = {}): Promi
   if (res.status === 204) return undefined as T;
   const data = await res.json().catch(() => null);
   if (!res.ok) {
-    throw new ApiError(res.status, typeof data?.error === 'string' ? data.error : 'Something went wrong');
+    throw new ApiError(
+      res.status,
+      typeof data?.error === 'string' ? data.error : 'Something went wrong',
+      typeof data?.reason === 'string' ? data.reason : null,
+    );
   }
   return data as T;
 }
