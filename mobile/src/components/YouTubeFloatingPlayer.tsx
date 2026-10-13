@@ -1,13 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { BackHandler, Image, PanResponder, Pressable, ScrollView, StatusBar, StyleSheet, Switch, useWindowDimensions, View } from 'react-native';
+import { BackHandler, Image, Pressable, ScrollView, StatusBar, StyleSheet, Switch, useWindowDimensions, View } from 'react-native';
 import { AppText as Text } from './AppText';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import { useTrending } from '../api/hooks';
-import { setScreenBrightness } from '../native/brightness';
 import { useYouTubePlayer } from '../store/youtubePlayer';
 import { colors, themedStyles } from '../theme/theme';
 import { Icon } from './Icon';
+import { useVideoGestures } from './useVideoGestures';
 
 // YouTube refuses embeds that arrive without a referrer, so the player page is loaded with our website as its base URL.
 const BASE_URL = 'https://music.deploymentportal.in';
@@ -25,16 +25,21 @@ frame.addEventListener('load', function () {
   frame.contentWindow.postMessage(JSON.stringify({ event: 'listening', id: 'yt', channel: 'widget' }), 'https://www.youtube.com');
 });
 var now = 0;
+var state = -1;
 window.addEventListener('message', function (e) {
   if (e.origin !== 'https://www.youtube.com') return;
   var d;
   try { d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data; } catch (err) { return; }
   if (!d || d.event !== 'infoDelivery' || !d.info) return;
   if (typeof d.info.currentTime === 'number') now = d.info.currentTime;
+  if (typeof d.info.playerState === 'number') state = d.info.playerState;
   if (d.info.playerState === 0) window.ReactNativeWebView.postMessage('ended');
 });
 function setVol(v) {
   frame.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'setVolume', args: [v] }), 'https://www.youtube.com');
+}
+function togglePlay() {
+  frame.contentWindow.postMessage(JSON.stringify({ event: 'command', func: state === 1 ? 'pauseVideo' : 'playVideo', args: [] }), 'https://www.youtube.com');
 }
 function seekBy(seconds) {
   frame.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'seekTo', args: [Math.max(0, now + seconds), true] }), 'https://www.youtube.com');
@@ -49,27 +54,12 @@ function seekBy(seconds) {
  * MiniPlayer. The <WebView> stays the same element across both modes (only the surrounding box's size/position
  * changes), so shrinking or expanding never reloads the video.
  */
-const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
-const clampRange = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
-
 export function YouTubeFloatingPlayer() {
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
   const { videoId, title, mode, minimize, maximize, close, play, playNext, autoplay, setAutoplay } = useYouTubePlayer();
   const related = useTrending('popular');
   const webRef = useRef<React.ComponentRef<typeof WebView>>(null);
-  const lastSeekTap = useRef<{ seconds: number; at: number } | null>(null);
-
-  const onSeekTap = (seconds: number) => {
-    const now = Date.now();
-    const last = lastSeekTap.current;
-    if (last && last.seconds === seconds && now - last.at < 350) {
-      webRef.current?.injectJavaScript(`seekBy(${seconds}); true;`);
-      lastSeekTap.current = null;
-    } else {
-      lastSeekTap.current = { seconds, at: now };
-    }
-  };
   // Our own landscape view: YouTube's in-player fullscreen button depends on the phone's WebView and
   // auto-rotate setting and doesn't work everywhere, so this rotates the same player to fill the screen.
   const [landscape, setLandscape] = useState(false);
@@ -89,62 +79,14 @@ export function YouTubeFloatingPlayer() {
     return () => sub.remove();
   }, [videoId, mini, landscape, minimize]);
 
-  const [hud, setHud] = useState<string | null>(null);
-  const hudTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const zoneSize = useRef({ w: 1, h: 1 });
-  const volumeLevel = useRef(100);
-  const brightnessLevel = useRef(0.5);
-  const drag = useRef<{ zone: 'left' | 'center' | 'right'; startVol: number; startBright: number; seek: number } | null>(null);
-
-  const showHud = (text: string) => {
-    setHud(text);
-    if (hudTimer.current) clearTimeout(hudTimer.current);
-    hudTimer.current = setTimeout(() => setHud(null), 700);
-  };
-
-  // Left third: brightness. Right third: volume. Middle: drag sideways to seek. A tap on a side skips 10 seconds.
-  const gestures = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onPanResponderGrant: (e) => {
-        const x = e.nativeEvent.locationX;
-        const w = zoneSize.current.w;
-        const zone = x < w * 0.35 ? 'left' : x > w * 0.65 ? 'right' : 'center';
-        drag.current = { zone, startVol: volumeLevel.current, startBright: brightnessLevel.current, seek: 0 };
-      },
-      onPanResponderMove: (_e, g) => {
-        const d = drag.current;
-        if (!d) return;
-        const h = zoneSize.current.h;
-        if (d.zone === 'left') {
-          brightnessLevel.current = clamp01(d.startBright - g.dy / h);
-          setScreenBrightness(brightnessLevel.current);
-          showHud(`Brightness ${Math.round(brightnessLevel.current * 100)}%`);
-        } else if (d.zone === 'right') {
-          volumeLevel.current = clampRange(d.startVol - (g.dy / h) * 100, 0, 100);
-          webRef.current?.injectJavaScript(`setVol(${Math.round(volumeLevel.current)}); true;`);
-          showHud(`Volume ${Math.round(volumeLevel.current)}%`);
-        } else {
-          d.seek = Math.round(g.dx * 0.25);
-          showHud(`${d.seek >= 0 ? '+' : ''}${d.seek}s`);
-        }
-      },
-      onPanResponderRelease: (_e, g) => {
-        const d = drag.current;
-        drag.current = null;
-        if (!d) return;
-        const moved = Math.abs(g.dx) > 8 || Math.abs(g.dy) > 8;
-        if (!moved) {
-          if (d.zone !== 'center') onSeekTap(d.zone === 'left' ? -10 : 10);
-          return;
-        }
-        if (d.zone === 'center' && d.seek) webRef.current?.injectJavaScript(`seekBy(${d.seek}); true;`);
-      },
-      onPanResponderTerminate: () => {
-        drag.current = null;
-      },
-    }),
-  ).current;
+  const inject = (js: string) => webRef.current?.injectJavaScript(`${js}; true;`);
+  const gestures = useVideoGestures({
+    rotated: landscape && height > width,
+    onSeek: (delta) => inject(`seekBy(${delta})`),
+    onTogglePlay: () => inject('togglePlay()'),
+    onVolume: (level) => inject(`setVol(${Math.round(level * 100)})`),
+  });
+  const hud = gestures.hud;
 
   if (!videoId) return null;
 
@@ -197,9 +139,7 @@ export function YouTubeFloatingPlayer() {
           <>
             <View
               style={styles.gestureZone}
-              onLayout={(e) => {
-                zoneSize.current = { w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height };
-              }}
+              onLayout={gestures.onLayout}
               {...gestures.panHandlers}
             />
             {hud && (
@@ -284,8 +224,8 @@ const styles = themedStyles(() => ({
   upNext: { flex: 1 },
   upNextContent: { paddingHorizontal: 16, paddingBottom: 24, gap: 12 },
   gestureZone: { position: 'absolute', top: 0, left: 0, right: 0, height: '75%' },
-  hud: { position: 'absolute', top: '35%', alignSelf: 'center', backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12 },
-  hudText: { color: '#fff', fontSize: 18, fontWeight: '700' },
+  hud: { position: 'absolute', top: '35%', alignSelf: 'center', backgroundColor: 'rgba(0,0,0,0.7)', paddingHorizontal: 22, paddingVertical: 12, borderRadius: 16, zIndex: 10, elevation: 10 },
+  hudText: { color: '#fff', fontSize: 22, fontWeight: '700' },
   switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 4 },
   toggleText: { color: colors.text, fontSize: 15, fontWeight: '600' },
   upNextTitle: { color: colors.text, fontSize: 16, fontWeight: '700', marginTop: 4 },

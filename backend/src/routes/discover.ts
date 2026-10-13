@@ -148,8 +148,26 @@ discoverRouter.post("/import", async (req, res) => {
 // --- YouTube (official embedded player only: we search, the app plays the video in YouTube's own player) ---
 
 const YT_KEY = process.env.YOUTUBE_API_KEY;
-// A search costs 100 of the 10,000 free daily quota units, so repeat searches are served from memory for 10 minutes.
+// A search costs 100 of the 10,000 free daily quota units, so results are reused for 6 hours.
+const SEARCH_TTL_MS = 6 * 60 * 60_000;
 const ytCache = new Map<string, { at: number; results: unknown[] }>();
+
+// Results are also kept in the database, so a restart or deploy doesn't force new searches,
+// and when YouTube fails (usually the daily quota) the last good list is served instead of an error.
+async function loadSaved(key: string): Promise<{ at: number; results: unknown[] } | null> {
+  try {
+    const [row] = await query<{ results: unknown[]; at: Date }>("SELECT results, at FROM youtube_cache WHERE key = $1", [key]);
+    return row ? { at: new Date(row.at).getTime(), results: row.results } : null;
+  } catch {
+    return null;
+  }
+}
+function saveResults(key: string, results: unknown[]) {
+  query(
+    "INSERT INTO youtube_cache (key, results, at) VALUES ($1, $2, now()) ON CONFLICT (key) DO UPDATE SET results = EXCLUDED.results, at = now()",
+    [key, JSON.stringify(results)],
+  ).catch(() => {});
+}
 
 const decode = (s: string) =>
   s.replace(/&amp;/g, "&").replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">");
@@ -174,8 +192,8 @@ discoverRouter.get("/youtube", async (req, res) => {
 
   const order = ["relevance", "viewCount", "date"].includes(String(req.query.order)) ? String(req.query.order) : "relevance";
   const cacheKey = `${order}:${q.toLowerCase()}`;
-  const hit = ytCache.get(cacheKey);
-  if (hit && Date.now() - hit.at < 10 * 60_000) return res.json({ configured: true, results: hit.results });
+  const hit = ytCache.get(cacheKey) ?? (await loadSaved(`search:${cacheKey}`));
+  if (hit && Date.now() - hit.at < SEARCH_TTL_MS) return res.json({ configured: true, results: hit.results });
 
   const url = new URL("https://www.googleapis.com/youtube/v3/search");
   url.search = new URLSearchParams({
@@ -197,6 +215,7 @@ discoverRouter.get("/youtube", async (req, res) => {
     | null;
   if (!response.ok || !body?.items) {
     console.error("youtube search failed:", response.status, body?.error?.message);
+    if (hit) return res.json({ configured: true, results: hit.results, stale: true });
     return res.status(502).json({ error: "YouTube search is unavailable right now." });
   }
 
@@ -210,6 +229,7 @@ discoverRouter.get("/youtube", async (req, res) => {
   }));
   if (ytCache.size > 200) ytCache.clear();
   ytCache.set(cacheKey, { at: Date.now(), results });
+  saveResults(`search:${cacheKey}`, results);
   res.json({ configured: true, results });
 });
 
@@ -334,7 +354,7 @@ discoverRouter.get("/trending", async (req, res) => {
   if (!cfg) return res.status(400).json({ error: "Unsupported language" });
 
   const key = `${lang}:${kind}`;
-  const hit = trendCache.get(key);
+  const hit = trendCache.get(key) ?? (await loadSaved(`trend:${key}`));
   const age = hit ? Date.now() - hit.at : Infinity;
   // A pull-to-refresh skips the cache, but not if it was refreshed in the last few minutes (protects the daily quota).
   const wantFresh = req.query.fresh === "1" && age >= MIN_FRESH_MS;
@@ -377,5 +397,6 @@ discoverRouter.get("/trending", async (req, res) => {
     durationSeconds: durations.get(i.id.videoId) ?? null,
   }));
   trendCache.set(key, { at: Date.now(), results });
+  saveResults(`trend:${key}`, results);
   res.json({ configured: true, results });
 });

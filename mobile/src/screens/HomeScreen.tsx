@@ -1,7 +1,7 @@
 import { useNavigation } from '@react-navigation/native';
 import { useQueryClient } from '@tanstack/react-query';
 import React, { useState } from 'react';
-import { Image, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { Image, Pressable, RefreshControl, ScrollView, View } from 'react-native';
 import { AppText as Text } from '../components/AppText';
 import { LoadingBars } from '../components/LoadingBars';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -137,6 +137,25 @@ export function HomeScreen() {
         </>
       )}
 
+      {ytFavorites.data && (
+        <View style={styles.section}>
+          <Text style={styles.h2}>Your favorite videos</Text>
+          {ytFavorites.data.length ? (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hrow}>
+              {ytFavorites.data.map((v) => (
+                <Pressable key={v.videoId} style={styles.vcard} onPress={() => playVideo(v.videoId, v.title)} accessibilityLabel={`Play ${v.title}`}>
+                  {v.thumbnail ? <Image source={{ uri: v.thumbnail }} style={styles.thumb} /> : <View style={styles.thumb} />}
+                  <Text style={styles.cardTitle} numberOfLines={2}>{v.title}</Text>
+                  <Text style={styles.vchannel} numberOfLines={1}>{v.channel}</Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          ) : (
+            <Text style={styles.muted}>No favorite videos yet.</Text>
+          )}
+        </View>
+      )}
+
       {!!liked.data?.length && (
         <View style={styles.section}>
           <Text style={styles.h2}>Your favorite songs</Text>
@@ -147,21 +166,6 @@ export function HomeScreen() {
                 <Text style={styles.cardTitle} numberOfLines={1}>
                   {s.title}
                 </Text>
-              </Pressable>
-            ))}
-          </ScrollView>
-        </View>
-      )}
-
-      {!!ytFavorites.data?.length && (
-        <View style={styles.section}>
-          <Text style={styles.h2}>Your favorite videos</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hrow}>
-            {ytFavorites.data.map((v) => (
-              <Pressable key={v.videoId} style={styles.vcard} onPress={() => playVideo(v.videoId, v.title)} accessibilityLabel={`Play ${v.title}`}>
-                {v.thumbnail ? <Image source={{ uri: v.thumbnail }} style={styles.thumb} /> : <View style={styles.thumb} />}
-                <Text style={styles.cardTitle} numberOfLines={2}>{v.title}</Text>
-                <Text style={styles.vchannel} numberOfLines={1}>{v.channel}</Text>
               </Pressable>
             ))}
           </ScrollView>

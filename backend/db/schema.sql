@@ -247,3 +247,10 @@ CREATE TABLE IF NOT EXISTS media_favorites (
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (user_id, kind, external_id)
 );
+
+-- Last good YouTube results per search, so restarts and quota outages don't empty the app's video lists.
+CREATE TABLE IF NOT EXISTS youtube_cache (
+  key     TEXT PRIMARY KEY,
+  results JSONB NOT NULL,
+  at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);

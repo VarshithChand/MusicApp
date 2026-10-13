@@ -3,9 +3,9 @@ import { Modal, PanResponder, Pressable, StyleSheet, useWindowDimensions, View }
 import { AppText as Text } from './AppText';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Video from 'react-native-video';
-import { setScreenBrightness } from '../native/brightness';
 import { colors, themedStyles } from '../theme/theme';
 import { Icon } from './Icon';
+import { useVideoGestures } from './useVideoGestures';
 
 interface Props {
   uri: string | null;
@@ -14,8 +14,6 @@ interface Props {
   onPrev?: () => void;
   onNext?: () => void;
 }
-
-const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 
 function formatTime(seconds: number): string {
   const total = Math.floor(seconds || 0);
@@ -34,18 +32,11 @@ export function LocalVideoModal({ uri, title, onClose, onPrev, onNext }: Props) 
   const [volume, setVolume] = useState(1);
   const [current, setCurrent] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [hud, setHud] = useState<string | null>(null);
 
   const videoRef = useRef<React.ComponentRef<typeof Video>>(null);
   const position = useRef(0);
   const durationRef = useRef(0);
   const barWidth = useRef(1);
-  const zoneSize = useRef({ w: 1, h: 1 });
-  const volumeLevel = useRef(1);
-  const brightnessLevel = useRef(0.5);
-  const lastTap = useRef<{ zone: 'left' | 'center' | 'right'; at: number } | null>(null);
-  const drag = useRef<{ zone: 'left' | 'center' | 'right'; startVol: number; startBright: number; seek: number } | null>(null);
-  const hudTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const landBox =
     height > width
@@ -59,12 +50,6 @@ export function LocalVideoModal({ uri, title, onClose, onPrev, onNext }: Props) 
     setDuration(0);
     durationRef.current = 0;
   }, [uri]);
-
-  const showHud = (text: string) => {
-    setHud(text);
-    if (hudTimer.current) clearTimeout(hudTimer.current);
-    hudTimer.current = setTimeout(() => setHud(null), 700);
-  };
 
   const seekTo = (t: number) => {
     const clamped = Math.min(durationRef.current || t, Math.max(0, t));
@@ -87,58 +72,13 @@ export function LocalVideoModal({ uri, title, onClose, onPrev, onNext }: Props) 
     }),
   ).current;
 
-  // Left third: brightness. Right third: volume. Middle: drag sideways to skip in 10-second steps.
-  // A double tap in the middle pauses or plays; a double tap on a side skips 10 seconds.
-  const gestures = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onPanResponderGrant: (e) => {
-        const x = e.nativeEvent.locationX;
-        const w = zoneSize.current.w;
-        const zone = x < w * 0.35 ? 'left' : x > w * 0.65 ? 'right' : 'center';
-        drag.current = { zone, startVol: volumeLevel.current, startBright: brightnessLevel.current, seek: 0 };
-      },
-      onPanResponderMove: (_e, g) => {
-        const d = drag.current;
-        if (!d) return;
-        const h = zoneSize.current.h;
-        if (d.zone === 'left') {
-          brightnessLevel.current = clamp01(d.startBright - g.dy / h);
-          setScreenBrightness(brightnessLevel.current);
-          showHud(`Brightness ${Math.round(brightnessLevel.current * 100)}%`);
-        } else if (d.zone === 'right') {
-          volumeLevel.current = clamp01(d.startVol - g.dy / h);
-          setVolume(volumeLevel.current);
-          showHud(`Volume ${Math.round(volumeLevel.current * 100)}%`);
-        } else {
-          d.seek = Math.round(g.dx / 30) * 10;
-          showHud(`${d.seek >= 0 ? '+' : ''}${d.seek}s`);
-        }
-      },
-      onPanResponderRelease: (_e, g) => {
-        const d = drag.current;
-        drag.current = null;
-        if (!d) return;
-        const moved = Math.abs(g.dx) > 8 || Math.abs(g.dy) > 8;
-        if (moved) {
-          if (d.zone === 'center' && d.seek) seekTo(position.current + d.seek);
-          return;
-        }
-        const now = Date.now();
-        const last = lastTap.current;
-        if (last && last.zone === d.zone && now - last.at < 350) {
-          lastTap.current = null;
-          if (d.zone === 'center') setPaused((p) => !p);
-          else seekTo(position.current + (d.zone === 'left' ? -10 : 10));
-        } else {
-          lastTap.current = { zone: d.zone, at: now };
-        }
-      },
-      onPanResponderTerminate: () => {
-        drag.current = null;
-      },
-    }),
-  ).current;
+  const gestures = useVideoGestures({
+    rotated: landscape && height > width,
+    onSeek: (delta) => seekTo(position.current + delta),
+    onTogglePlay: () => setPaused((p) => !p),
+    onVolume: setVolume,
+  });
+  const hud = gestures.hud;
 
   const timeline = (
     <View style={styles.timeline}>
@@ -186,7 +126,6 @@ export function LocalVideoModal({ uri, title, onClose, onPrev, onNext }: Props) 
         {uri && !error && (
           <View
             style={landscape ? [styles.landBox, landBox] : styles.playerWrap}
-            onLayout={(e) => (zoneSize.current = { w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })}
           >
             <Video
               ref={videoRef}
@@ -205,7 +144,14 @@ export function LocalVideoModal({ uri, title, onClose, onPrev, onNext }: Props) 
               }}
               onError={() => setError(true)}
             />
-            <View style={StyleSheet.absoluteFill} {...gestures.panHandlers} />
+            <View style={StyleSheet.absoluteFill} onLayout={gestures.onLayout} {...gestures.panHandlers} />
+            {hud && (
+              <View style={styles.hudWrap} pointerEvents="none">
+                <View style={styles.hud}>
+                  <Text style={styles.hudText}>{hud}</Text>
+                </View>
+              </View>
+            )}
             {paused && (
               <View style={styles.pausedBadge} pointerEvents="none">
                 <Icon name="play" size={34} color="#fff" />
@@ -230,14 +176,6 @@ export function LocalVideoModal({ uri, title, onClose, onPrev, onNext }: Props) 
           <View style={[styles.landControls, { paddingBottom: insets.bottom }]}>
             {timeline}
             {transport}
-          </View>
-        )}
-
-        {hud && (
-          <View style={styles.hudWrap} pointerEvents="none">
-            <View style={styles.hud}>
-              <Text style={styles.hudText}>{hud}</Text>
-            </View>
           </View>
         )}
 
