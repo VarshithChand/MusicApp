@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './index';
-import { Album, Artist, DiscoverResponse, MoodCount, Movie, MovieDetail, Playlist, SearchResults, Song, YouTubeResponse } from './types';
+import { Album, Artist, DiscoverResponse, FavoriteYouTubeVideo, MoodCount, Movie, MovieDetail, Playlist, SearchResults, Song, YouTubeResponse } from './types';
 
 export const useSongs = (sort?: 'popular') =>
   useQuery({ queryKey: ['songs', sort], queryFn: () => api<Song[]>(`/songs${sort ? `?sort=${sort}` : ''}`) });
@@ -129,6 +129,9 @@ export function useFilteredSongs(filters: { labels?: string[]; language?: string
 }
 
 /** Trending (last 30 days) or all-time popular music videos in a language, played only in YouTube's own player. */
+export const useYouTubeFavorites = () =>
+  useQuery({ queryKey: ['youtube-favorites'], queryFn: () => api<FavoriteYouTubeVideo[]>('/discover/youtube-video/favorites') });
+
 export function useTrending(kind: 'trending' | 'popular', lang = 'te') {
   return useQuery({
     queryKey: ['trending', kind, lang],

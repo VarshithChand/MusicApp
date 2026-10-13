@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { BackHandler, Pressable, StatusBar, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, BackHandler, Image, Pressable, ScrollView, StatusBar, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
+import { useYouTube } from '../api/hooks';
 import { useYouTubePlayer } from '../store/youtubePlayer';
 import { colors } from '../theme/theme';
 import { Icon } from './Icon';
@@ -27,7 +28,8 @@ const playerHtml = (videoId: string) => `<!doctype html><html><head>
 export function YouTubeFloatingPlayer() {
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
-  const { videoId, title, mode, minimize, maximize, close } = useYouTubePlayer();
+  const { videoId, title, mode, minimize, maximize, close, play } = useYouTubePlayer();
+  const related = useYouTube(title.slice(0, 80));
   // Our own landscape view: YouTube's in-player fullscreen button depends on the phone's WebView and
   // auto-rotate setting and doesn't work everywhere, so this rotates the same player to fill the screen.
   const [landscape, setLandscape] = useState(false);
@@ -80,33 +82,52 @@ export function YouTubeFloatingPlayer() {
           </Pressable>
         </View>
       )}
-      <Pressable
-        style={mini ? styles.miniBox : landscape ? [styles.landBox, landscapeBox] : styles.fullBox}
-        onPress={mini ? maximize : undefined}
-        accessibilityLabel={mini ? `Open ${title}` : undefined}
-      >
+      <View style={mini ? styles.miniBox : landscape ? [styles.landBox, landscapeBox] : styles.fullBox}>
         <WebView
           source={{ html: playerHtml(videoId), baseUrl: BASE_URL }}
           allowsInlineMediaPlayback
           mediaPlaybackRequiresUserAction={false}
           javaScriptEnabled
           allowsFullscreenVideo
-          // In mini mode the WebView itself shouldn't eat taps meant to re-open the player.
           pointerEvents={mini ? 'none' : 'auto'}
           style={styles.web}
         />
         {mini && (
-          <Pressable style={styles.miniClose} onPress={close} accessibilityLabel="Close player" hitSlop={8}>
-            <Icon name="close" size={14} color="#fff" />
-          </Pressable>
+          <>
+            <Pressable style={styles.miniTap} onPress={maximize} accessibilityLabel={`Open ${title}`} />
+            <Pressable style={styles.miniClose} onPress={close} accessibilityLabel="Close player" hitSlop={8}>
+              <Icon name="close" size={14} color="#fff" />
+            </Pressable>
+          </>
         )}
         {landscape && (
           <Pressable style={styles.landExit} onPress={() => setLandscape(false)} accessibilityLabel="Exit full screen" hitSlop={8}>
             <Icon name="close" size={20} color="#fff" />
           </Pressable>
         )}
-      </Pressable>
-      {!mini && !landscape && <Text style={styles.note}>Playing from YouTube. Tap the corners icon for full screen.</Text>}
+      </View>
+      {!mini && !landscape && (
+        <ScrollView style={styles.upNext} contentContainerStyle={styles.upNextContent}>
+          <Text style={styles.note}>Playing from YouTube. Tap the corners icon for full screen.</Text>
+          <Text style={styles.upNextTitle}>Up next</Text>
+          {related.data?.results
+            .filter((r) => r.videoId !== videoId)
+            .map((r) => (
+              <Pressable key={r.videoId} style={styles.upNextRow} onPress={() => play(r.videoId, r.title)} accessibilityLabel={`Play ${r.title}`}>
+                {r.thumbnail ? <Image source={{ uri: r.thumbnail }} style={styles.upNextThumb} /> : <View style={styles.upNextThumb} />}
+                <View style={styles.flex1}>
+                  <Text style={styles.upNextRowTitle} numberOfLines={2}>
+                    {r.title}
+                  </Text>
+                  <Text style={styles.channel} numberOfLines={1}>
+                    {r.channel}
+                  </Text>
+                </View>
+              </Pressable>
+            ))}
+          {related.isFetching && <ActivityIndicator color={colors.accent} />}
+        </ScrollView>
+      )}
       <StatusBar hidden={landscape} />
     </View>
   );
@@ -136,7 +157,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   web: { flex: 1, backgroundColor: '#000' },
-  note: { color: colors.muted, fontSize: 13, padding: 16 },
+  note: { color: colors.muted, fontSize: 13, paddingTop: 12 },
+  upNext: { flex: 1 },
+  upNextContent: { paddingHorizontal: 16, paddingBottom: 24, gap: 12 },
+  upNextTitle: { color: colors.text, fontSize: 16, fontWeight: '700', marginTop: 4 },
+  upNextRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  upNextThumb: { width: 120, height: 68, borderRadius: 8, backgroundColor: colors.surface2 },
+  upNextRowTitle: { color: colors.text, fontSize: 14, fontWeight: '600' },
+  channel: { color: colors.muted, fontSize: 12, marginTop: 2 },
+  flex1: { flex: 1 },
   miniBox: {
     width: 168,
     height: 94,
@@ -150,6 +179,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
   },
+  miniTap: { ...StyleSheet.absoluteFill },
   miniClose: {
     position: 'absolute',
     top: 4,

@@ -1,6 +1,9 @@
+import { useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useArtists, useMoods, useMovies, useRecentlyPlayed, useSongs, useTrending } from "../api/hooks";
-import { YouTubeResult } from "../api/types";
+import { api } from "../api";
+import { useArtists, useLikedSongs, useMoods, useMovies, useRecentlyPlayed, useSongs, useTrending, useYouTubeFavorites } from "../api/hooks";
+import { YouTubeResponse, YouTubeResult } from "../api/types";
 import { Cover } from "../components/Cover";
 import { DownloadApp } from "../components/DownloadApp";
 import { Icon } from "../components/Icon";
@@ -65,8 +68,30 @@ export function HomeScreen() {
   const moods = useMoods();
   const trendingTelugu = useTrending("trending", "te");
   const popularTelugu = useTrending("popular", "te");
+  const liked = useLikedSongs();
+  const ytFavorites = useYouTubeFavorites();
+  const queryClient = useQueryClient();
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Asks the server for fresh Telugu results (it skips its cache), then reloads everything else on the page.
+  const refresh = async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all(
+        (["trending", "popular"] as const).map((kind) =>
+          api<YouTubeResponse>(`/discover/trending?kind=${kind}&lang=te&fresh=1`)
+            .then((data) => queryClient.setQueryData(["trending", kind, "te"], data))
+            .catch(() => {}),
+        ),
+      );
+      await queryClient.invalidateQueries();
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const featured = popular.data?.[0];
+  const favoriteVideos: YouTubeResult[] = (ytFavorites.data ?? []).map((v) => ({ ...v, channel: v.channel ?? "" }));
 
   return (
     <div className="page wide">
@@ -75,9 +100,14 @@ export function HomeScreen() {
           {greeting()}
           {name ? `, ${name}` : ""}
         </h1>
-        <button className="icon-btn filled" onClick={() => navigate("/account")} aria-label="Account">
-          <Icon name="user" size={22} />
-        </button>
+        <div className="row">
+          <button className="btn" onClick={refresh} disabled={refreshing}>
+            {refreshing ? "Refreshing…" : "Refresh"}
+          </button>
+          <button className="icon-btn filled" onClick={() => navigate("/account")} aria-label="Account">
+            <Icon name="user" size={22} />
+          </button>
+        </div>
       </header>
 
       {isAndroid() && (
@@ -132,12 +162,12 @@ export function HomeScreen() {
         />
       )}
 
-      {!!recent.data?.length && (
+      {!!liked.data?.length && (
         <section>
-          <h2>Recently played</h2>
-          <ScrollRow label="Recently played">
-            {recent.data.map((s, i) => (
-              <button key={s.id} className="card" role="listitem" onClick={() => playQueue(recent.data, i)}>
+          <h2>Your favorite songs</h2>
+          <ScrollRow label="Your favorite songs">
+            {liked.data.map((s, i) => (
+              <button key={s.id} className="card" role="listitem" onClick={() => playQueue(liked.data, i)}>
                 <span className="card-art">
                   <Cover id={s.id} uri={s.cover_url} size={148} radius={16} />
                   <span className="card-play" aria-hidden="true">
@@ -150,6 +180,10 @@ export function HomeScreen() {
             ))}
           </ScrollRow>
         </section>
+      )}
+
+      {!!favoriteVideos.length && (
+        <VideoRow title="Your favorite videos" note="Videos you saved. Plays in YouTube's own player." label="Your favorite videos" videos={favoriteVideos} />
       )}
 
       {!!movies.data?.length && (
@@ -203,6 +237,26 @@ export function HomeScreen() {
                 <Cover id={a.id} uri={a.image_url} size={112} radius={56} />
                 <span className="song-title">{a.name}</span>
                 <span className="song-sub">Artist</span>
+              </button>
+            ))}
+          </ScrollRow>
+        </section>
+      )}
+
+      {!!recent.data?.length && (
+        <section>
+          <h2>Recently played</h2>
+          <ScrollRow label="Recently played">
+            {recent.data.map((s, i) => (
+              <button key={s.id} className="card" role="listitem" onClick={() => playQueue(recent.data, i)}>
+                <span className="card-art">
+                  <Cover id={s.id} uri={s.cover_url} size={148} radius={16} />
+                  <span className="card-play" aria-hidden="true">
+                    <Icon name="play" size={20} />
+                  </span>
+                </span>
+                <span className="song-title">{s.title}</span>
+                <span className="song-sub">{s.artist_name}</span>
               </button>
             ))}
           </ScrollRow>

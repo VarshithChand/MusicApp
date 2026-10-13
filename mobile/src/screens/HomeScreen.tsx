@@ -1,12 +1,14 @@
 import { useNavigation } from '@react-navigation/native';
-import React from 'react';
-import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useQueryClient } from '@tanstack/react-query';
+import React, { useState } from 'react';
+import { ActivityIndicator, Image, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useArtists, useRecentlyPlayed, useSongs, useTrending } from '../api/hooks';
+import { api } from '../api';
+import { useArtists, useLikedSongs, useRecentlyPlayed, useSongs, useTrending, useYouTubeFavorites } from '../api/hooks';
 import { Cover } from '../components/Cover';
 import { Icon } from '../components/Icon';
 import { SongRow } from '../components/SongRow';
-import { YouTubeResult } from '../api/types';
+import { YouTubeResponse, YouTubeResult } from '../api/types';
 import { playQueue } from '../player/controls';
 import { useYouTubePlayer } from '../store/youtubePlayer';
 import { colors } from '../theme/theme';
@@ -22,9 +24,36 @@ export function HomeScreen() {
   const recent = useRecentlyPlayed();
   const popular = useSongs('popular');
   const artists = useArtists();
+  const liked = useLikedSongs();
+  const ytFavorites = useYouTubeFavorites();
   const trending = useTrending('trending');
   const hits = useTrending('popular');
   const playVideo = useYouTubePlayer((s) => s.play);
+  const queryClient = useQueryClient();
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Asks the server for fresh Telugu results (it skips its cache) and stores them where the rows read from.
+  const refreshVideos = (kind: 'trending' | 'popular') =>
+    api<YouTubeResponse>(`/discover/trending?kind=${kind}&lang=te&fresh=1`)
+      .then((data) => queryClient.setQueryData(['trending', kind, 'te'], data))
+      .catch(() => {});
+
+  const refresh = async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([
+        recent.refetch(),
+        popular.refetch(),
+        artists.refetch(),
+        liked.refetch(),
+        ytFavorites.refetch(),
+        refreshVideos('trending'),
+        refreshVideos('popular'),
+      ]);
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const videoRow = (title: string, q: typeof trending) =>
     !!q.data?.results.length && (
@@ -48,7 +77,11 @@ export function HomeScreen() {
   };
 
   return (
-    <ScrollView style={styles.flex} contentContainerStyle={[styles.content, { paddingTop: insets.top + 24 }]}>
+    <ScrollView
+      style={styles.flex}
+      contentContainerStyle={[styles.content, { paddingTop: insets.top + 24 }]}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.accent} colors={[colors.accent]} />}
+    >
       <View style={styles.header}>
         <Text style={styles.h1}>{greeting()}</Text>
         <Pressable style={styles.avatar} onPress={() => navigation.navigate('Account')} accessibilityLabel="Account">
@@ -59,12 +92,15 @@ export function HomeScreen() {
       {popular.isLoading && <ActivityIndicator color={colors.accent} />}
       {popular.isError && <Text style={styles.error}>Couldn't load music. Check your connection.</Text>}
 
-      {!!recent.data?.length && (
+      {videoRow('Trending Telugu videos', trending)}
+      {videoRow('Popular Telugu videos', hits)}
+
+      {!!liked.data?.length && (
         <View style={styles.section}>
-          <Text style={styles.h2}>Recently played</Text>
+          <Text style={styles.h2}>Your favorite songs</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hrow}>
-            {recent.data.map((s, i) => (
-              <Pressable key={s.id} style={styles.card} onPress={() => play(recent.data, i)}>
+            {liked.data.map((s, i) => (
+              <Pressable key={s.id} style={styles.card} onPress={() => play(liked.data, i)}>
                 <Cover id={s.id} uri={s.cover_url} size={108} radius={16} />
                 <Text style={styles.cardTitle} numberOfLines={1}>
                   {s.title}
@@ -75,8 +111,20 @@ export function HomeScreen() {
         </View>
       )}
 
-      {videoRow('Trending Telugu videos', trending)}
-      {videoRow('Popular Telugu videos', hits)}
+      {!!ytFavorites.data?.length && (
+        <View style={styles.section}>
+          <Text style={styles.h2}>Your favorite videos</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hrow}>
+            {ytFavorites.data.map((v) => (
+              <Pressable key={v.videoId} style={styles.vcard} onPress={() => playVideo(v.videoId, v.title)} accessibilityLabel={`Play ${v.title}`}>
+                {v.thumbnail ? <Image source={{ uri: v.thumbnail }} style={styles.thumb} /> : <View style={styles.thumb} />}
+                <Text style={styles.cardTitle} numberOfLines={2}>{v.title}</Text>
+                <Text style={styles.vchannel} numberOfLines={1}>{v.channel}</Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        </View>
+      )}
 
       {!!popular.data?.length && (
         <View style={styles.section}>
@@ -102,6 +150,22 @@ export function HomeScreen() {
                 <Cover id={a.id} uri={a.image_url} size={76} radius={38} />
                 <Text style={styles.artistName} numberOfLines={1}>
                   {a.name}
+                </Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        </View>
+      )}
+
+      {!!recent.data?.length && (
+        <View style={styles.section}>
+          <Text style={styles.h2}>Recently played</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hrow}>
+            {recent.data.map((s, i) => (
+              <Pressable key={s.id} style={styles.card} onPress={() => play(recent.data, i)}>
+                <Cover id={s.id} uri={s.cover_url} size={108} radius={16} />
+                <Text style={styles.cardTitle} numberOfLines={1}>
+                  {s.title}
                 </Text>
               </Pressable>
             ))}

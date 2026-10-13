@@ -2,7 +2,7 @@ import Clipboard from '@react-native-clipboard/clipboard';
 import React, { useState } from 'react';
 import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useToggleYouTubeFavorite, useYouTubeFavorites, useYouTubeVideo } from '../api/hooks';
+import { useToggleYouTubeFavorite, useYouTube, useYouTubeFavorites, useYouTubeVideo } from '../api/hooks';
 import { Icon } from '../components/Icon';
 import { useYouTubePlayer } from '../store/youtubePlayer';
 import { colors } from '../theme/theme';
@@ -31,21 +31,30 @@ export function YouTubeScreen() {
   const insets = useSafeAreaInsets();
   const [text, setText] = useState('');
   const [lookupId, setLookupId] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState<string | null>(null);
   const [badLink, setBadLink] = useState(false);
   const play = useYouTubePlayer((s) => s.play);
   const video = useYouTubeVideo(lookupId);
+  const search = useYouTube(searchTerm ?? '');
   const favorites = useYouTubeFavorites();
   const { add, remove } = useToggleYouTubeFavorite();
 
   const fetchDetails = () => {
     const id = parseVideoId(text);
-    if (!id) {
+    if (id) {
+      setBadLink(false);
+      setSearchTerm(null);
+      setLookupId(id);
+      return;
+    }
+    setLookupId(null);
+    if (text.trim().length < 2) {
       setBadLink(true);
-      setLookupId(null);
+      setSearchTerm(null);
       return;
     }
     setBadLink(false);
-    setLookupId(id);
+    setSearchTerm(text.trim());
   };
 
   const paste = async () => {
@@ -73,7 +82,7 @@ export function YouTubeScreen() {
             setText(t);
             setBadLink(false);
           }}
-          placeholder="https://youtube.com/watch?v=..."
+          placeholder="Paste a link or type a song or movie name"
           placeholderTextColor="#7C8391"
           style={styles.input}
           autoCapitalize="none"
@@ -90,19 +99,21 @@ export function YouTubeScreen() {
             <Text style={styles.smallBtnText}>Clear</Text>
           </Pressable>
           <View style={styles.flex1} />
-          <Pressable style={styles.fetchBtn} onPress={fetchDetails} disabled={!text.trim()} accessibilityLabel="Fetch video details">
-            <Text style={styles.fetchBtnText}>Fetch Video Details</Text>
+          <Pressable style={styles.fetchBtn} onPress={fetchDetails} disabled={!text.trim()} accessibilityLabel="Search or fetch video">
+            <Text style={styles.fetchBtnText}>Search</Text>
           </Pressable>
         </View>
       </View>
 
-      {badLink && <Text style={styles.error}>That doesn't look like a YouTube link. Try pasting the full URL.</Text>}
+      {badLink && <Text style={styles.error}>Type at least two letters, or paste a YouTube link.</Text>}
       {video.isFetching && <ActivityIndicator color={colors.accent} />}
-      {video.isError && <Text style={styles.error}>Couldn't fetch that video. It may be private, removed, or embedding may be disabled.</Text>}
+      {video.isError && <Text style={styles.error}>{video.error instanceof Error ? video.error.message : "Couldn't fetch that video."}</Text>}
 
       {result && (
         <View style={styles.card}>
-          {result.thumbnail ? <Image source={{ uri: result.thumbnail }} style={styles.thumb} /> : <View style={styles.thumb} />}
+          <Pressable onPress={() => play(result.videoId, result.title)} accessibilityLabel={`Play ${result.title}`}>
+            {result.thumbnail ? <Image source={{ uri: result.thumbnail }} style={styles.thumb} /> : <View style={styles.thumb} />}
+          </Pressable>
           <Text style={styles.cardTitle} numberOfLines={2}>
             {result.title}
           </Text>
@@ -128,6 +139,28 @@ export function YouTubeScreen() {
             </Pressable>
           </View>
         </View>
+      )}
+
+      {searchTerm && (
+        <>
+          <Text style={styles.sectionTitle}>Results for "{searchTerm}"</Text>
+          {search.isFetching && <ActivityIndicator color={colors.accent} />}
+          {search.isError && <Text style={styles.error}>Search failed. Try again in a moment.</Text>}
+          {search.data && !search.data.configured && <Text style={styles.error}>Search isn't set up on the server yet.</Text>}
+          {search.data?.results.map((r) => (
+            <Pressable key={r.videoId} style={styles.favRow} onPress={() => play(r.videoId, r.title)} accessibilityLabel={`Play ${r.title}`}>
+              {r.thumbnail ? <Image source={{ uri: r.thumbnail }} style={styles.favThumb} /> : <View style={styles.favThumb} />}
+              <View style={styles.flex1}>
+                <Text style={styles.rowTitle} numberOfLines={2}>
+                  {r.title}
+                </Text>
+                <Text style={styles.muted} numberOfLines={1}>
+                  {r.channel}
+                </Text>
+              </View>
+            </Pressable>
+          ))}
+        </>
       )}
 
       <Text style={styles.sectionTitle}>Favorites</Text>

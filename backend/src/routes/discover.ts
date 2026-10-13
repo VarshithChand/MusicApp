@@ -300,6 +300,7 @@ const TRENDING_LANGUAGES: Record<string, { query: string; trending: string; popu
 // Each search costs 100 of the free 10,000 daily units, so these cache times keep the Home rows fresh without running out.
 const TREND_TTL = { trending: 3 * 60 * 60_000, popular: 12 * 60 * 60_000 } as const;
 const TREND_WINDOW_DAYS = { trending: 30, popular: 365 } as const;
+const MIN_FRESH_MS = 10 * 60_000;
 const trendCache = new Map<string, { at: number; results: unknown[] }>();
 
 /**
@@ -316,7 +317,10 @@ discoverRouter.get("/trending", async (req, res) => {
 
   const key = `${lang}:${kind}`;
   const hit = trendCache.get(key);
-  if (hit && Date.now() - hit.at < TREND_TTL[kind]) return res.json({ configured: true, results: hit.results });
+  const age = hit ? Date.now() - hit.at : Infinity;
+  // A pull-to-refresh skips the cache, but not if it was refreshed in the last few minutes (protects the daily quota).
+  const wantFresh = req.query.fresh === "1" && age >= MIN_FRESH_MS;
+  if (hit && age < TREND_TTL[kind] && !wantFresh) return res.json({ configured: true, results: hit.results });
 
   const params: Record<string, string> = {
     part: "snippet",

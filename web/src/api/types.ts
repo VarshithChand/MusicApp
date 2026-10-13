@@ -97,6 +97,13 @@ export interface YouTubeResult {
   thumbnail: string | null;
 }
 
+export interface FavoriteYouTubeVideo {
+  videoId: string;
+  title: string;
+  channel: string | null;
+  thumbnail: string | null;
+}
+
 export interface YouTubeResponse {
   configured: boolean;
   results: YouTubeResult[];
