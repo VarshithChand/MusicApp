@@ -6,10 +6,13 @@ import { BottomNav } from '../components/BottomNav';
 import { AccountScreen } from '../screens/AccountScreen';
 import { HomeScreen } from '../screens/HomeScreen';
 import { LibraryScreen } from '../screens/LibraryScreen';
+import { LocalMediaScreen } from '../screens/LocalMediaScreen';
 import { LoginScreen } from '../screens/LoginScreen';
+import { MovieDetailScreen } from '../screens/MovieDetailScreen';
 import { NowPlayingScreen } from '../screens/NowPlayingScreen';
 import { SearchScreen } from '../screens/SearchScreen';
 import { SongListScreen } from '../screens/SongListScreen';
+import { YouTubeScreen } from '../screens/YouTubeScreen';
 import { useAuth } from '../store/auth';
 import { colors } from '../theme/theme';
 
@@ -44,6 +47,9 @@ export function AppNavigator() {
         <>
           <Stack.Screen name="Tabs" component={MainTabs} />
           <Stack.Screen name="SongList" component={SongListScreen} />
+          <Stack.Screen name="MovieDetail" component={MovieDetailScreen} />
+          <Stack.Screen name="YouTube" component={YouTubeScreen} />
+          <Stack.Screen name="LocalMedia" component={LocalMediaScreen} />
           <Stack.Screen name="Account" component={AccountScreen} />
           <Stack.Screen name="NowPlaying" component={NowPlayingScreen} options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
         </>

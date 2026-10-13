@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { requireAuth } from "../auth";
+import { AuthedRequest, requireAuth } from "../auth";
 import { query } from "../db";
 import { saveBuffer, usingR2 } from "../storage";
 import { SONG_SELECT } from "./catalog";
@@ -193,6 +193,98 @@ discoverRouter.get("/youtube", async (req, res) => {
   if (ytCache.size > 200) ytCache.clear();
   ytCache.set(cacheKey, { at: Date.now(), results });
   res.json({ configured: true, results });
+});
+
+// --- One video by ID, for the Video page (paste a URL, look it up) -----------
+
+const VIDEO_ID = /^[\w-]{11}$/;
+const ytVideoCache = new Map<string, { at: number; video: unknown }>();
+
+// ISO-8601 duration like "PT4M13S" -> seconds. Returns null if it can't be parsed.
+function isoDurationToSeconds(iso: string): number | null {
+  const m = /^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/.exec(iso);
+  if (!m) return null;
+  const [, h, min, s] = m;
+  return (Number(h ?? 0) * 3600) + (Number(min ?? 0) * 60) + Number(s ?? 0);
+}
+
+discoverRouter.get("/youtube-video", async (req, res) => {
+  if (!YT_KEY) return res.json({ configured: false, video: null });
+  const id = String(req.query.id ?? "").trim();
+  if (!VIDEO_ID.test(id)) return res.status(400).json({ error: "That doesn't look like a YouTube video ID." });
+
+  const hit = ytVideoCache.get(id);
+  if (hit && Date.now() - hit.at < 60 * 60_000) return res.json({ configured: true, video: hit.video });
+
+  const url = new URL("https://www.googleapis.com/youtube/v3/videos");
+  url.search = new URLSearchParams({ part: "snippet,contentDetails,status", id, key: YT_KEY }).toString();
+  const response = await fetch(url);
+  const body = (await response.json().catch(() => null)) as
+    | {
+        items?: {
+          id: string;
+          snippet: { title: string; channelTitle: string; thumbnails?: { medium?: { url: string } } };
+          contentDetails: { duration: string };
+          status: { embeddable: boolean; privacyStatus: string };
+        }[];
+        error?: { message?: string };
+      }
+    | null;
+  if (!response.ok) {
+    console.error("youtube video lookup failed:", response.status, body?.error?.message);
+    return res.status(502).json({ error: "YouTube lookup is unavailable right now." });
+  }
+  const item = body?.items?.[0];
+  if (!item) return res.status(404).json({ error: "That video wasn't found. It may have been removed." });
+  if (!item.status.embeddable) return res.status(409).json({ error: "This video's owner has disabled playing it outside YouTube." });
+  if (item.status.privacyStatus !== "public" && item.status.privacyStatus !== "unlisted") {
+    return res.status(409).json({ error: "This video is private and can't be played here." });
+  }
+
+  const video = {
+    videoId: item.id,
+    title: decode(item.snippet.title),
+    channel: decode(item.snippet.channelTitle),
+    thumbnail: item.snippet.thumbnails?.medium?.url ?? null,
+    durationSeconds: isoDurationToSeconds(item.contentDetails.duration),
+  };
+  if (ytVideoCache.size > 500) ytVideoCache.clear();
+  ytVideoCache.set(id, { at: Date.now(), video });
+  res.json({ configured: true, video });
+});
+
+// --- Favorite YouTube videos (synced to the account; a video ID means the same thing on any device) ---------
+
+discoverRouter.get("/youtube-video/favorites", async (req: AuthedRequest, res) => {
+  const rows = await query(
+    "SELECT external_id AS \"videoId\", title, channel, thumbnail FROM media_favorites WHERE user_id = $1 AND kind = 'youtube' ORDER BY created_at DESC",
+    [req.userId],
+  );
+  res.json(rows);
+});
+
+const favoriteSchema = z.object({
+  title: z.string().min(1).max(300),
+  channel: z.string().max(300).nullable().optional(),
+  thumbnail: z.string().url().nullable().optional(),
+});
+
+discoverRouter.post("/youtube-video/:id/favorite", async (req: AuthedRequest, res) => {
+  const id = req.params.id;
+  if (!VIDEO_ID.test(id)) return res.status(400).json({ error: "That doesn't look like a YouTube video ID." });
+  const parsed = favoriteSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "A title is required to save a favorite." });
+  await query(
+    `INSERT INTO media_favorites (user_id, kind, external_id, title, channel, thumbnail) VALUES ($1, 'youtube', $2, $3, $4, $5)
+     ON CONFLICT (user_id, kind, external_id) DO UPDATE SET title = excluded.title, channel = excluded.channel, thumbnail = excluded.thumbnail`,
+    [req.userId, id, parsed.data.title, parsed.data.channel ?? null, parsed.data.thumbnail ?? null],
+  );
+  res.status(204).end();
+});
+
+discoverRouter.delete("/youtube-video/:id/favorite", async (req: AuthedRequest, res) => {
+  await query("DELETE FROM media_favorites WHERE user_id = $1 AND kind = 'youtube' AND external_id = $2", [req.userId, req.params.id]);
+  res.status(204).end();
 });
 
 // --- Trending / popular in a language (official YouTube player only) ----------

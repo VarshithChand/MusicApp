@@ -224,3 +224,19 @@ ALTER TABLE albums ADD COLUMN IF NOT EXISTS source TEXT;
 INSERT INTO moods (slug, name, kind) VALUES
   ('rock', 'Rock', 'genre'), ('pop', 'Pop', 'genre'), ('electronic', 'Electronic', 'genre'), ('orchestral', 'Orchestral / Epic', 'genre')
 ON CONFLICT (slug) DO NOTHING;
+
+-- ============================================================================
+-- Favorites for media that isn't a row in songs (today: pasted YouTube videos, looked up by video ID).
+-- Local on-device audio/video favorites are NOT stored here: a local file's content URI only means something on the
+-- phone that found it, so those favorites live on the device (AsyncStorage) instead of syncing to the account.
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS media_favorites (
+  user_id      INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  kind         TEXT NOT NULL CHECK (kind = 'youtube'),
+  external_id  TEXT NOT NULL,              -- the YouTube video ID
+  title        TEXT NOT NULL,
+  channel      TEXT,
+  thumbnail    TEXT,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, kind, external_id)
+);

@@ -1,6 +1,19 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './index';
-import { Album, Artist, DiscoverResponse, Playlist, SearchResults, Song, YouTubeResponse } from './types';
+import {
+  Album,
+  Artist,
+  DiscoverResponse,
+  FavoriteYouTubeVideo,
+  MoodCount,
+  Movie,
+  MovieDetail,
+  Playlist,
+  SearchResults,
+  Song,
+  YouTubeResponse,
+  YouTubeVideoResponse,
+} from './types';
 
 export const useSongs = (sort?: 'popular') =>
   useQuery({ queryKey: ['songs', sort], queryFn: () => api<Song[]>(`/songs${sort ? `?sort=${sort}` : ''}`) });
@@ -16,6 +29,41 @@ export const usePlaylists = () => useQuery({ queryKey: ['playlists'], queryFn: (
 
 export const useLikedSongs = () =>
   useQuery({ queryKey: ['liked'], queryFn: () => api<Song[]>('/users/me/liked-songs') });
+
+/** Movie soundtracks matching a name, music director or credited artist (empty query returns the newest ones). */
+export function useMovies(q = '', language = '') {
+  const params = new URLSearchParams();
+  if (q.trim()) params.set('q', q.trim());
+  if (language) params.set('language', language);
+  return useQuery({
+    queryKey: ['movies', q.trim(), language],
+    queryFn: () => api<Movie[]>(`/movies?${params.toString()}`),
+    staleTime: 60_000,
+  });
+}
+
+export function useMovie(id: number | string | undefined) {
+  return useQuery({
+    queryKey: ['movie', id],
+    queryFn: () => api<MovieDetail>(`/movies/${id}`),
+    enabled: id !== undefined,
+  });
+}
+
+/** Style, mood and genre labels an admin has approved, with how many published songs carry each one. */
+export const useMoods = () => useQuery({ queryKey: ['moods'], queryFn: () => api<MoodCount[]>('/moods'), staleTime: 5 * 60_000 });
+
+/** Songs filtered by label (a song needs ALL chosen labels) and/or language. Disabled until a filter is chosen. */
+export function useFilteredSongs(filters: { labels?: string[]; language?: string }) {
+  const params = new URLSearchParams({ limit: '60' });
+  if (filters.labels?.length) params.set('labels', filters.labels.join(','));
+  if (filters.language) params.set('language', filters.language);
+  return useQuery({
+    queryKey: ['songs-filtered', (filters.labels ?? []).join(','), filters.language ?? ''],
+    queryFn: () => api<Song[]>(`/songs?${params.toString()}`),
+    enabled: !!(filters.labels?.length || filters.language),
+  });
+}
 
 export function useSearch(q: string) {
   return useQuery({
@@ -95,6 +143,37 @@ export function useYouTube(q: string) {
     enabled: q.trim().length > 1,
     staleTime: 10 * 60_000,
   });
+}
+
+/** Looks up one YouTube video by its ID (the Video page: paste a URL, fetch its details). */
+export function useYouTubeVideo(videoId: string | null) {
+  return useQuery({
+    queryKey: ['youtube-video', videoId],
+    queryFn: () => api<YouTubeVideoResponse>(`/discover/youtube-video?id=${encodeURIComponent(videoId!)}`),
+    enabled: !!videoId,
+    retry: false,
+    staleTime: 60 * 60_000,
+  });
+}
+
+/** YouTube videos the user has saved from the Video page. Synced to the account. */
+export const useYouTubeFavorites = () =>
+  useQuery({ queryKey: ['youtube-favorites'], queryFn: () => api<FavoriteYouTubeVideo[]>('/discover/youtube-video/favorites') });
+
+export function useToggleYouTubeFavorite() {
+  const qc = useQueryClient();
+  const refresh = () => qc.invalidateQueries({ queryKey: ['youtube-favorites'] });
+  return {
+    add: useMutation({
+      mutationFn: (v: FavoriteYouTubeVideo) =>
+        api<void>(`/discover/youtube-video/${v.videoId}/favorite`, { method: 'POST', body: { title: v.title, channel: v.channel, thumbnail: v.thumbnail } }),
+      onSuccess: refresh,
+    }),
+    remove: useMutation({
+      mutationFn: (videoId: string) => api<void>(`/discover/youtube-video/${videoId}/favorite`, { method: 'DELETE' }),
+      onSuccess: refresh,
+    }),
+  };
 }
 
 /** Trending (last 30 days) or all-time popular music videos in a language, played only in YouTube's own player. */

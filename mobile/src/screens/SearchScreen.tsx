@@ -1,20 +1,22 @@
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import React, { useEffect, useState } from 'react';
 import TrackPlayer from 'react-native-track-player';
 import { ActivityIndicator, Image, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useDiscover, useImportSong, useSearch, useYouTube } from '../api/hooks';
+import { useDiscover, useImportSong, useMovies, useSearch, useYouTube } from '../api/hooks';
 import { Chip } from '../components/Chip';
 import { Cover } from '../components/Cover';
 import { Icon } from '../components/Icon';
+import { LabelBrowser } from '../components/LabelBrowser';
 import { SongRow } from '../components/SongRow';
 import { YouTubeModal } from '../components/YouTubeModal';
 import { playQueue } from '../player/controls';
 import { colors } from '../theme/theme';
 
-type Kind = 'songs' | 'artists' | 'albums' | 'genres';
+type Kind = 'songs' | 'artists' | 'albums' | 'genres' | 'movies';
 const KINDS: { key: Kind; label: string }[] = [
   { key: 'songs', label: 'Songs' },
+  { key: 'movies', label: 'Movies' },
   { key: 'artists', label: 'Artists' },
   { key: 'albums', label: 'Albums' },
   { key: 'genres', label: 'Genres' },
@@ -23,10 +25,12 @@ const KINDS: { key: Kind; label: string }[] = [
 export function SearchScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
+  const routeLabel = useRoute<any>().params?.label as string | undefined;
   const [text, setText] = useState('');
   const [q, setQ] = useState('');
   const [kind, setKind] = useState<Kind>('songs');
   const { data, isFetching, isError } = useSearch(q);
+  const movies = useMovies(kind === 'movies' ? q : '');
   const discover = useDiscover(q);
   const youtube = useYouTube(q);
   const [video, setVideo] = useState<{ videoId: string; title: string } | null>(null);
@@ -53,7 +57,8 @@ export function SearchScreen() {
     return () => clearTimeout(t);
   }, [text]);
 
-  const empty = !!q && !isFetching && data && !data[kind].length;
+  const empty = kind !== 'movies' && !!q && !isFetching && data && !data[kind].length;
+  const moviesEmpty = kind === 'movies' && !!q && !movies.isFetching && !!movies.data && !movies.data.length;
 
   return (
     <ScrollView
@@ -85,10 +90,38 @@ export function SearchScreen() {
         ))}
       </ScrollView>
 
-      {isFetching && <ActivityIndicator color={colors.accent} />}
-      {isError && <Text style={styles.muted}>Search failed. Check your connection.</Text>}
-      {!q && <Text style={styles.muted}>Find songs, artists, albums and genres.</Text>}
+      {kind !== 'movies' && isFetching && <ActivityIndicator color={colors.accent} />}
+      {kind !== 'movies' && isError && <Text style={styles.muted}>Search failed. Check your connection.</Text>}
+      {kind !== 'movies' && !q && <Text style={styles.muted}>Find songs, artists, albums and genres.</Text>}
       {empty && <Text style={styles.muted}>No {kind} found for "{q}".</Text>}
+
+      {kind === 'movies' && movies.isFetching && <ActivityIndicator color={colors.accent} />}
+      {kind === 'movies' && movies.isError && <Text style={styles.muted}>Couldn't load movies. Check your connection.</Text>}
+      {kind === 'movies' && moviesEmpty && <Text style={styles.muted}>No movies found for "{q}".</Text>}
+      {kind === 'movies' && !q && !movies.data?.length && !movies.isFetching && (
+        <Text style={styles.muted}>Type a movie name, music director or artist.</Text>
+      )}
+      {kind === 'movies' && !!movies.data?.length && (
+        <View style={styles.movieGrid}>
+          {movies.data.map((m) => (
+            <Pressable
+              key={m.id}
+              style={styles.movieCard}
+              onPress={() => navigation.navigate('MovieDetail', { id: m.id })}
+              accessibilityLabel={`Open ${m.title}`}
+            >
+              <Cover id={m.id} uri={m.poster_url} size={148} radius={16} />
+              <Text style={styles.rowTitle} numberOfLines={1}>{m.title}</Text>
+              <Text style={styles.rowSub} numberOfLines={1}>
+                {[m.language, m.release_year].filter(Boolean).join(' · ') || m.artist_name}
+              </Text>
+              <Text style={styles.rowSub}>
+                {m.song_count} song{m.song_count === 1 ? '' : 's'}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      )}
 
       {data && kind === 'songs' &&
         data.songs.map((s, i) => (
@@ -212,6 +245,8 @@ export function SearchScreen() {
             <Text style={styles.rowTitle}>{g.name}</Text>
           </Pressable>
         ))}
+
+      <LabelBrowser key={routeLabel} initialLabel={routeLabel} />
     </ScrollView>
   );
 }
@@ -246,4 +281,6 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 60 },
   rowTitle: { color: colors.text, fontSize: 15, fontWeight: '600' },
   rowSub: { color: colors.muted, fontSize: 13, marginTop: 2 },
+  movieGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 16 },
+  movieCard: { width: 148, gap: 2 },
 });

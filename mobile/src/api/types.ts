@@ -22,6 +22,8 @@ export interface Song {
   source?: string | null;
   /** True when users may download this song (the admin has the right to share it). */
   downloadable?: boolean;
+  /** Approved style/mood/genre label slugs, e.g. ["melody", "romantic"]. */
+  moods?: string[] | null;
 }
 
 export interface Artist {
@@ -54,6 +56,31 @@ export interface SearchResults {
   artists: Artist[];
   albums: Album[];
   genres: Genre[];
+}
+
+export interface Movie {
+  id: number;
+  title: string;
+  description: string | null;
+  release_year: number | null;
+  language: string | null;
+  music_director: string | null;
+  poster_url: string | null;
+  artist_id: number;
+  artist_name: string;
+  song_count: number;
+}
+
+export interface MovieDetail extends Movie {
+  songs: Song[];
+}
+
+export interface MoodCount {
+  slug: string;
+  name: string;
+  /** style = energy/feel (Melody, DJ, Mass…), mood = emotion, genre = tradition. */
+  kind: 'style' | 'mood' | 'genre';
+  song_count: number;
 }
 
 export interface AuthResponse {
@@ -90,4 +117,48 @@ export interface YouTubeResult {
 export interface YouTubeResponse {
   configured: boolean;
   results: YouTubeResult[];
+}
+
+/** One video looked up by ID (the Video page: paste a URL, fetch its details). */
+export interface YouTubeVideoDetail {
+  videoId: string;
+  title: string;
+  channel: string;
+  thumbnail: string | null;
+  durationSeconds: number | null;
+}
+
+export interface YouTubeVideoResponse {
+  configured: boolean;
+  video: YouTubeVideoDetail | null;
+}
+
+/** A YouTube video the user saved from the Video page. Synced to the account (a video ID means the same thing anywhere). */
+export interface FavoriteYouTubeVideo {
+  videoId: string;
+  title: string;
+  channel: string | null;
+  thumbnail: string | null;
+}
+
+/** One audio or video file found on the phone (MediaStore). Only ever read, never uploaded. */
+export interface LocalAudioFile {
+  id: string;
+  uri: string;
+  title: string;
+  artist: string | null;
+  album: string | null;
+  durationMs: number;
+  artworkUri: string | null;
+}
+
+export interface LocalVideoFile {
+  id: string;
+  uri: string;
+  title: string;
+  durationMs: number;
+  sizeBytes: number;
+  width: number | null;
+  height: number | null;
+  thumbnailUri: string | null;
 }

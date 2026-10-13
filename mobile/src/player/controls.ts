@@ -1,6 +1,6 @@
 import TrackPlayer, { AppKilledPlaybackBehavior, Capability, Track } from 'react-native-track-player';
 import { mediaUrl } from '../api/http';
-import { Song } from '../api/types';
+import { LocalAudioFile, Song } from '../api/types';
 
 let setup: Promise<void> | null = null;
 
@@ -51,6 +51,28 @@ export async function playQueue(songs: Song[], index = 0) {
   await setupPlayer();
   await TrackPlayer.reset();
   await TrackPlayer.add(songs.map(toTrack));
+  await TrackPlayer.skip(index);
+  await TrackPlayer.play();
+}
+
+function toLocalTrack(file: LocalAudioFile): Track {
+  return {
+    id: `local-${file.id}`,
+    url: file.uri, // a content:// URI from MediaStore; TrackPlayer plays it exactly like a remote http(s) URL
+    title: file.title,
+    artist: file.artist ?? 'Unknown artist',
+    album: file.album ?? undefined,
+    artwork: file.artworkUri ?? undefined,
+    duration: file.durationMs / 1000,
+  };
+}
+
+/** Replaces the queue with local on-device audio files and starts playing at `index`. */
+export async function playLocalQueue(files: LocalAudioFile[], index = 0) {
+  if (!files.length) return;
+  await setupPlayer();
+  await TrackPlayer.reset();
+  await TrackPlayer.add(files.map(toLocalTrack));
   await TrackPlayer.skip(index);
   await TrackPlayer.play();
 }
