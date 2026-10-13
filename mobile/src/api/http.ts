@@ -32,5 +32,5 @@ export async function request<T>(path: string, opts: RequestOptions = {}): Promi
 /** Audio and images are stored either as absolute URLs or as paths under the API's /media. */
 export function mediaUrl(url?: string | null): string | undefined {
   if (!url) return undefined;
-  return url.startsWith('http') ? url : `${API_URL}${url}`;
+  return /^(https?|content|file):/.test(url) ? url : `${API_URL}${url}`;
 }

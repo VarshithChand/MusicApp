@@ -1,5 +1,5 @@
-import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { BackHandler, Pressable, StatusBar, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import { useYouTubePlayer } from '../store/youtubePlayer';
@@ -26,20 +26,48 @@ const playerHtml = (videoId: string) => `<!doctype html><html><head>
  */
 export function YouTubeFloatingPlayer() {
   const insets = useSafeAreaInsets();
+  const { width, height } = useWindowDimensions();
   const { videoId, title, mode, minimize, maximize, close } = useYouTubePlayer();
+  // Our own landscape view: YouTube's in-player fullscreen button depends on the phone's WebView and
+  // auto-rotate setting and doesn't work everywhere, so this rotates the same player to fill the screen.
+  const [landscape, setLandscape] = useState(false);
+  const mini = mode === 'mini';
+
+  useEffect(() => {
+    if (mini || !videoId) setLandscape(false);
+  }, [mini, videoId]);
+
+  useEffect(() => {
+    if (!videoId || mini) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (landscape) setLandscape(false);
+      else minimize();
+      return true;
+    });
+    return () => sub.remove();
+  }, [videoId, mini, landscape, minimize]);
 
   if (!videoId) return null;
-  const mini = mode === 'mini';
+
+  // Rotate only while the phone itself is upright; if it's already sideways, just fill the screen.
+  const landscapeBox =
+    height > width
+      ? { width: height, height: width, left: (width - height) / 2, top: (height - width) / 2, transform: [{ rotate: '90deg' }] }
+      : { width, height, left: 0, top: 0 };
 
   return (
     <View
       pointerEvents="box-none"
       style={[
         styles.root,
-        mini ? styles.miniRoot : [styles.fullRoot, { paddingTop: insets.top, paddingBottom: insets.bottom }],
+        mini
+          ? styles.miniRoot
+          : landscape
+            ? styles.landRoot
+            : [styles.fullRoot, { paddingTop: insets.top, paddingBottom: insets.bottom }],
       ]}
     >
-      {!mini && (
+      {!mini && !landscape && (
         <View style={styles.header}>
           <Pressable style={styles.iconBtn} onPress={minimize} accessibilityLabel="Minimize player">
             <Icon name="chevronDown" size={26} color={colors.text} />
@@ -47,9 +75,16 @@ export function YouTubeFloatingPlayer() {
           <Text style={styles.title} numberOfLines={2}>
             {title}
           </Text>
+          <Pressable style={styles.iconBtn} onPress={() => setLandscape(true)} accessibilityLabel="Full screen">
+            <Icon name="expand" size={22} color={colors.text} />
+          </Pressable>
         </View>
       )}
-      <Pressable style={mini ? styles.miniBox : styles.fullBox} onPress={mini ? maximize : undefined} accessibilityLabel={mini ? `Open ${title}` : undefined}>
+      <Pressable
+        style={mini ? styles.miniBox : landscape ? [styles.landBox, landscapeBox] : styles.fullBox}
+        onPress={mini ? maximize : undefined}
+        accessibilityLabel={mini ? `Open ${title}` : undefined}
+      >
         <WebView
           source={{ html: playerHtml(videoId), baseUrl: BASE_URL }}
           allowsInlineMediaPlayback
@@ -65,8 +100,14 @@ export function YouTubeFloatingPlayer() {
             <Icon name="close" size={14} color="#fff" />
           </Pressable>
         )}
+        {landscape && (
+          <Pressable style={styles.landExit} onPress={() => setLandscape(false)} accessibilityLabel="Exit full screen" hitSlop={8}>
+            <Icon name="close" size={20} color="#fff" />
+          </Pressable>
+        )}
       </Pressable>
-      {!mini && <Text style={styles.note}>Playing from YouTube.</Text>}
+      {!mini && !landscape && <Text style={styles.note}>Playing from YouTube. Tap the corners icon for full screen.</Text>}
+      <StatusBar hidden={landscape} />
     </View>
   );
 }
@@ -81,6 +122,19 @@ const styles = StyleSheet.create({
   iconBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   title: { flex: 1, color: colors.text, fontSize: 16, fontWeight: '600' },
   fullBox: { width: '100%', aspectRatio: 16 / 9, backgroundColor: '#000' },
+  landRoot: { backgroundColor: '#000' },
+  landBox: { position: 'absolute', backgroundColor: '#000' },
+  landExit: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   web: { flex: 1, backgroundColor: '#000' },
   note: { color: colors.muted, fontSize: 13, padding: 16 },
   miniBox: {

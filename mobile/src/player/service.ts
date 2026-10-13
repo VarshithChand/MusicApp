@@ -13,7 +13,7 @@ export default async function playbackService() {
   TrackPlayer.addEventListener(Event.RemoteSeek, (e) => TrackPlayer.seekTo(e.position));
 
   TrackPlayer.addEventListener(Event.PlaybackActiveTrackChanged, (e) => {
-    if (e.track?.id && useAuth.getState().accessToken) {
+    if (e.track?.id && !String(e.track.id).startsWith('local-') && useAuth.getState().accessToken) {
       api(`/songs/${e.track.id}/played`, { method: 'POST' }).catch(() => {});
     }
   });

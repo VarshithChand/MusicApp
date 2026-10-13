@@ -35,7 +35,9 @@ export function NowPlayingScreen() {
 
   const loading = state === State.Buffering || state === State.Loading;
   const playing = state === State.Playing || loading;
-  const songId = track ? Number(track.id) : null;
+  // Local on-device tracks have ids like "local-35": no server song, so no like/download.
+  const numericId = track ? Number(track.id) : NaN;
+  const songId = Number.isFinite(numericId) ? numericId : null;
   const isLiked = !!liked.data?.some((s) => s.id === songId);
 
   const downloadable = !!(track as { downloadable?: boolean } | undefined)?.downloadable;

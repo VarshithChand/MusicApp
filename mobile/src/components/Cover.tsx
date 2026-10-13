@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Image, View } from 'react-native';
 import { mediaUrl } from '../api/http';
 import { coverPalette } from '../theme/theme';
@@ -13,9 +13,12 @@ interface Props {
 
 /** Artwork if there is any, otherwise a stable placeholder in the app's cover palette. */
 export function Cover({ id, uri, size, radius = Math.round(size * 0.2) }: Props) {
-  const [base, highlight] = coverPalette[Math.abs(id) % coverPalette.length];
+  const [base, highlight] = coverPalette[Number.isFinite(id) ? Math.abs(id) % coverPalette.length : 0];
   const src = mediaUrl(uri);
-  if (src) return <Image source={{ uri: src }} style={{ width: size, height: size, borderRadius: radius }} />;
+  const [failed, setFailed] = useState<string | null>(null);
+  if (src && failed !== src) {
+    return <Image source={{ uri: src }} onError={() => setFailed(src)} style={{ width: size, height: size, borderRadius: radius }} />;
+  }
   return (
     <View style={{ width: size, height: size, borderRadius: radius, backgroundColor: base, overflow: 'hidden' }}>
       <View
