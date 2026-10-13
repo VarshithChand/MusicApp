@@ -15,8 +15,9 @@ export async function api<T>(path: string, opts: { method?: string; body?: unkno
       });
       useAuth.getState().setTokens(t.accessToken, t.refreshToken);
       return await request<T>(path, { ...opts, token: t.accessToken });
-    } catch {
-      useAuth.getState().logout();
+    } catch (refreshError) {
+      // Only a refresh the server rejects means the login is over; a slow or sleeping server is not a reason to sign out.
+      if (refreshError instanceof ApiError && refreshError.status === 401) useAuth.getState().logout();
       throw e;
     }
   }

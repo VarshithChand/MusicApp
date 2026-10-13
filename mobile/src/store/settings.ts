@@ -25,7 +25,9 @@ interface SettingsState {
   mode: ThemeChoice;
   font: FontChoice;
   textSize: TextSize;
-  update: (patch: Partial<Pick<SettingsState, 'look' | 'mode' | 'font' | 'textSize'>>) => void;
+  /** Volume boost in percent: 100 is normal, 200 is the loudest. */
+  boost: number;
+  update: (patch: Partial<Pick<SettingsState, 'look' | 'mode' | 'font' | 'textSize' | 'boost'>>) => void;
 }
 
 export const useSettings = create<SettingsState>()(
@@ -35,6 +37,7 @@ export const useSettings = create<SettingsState>()(
       mode: 'system',
       font: 'system',
       textSize: 'normal',
+      boost: 100,
       update: (patch) => set(patch),
     }),
     {

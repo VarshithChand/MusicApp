@@ -6,7 +6,8 @@ import { AppText as Text } from '../components/AppText';
 import { LoadingBars } from '../components/LoadingBars';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api } from '../api';
-import { useArtists, useLikedSongs, useRecentlyPlayed, useSongs, useTrending, useYouTubeFavorites } from '../api/hooks';
+import { useArtists, useLikedSongs, useRecentlyPlayed, useSongs, useTrending, useYouTube, useYouTubeFavorites } from '../api/hooks';
+import { GENRES } from '../data/genres';
 import { Cover } from '../components/Cover';
 import { Icon } from '../components/Icon';
 import { SongRow } from '../components/SongRow';
@@ -30,6 +31,9 @@ export function HomeScreen() {
   const ytFavorites = useYouTubeFavorites();
   const trending = useTrending('trending');
   const hits = useTrending('popular');
+  const [genre, setGenre] = useState<string | null>(null);
+  const genreLabel = GENRES.find((g) => g.key === genre)?.label ?? '';
+  const genreVideos = useYouTube(genre ? `${genreLabel.toLowerCase()} songs telugu hindi english` : '', 'viewCount');
   const playVideo = useYouTubePlayer((s) => s.play);
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
@@ -99,8 +103,39 @@ export function HomeScreen() {
       {popular.isLoading && <LoadingBars />}
       {popular.isError && <Text style={styles.error}>Couldn't load music. Check your connection.</Text>}
 
-      {videoRow('Trending Telugu videos', trending)}
-      {videoRow('Popular Telugu videos', hits)}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+        {[{ key: null, label: 'All' }, ...GENRES].map((g) => {
+          const on = genre === g.key;
+          return (
+            <Pressable
+              key={g.key ?? 'all'}
+              style={[styles.chip, on && styles.chipOn]}
+              onPress={() => setGenre(g.key)}
+              accessibilityRole="radio"
+              accessibilityState={{ selected: on }}
+            >
+              <Text style={[styles.chipText, on && styles.chipTextOn]}>{g.label}</Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+
+      {genre ? (
+        <>
+          {genreVideos.isFetching && <LoadingBars />}
+          {genreVideos.isError && <Text style={styles.error}>Couldn't load {genreLabel.toLowerCase()} songs. Try again in a moment.</Text>}
+          {genreVideos.data && !genreVideos.data.configured && <Text style={styles.error}>Video search isn't set up on the server yet.</Text>}
+          {genreVideos.data?.configured && !genreVideos.data.results.length && (
+            <Text style={styles.muted}>No {genreLabel.toLowerCase()} songs found right now.</Text>
+          )}
+          {videoRow(`${genreLabel} songs`, genreVideos)}
+        </>
+      ) : (
+        <>
+          {videoRow('Trending Telugu videos', trending)}
+          {videoRow('Popular Telugu videos', hits)}
+        </>
+      )}
 
       {!!liked.data?.length && (
         <View style={styles.section}>
@@ -193,6 +228,12 @@ const styles = themedStyles(() => ({
   section: { gap: 6 },
   h2: { color: colors.text, fontSize: 18, fontWeight: '600', marginBottom: 8 },
   hrow: { gap: 14 },
+  chipRow: { gap: 8 },
+  muted: { color: colors.muted, fontSize: 14 },
+  chip: { height: 36, paddingHorizontal: 16, borderRadius: 18, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, justifyContent: 'center' },
+  chipOn: { backgroundColor: colors.accent, borderColor: colors.accent },
+  chipText: { color: colors.text, fontSize: 14, fontWeight: '600' },
+  chipTextOn: { color: colors.onAccent },
   card: { width: 108, gap: 8 },
   cardTitle: { color: colors.text, fontSize: 14, fontWeight: '600' },
   vcard: { width: 200, gap: 6 },

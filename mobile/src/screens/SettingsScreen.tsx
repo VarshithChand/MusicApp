@@ -37,6 +37,16 @@ export function SettingsScreen() {
         </View>
       </Pressable>
 
+      <Pressable style={styles.row} onPress={() => navigation.navigate('VolumeBoost')} accessibilityRole="button">
+        <View style={styles.rowText}>
+          <Text style={styles.rowTitle}>Volume boost</Text>
+          <Text style={styles.muted}>Make music play louder</Text>
+        </View>
+        <View style={styles.chevron}>
+          <Icon name="back" size={20} color={colors.muted} />
+        </View>
+      </Pressable>
+
       {isAdmin && (
         <>
           <Text style={styles.h2}>Admin</Text>

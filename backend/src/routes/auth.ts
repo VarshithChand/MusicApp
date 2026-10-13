@@ -8,28 +8,68 @@ import { query } from "../db";
 
 export const authRouter = Router();
 
+const TASTES = ["mass", "class", "riding", "traveling", "alone", "sad", "romantic", "party"] as const;
+const GENRES = ["pop", "rock", "classical", "hip-hop", "folk", "jazz", "devotional", "film", "melody", "dj"] as const;
 const registerSchema = z.object({
   name: z.string().min(1).max(100),
   email: z.string().email(),
   password: z.string().min(8).max(200),
   gender: z.enum(["male", "female"]),
+  songTastes: z.array(z.enum(TASTES)).max(TASTES.length).optional(),
+  genres: z.array(z.enum(GENRES)).max(GENRES.length).optional(),
+  dateOfBirth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+});
+
+// A real calendar date, and an age between 5 and 120.
+const validBirthDate = (value: string): boolean => {
+  const d = new Date(`${value}T00:00:00Z`);
+  if (Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== value) return false;
+  const now = new Date();
+  let age = now.getUTCFullYear() - d.getUTCFullYear();
+  if (now < new Date(Date.UTC(now.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()))) age -= 1;
+  return age >= 5 && age <= 120;
+};
+
+// After two changes the saved song types stop applying, and the search uses the normal default.
+const MAX_TASTE_CHANGES = 2;
+const effectiveTastes = (row: any): string[] => (row.taste_changes >= MAX_TASTE_CHANGES ? [] : row.song_tastes ?? []);
+// node-postgres returns DATE columns as local-midnight Date objects; read the calendar day back out of them.
+const birthDateString = (v: any): string | null => {
+  if (!v) return null;
+  if (v instanceof Date) {
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${v.getFullYear()}-${pad(v.getMonth() + 1)}-${pad(v.getDate())}`;
+  }
+  return String(v).slice(0, 10);
+};
+const publicUser = (row: any) => ({
+  id: row.id,
+  name: row.name,
+  email: row.email,
+  is_admin: row.is_admin,
+  gender: row.gender ?? null,
+  song_tastes: effectiveTastes(row),
+  taste_changes: row.taste_changes ?? 0,
+  date_of_birth: birthDateString(row.date_of_birth),
+  genres: row.genres ?? [],
 });
 
 authRouter.post("/register", async (req, res) => {
   const parsed = registerSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
-  const { name, password, gender } = parsed.data;
+  const { name, password, gender, songTastes, dateOfBirth, genres } = parsed.data;
   const email = parsed.data.email.toLowerCase();
+  if (!validBirthDate(dateOfBirth)) return res.status(400).json({ error: "Enter a valid date of birth (YYYY-MM-DD)." });
 
   const existing = await query("SELECT id FROM users WHERE email = $1", [email]);
   if (existing.length) return res.status(409).json({ error: "Email already registered" });
 
   const hash = await bcrypt.hash(password, 10);
-  const [user] = await query(
-    "INSERT INTO users (name, email, password_hash, gender) VALUES ($1, $2, $3, $4) RETURNING id, name, email, is_admin, gender",
-    [name, email, hash, gender],
+  const [row] = await query(
+    "INSERT INTO users (name, email, password_hash, gender, song_tastes, date_of_birth, genres) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *",
+    [name, email, hash, gender, songTastes ?? [], dateOfBirth, genres ?? []],
   );
-  res.status(201).json({ user, ...signTokens(user.id, user.is_admin) });
+  res.status(201).json({ user: publicUser(row), ...signTokens(row.id, row.is_admin) });
 });
 
 authRouter.post("/login", async (req, res) => {
@@ -40,7 +80,7 @@ authRouter.post("/login", async (req, res) => {
   const ok = row && (await bcrypt.compare(parsed.data.password, row.password_hash));
   if (!ok) return res.status(401).json({ error: "Invalid email or password" });
 
-  const user = { id: row.id, name: row.name, email: row.email, is_admin: row.is_admin, gender: row.gender ?? null };
+  const user = publicUser(row);
   res.json({ user, ...signTokens(row.id, row.is_admin) });
 });
 
@@ -59,18 +99,46 @@ authRouter.post("/refresh", async (req, res) => {
 
 authRouter.get("/me", requireAuth, async (req: AuthedRequest, res) => {
   const [user] = await query(
-    "SELECT id, name, email, profile_image, is_admin, gender, created_at FROM users WHERE id = $1",
+    "SELECT id, name, email, profile_image, is_admin, gender, song_tastes, taste_changes, date_of_birth, genres, created_at FROM users WHERE id = $1",
     [req.userId],
   );
   if (!user) return res.status(404).json({ error: "User not found" });
-  res.json(user);
+  res.json({ ...user, ...publicUser(user) });
 });
 
-authRouter.put("/me/gender", requireAuth, async (req: AuthedRequest, res) => {
-  const parsed = z.object({ gender: z.enum(["male", "female"]) }).safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: "Choose male or female." });
-  const [user] = await query("UPDATE users SET gender = $1 WHERE id = $2 RETURNING gender", [parsed.data.gender, req.userId]);
-  res.json({ gender: user.gender });
+// Gender can change freely. Song types count as a change only when the set actually differs.
+authRouter.put("/me/preferences", requireAuth, async (req: AuthedRequest, res) => {
+  const parsed = z
+    .object({
+      gender: z.enum(["male", "female"]).optional(),
+      songTastes: z.array(z.enum(TASTES)).max(TASTES.length).optional(),
+      dateOfBirth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+      genres: z.array(z.enum(GENRES)).max(GENRES.length).optional(),
+    })
+    .safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "Invalid preferences." });
+  if (parsed.data.dateOfBirth && !validBirthDate(parsed.data.dateOfBirth)) {
+    return res.status(400).json({ error: "Enter a valid date of birth." });
+  }
+  const [row] = await query("SELECT * FROM users WHERE id = $1", [req.userId]);
+  if (!row) return res.status(404).json({ error: "User not found" });
+
+  const { gender, songTastes, dateOfBirth, genres } = parsed.data;
+  let tastes: string[] = row.song_tastes ?? [];
+  let changes: number = row.taste_changes ?? 0;
+  if (songTastes !== undefined) {
+    if (changes >= MAX_TASTE_CHANGES) return res.status(409).json({ error: "Your song preferences are now the default." });
+    const same = songTastes.length === tastes.length && songTastes.every((t) => tastes.includes(t));
+    if (!same) {
+      tastes = songTastes;
+      changes += 1;
+    }
+  }
+  const [updated] = await query(
+    "UPDATE users SET gender = $1, song_tastes = $2, taste_changes = $3, date_of_birth = COALESCE($4::date, date_of_birth), genres = COALESCE($5::text[], genres) WHERE id = $6 RETURNING *",
+    [gender ?? row.gender, tastes, changes, dateOfBirth ?? null, genres ?? null, req.userId],
+  );
+  res.json(publicUser(updated));
 });
 
 // --- Continue with Google ------------------------------------------------------
@@ -118,6 +186,6 @@ authRouter.post("/google", async (req, res) => {
     );
   }
 
-  const user = { id: row.id, name: row.name, email: row.email, is_admin: row.is_admin, gender: row.gender ?? null };
+  const user = publicUser(row);
   res.json({ user, ...signTokens(row.id, row.is_admin) });
 });

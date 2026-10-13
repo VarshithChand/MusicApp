@@ -10,7 +10,8 @@ import { AppNavigator } from './src/navigation/AppNavigator';
 import { setupPlayer } from './src/player/controls';
 import { useAuth } from './src/store/auth';
 import { setAppIconVariant } from './src/native/appIcon';
-import { useResolvedMode } from './src/store/settings';
+import { setVolumeBoost } from './src/native/volumeBoost';
+import { useResolvedMode, useSettings } from './src/store/settings';
 import { useYouTubePlayer } from './src/store/youtubePlayer';
 import { applyTheme, colors, ThemeMode } from './src/theme/theme';
 
@@ -25,6 +26,10 @@ export default function App() {
     appliedMode.current = resolved;
   }
   const isLight = resolved.endsWith('light');
+  const boost = useSettings((s) => s.boost);
+  useEffect(() => {
+    setVolumeBoost(boost);
+  }, [boost]);
   const iconVariant = useRef<'dark' | 'light'>('dark');
   useEffect(() => {
     iconVariant.current = resolved === 'dark' ? 'dark' : 'light';

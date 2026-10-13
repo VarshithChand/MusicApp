@@ -26,6 +26,7 @@ interface YouTubePlayerState {
   play: (videoId: string, title: string, info?: Info) => void;
   playFromList: (list: RecentVideo[], index: number) => void;
   playNext: () => void;
+  skipTo: (delta: 1 | -1) => void;
   setAutoplay: (on: boolean) => void;
   minimize: () => void;
   maximize: () => void;
@@ -59,11 +60,13 @@ export const useYouTubePlayer = create<YouTubePlayerState>()(
         if (v) get().play(v.videoId, v.title, { channel: v.channel, thumbnail: v.thumbnail });
       },
       playNext: () => {
-        const { autoplay, queue, videoId } = get();
-        if (!autoplay || !videoId) return;
+        if (get().autoplay) get().skipTo(1);
+      },
+      skipTo: (delta) => {
+        const { queue, videoId } = get();
         const i = queue.findIndex((v) => v.videoId === videoId);
-        const next = i >= 0 ? queue[i + 1] : undefined;
-        if (next) get().play(next.videoId, next.title, { channel: next.channel, thumbnail: next.thumbnail });
+        const target = i >= 0 ? queue[i + delta] : undefined;
+        if (target) get().play(target.videoId, target.title, { channel: target.channel, thumbnail: target.thumbnail });
       },
       setAutoplay: (on) => set({ autoplay: on }),
       minimize: () => set({ mode: 'mini' }),

@@ -13,6 +13,7 @@ import { NowPlayingScreen } from '../screens/NowPlayingScreen';
 import { SearchScreen } from '../screens/SearchScreen';
 import { AdminScreen } from '../screens/AdminScreen';
 import { AppearanceScreen } from '../screens/AppearanceScreen';
+import { VolumeBoostScreen } from '../screens/VolumeBoostScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 import { SongListScreen } from '../screens/SongListScreen';
 import { YouTubeScreen } from '../screens/YouTubeScreen';
@@ -54,6 +55,7 @@ export function AppNavigator() {
           <Stack.Screen name="Search" component={SearchScreen} />
           <Stack.Screen name="Admin" component={AdminScreen} />
           <Stack.Screen name="Appearance" component={AppearanceScreen} />
+          <Stack.Screen name="VolumeBoost" component={VolumeBoostScreen} />
           <Stack.Screen name="SongList" component={SongListScreen} />
           <Stack.Screen name="MovieDetail" component={MovieDetailScreen} />
           <Stack.Screen name="Account" component={AccountScreen} />

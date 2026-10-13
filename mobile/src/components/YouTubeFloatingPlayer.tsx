@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { BackHandler, Image, Pressable, ScrollView, StatusBar, StyleSheet, Switch, useWindowDimensions, View } from 'react-native';
+import { BackHandler, Image, PanResponder, Pressable, ScrollView, StatusBar, StyleSheet, Switch, useWindowDimensions, View } from 'react-native';
 import { AppText as Text } from './AppText';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
-import { useYouTube } from '../api/hooks';
+import { useTrending } from '../api/hooks';
+import { setScreenBrightness } from '../native/brightness';
 import { useYouTubePlayer } from '../store/youtubePlayer';
 import { colors, themedStyles } from '../theme/theme';
 import { Icon } from './Icon';
@@ -32,6 +33,9 @@ window.addEventListener('message', function (e) {
   if (typeof d.info.currentTime === 'number') now = d.info.currentTime;
   if (d.info.playerState === 0) window.ReactNativeWebView.postMessage('ended');
 });
+function setVol(v) {
+  frame.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'setVolume', args: [v] }), 'https://www.youtube.com');
+}
 function seekBy(seconds) {
   frame.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'seekTo', args: [Math.max(0, now + seconds), true] }), 'https://www.youtube.com');
 }
@@ -45,11 +49,14 @@ function seekBy(seconds) {
  * MiniPlayer. The <WebView> stays the same element across both modes (only the surrounding box's size/position
  * changes), so shrinking or expanding never reloads the video.
  */
+const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
+const clampRange = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+
 export function YouTubeFloatingPlayer() {
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
   const { videoId, title, mode, minimize, maximize, close, play, playNext, autoplay, setAutoplay } = useYouTubePlayer();
-  const related = useYouTube(title.slice(0, 80));
+  const related = useTrending('popular');
   const webRef = useRef<React.ComponentRef<typeof WebView>>(null);
   const lastSeekTap = useRef<{ seconds: number; at: number } | null>(null);
 
@@ -81,6 +88,63 @@ export function YouTubeFloatingPlayer() {
     });
     return () => sub.remove();
   }, [videoId, mini, landscape, minimize]);
+
+  const [hud, setHud] = useState<string | null>(null);
+  const hudTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const zoneSize = useRef({ w: 1, h: 1 });
+  const volumeLevel = useRef(100);
+  const brightnessLevel = useRef(0.5);
+  const drag = useRef<{ zone: 'left' | 'center' | 'right'; startVol: number; startBright: number; seek: number } | null>(null);
+
+  const showHud = (text: string) => {
+    setHud(text);
+    if (hudTimer.current) clearTimeout(hudTimer.current);
+    hudTimer.current = setTimeout(() => setHud(null), 700);
+  };
+
+  // Left third: brightness. Right third: volume. Middle: drag sideways to seek. A tap on a side skips 10 seconds.
+  const gestures = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onPanResponderGrant: (e) => {
+        const x = e.nativeEvent.locationX;
+        const w = zoneSize.current.w;
+        const zone = x < w * 0.35 ? 'left' : x > w * 0.65 ? 'right' : 'center';
+        drag.current = { zone, startVol: volumeLevel.current, startBright: brightnessLevel.current, seek: 0 };
+      },
+      onPanResponderMove: (_e, g) => {
+        const d = drag.current;
+        if (!d) return;
+        const h = zoneSize.current.h;
+        if (d.zone === 'left') {
+          brightnessLevel.current = clamp01(d.startBright - g.dy / h);
+          setScreenBrightness(brightnessLevel.current);
+          showHud(`Brightness ${Math.round(brightnessLevel.current * 100)}%`);
+        } else if (d.zone === 'right') {
+          volumeLevel.current = clampRange(d.startVol - (g.dy / h) * 100, 0, 100);
+          webRef.current?.injectJavaScript(`setVol(${Math.round(volumeLevel.current)}); true;`);
+          showHud(`Volume ${Math.round(volumeLevel.current)}%`);
+        } else {
+          d.seek = Math.round(g.dx * 0.25);
+          showHud(`${d.seek >= 0 ? '+' : ''}${d.seek}s`);
+        }
+      },
+      onPanResponderRelease: (_e, g) => {
+        const d = drag.current;
+        drag.current = null;
+        if (!d) return;
+        const moved = Math.abs(g.dx) > 8 || Math.abs(g.dy) > 8;
+        if (!moved) {
+          if (d.zone !== 'center') onSeekTap(d.zone === 'left' ? -10 : 10);
+          return;
+        }
+        if (d.zone === 'center' && d.seek) webRef.current?.injectJavaScript(`seekBy(${d.seek}); true;`);
+      },
+      onPanResponderTerminate: () => {
+        drag.current = null;
+      },
+    }),
+  ).current;
 
   if (!videoId) return null;
 
@@ -131,8 +195,18 @@ export function YouTubeFloatingPlayer() {
         />
         {!mini && (
           <>
-            <Pressable style={[styles.seekZone, styles.seekLeft]} onPress={() => onSeekTap(-10)} accessibilityLabel="Double tap to go back 10 seconds" />
-            <Pressable style={[styles.seekZone, styles.seekRight]} onPress={() => onSeekTap(10)} accessibilityLabel="Double tap to go forward 10 seconds" />
+            <View
+              style={styles.gestureZone}
+              onLayout={(e) => {
+                zoneSize.current = { w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height };
+              }}
+              {...gestures.panHandlers}
+            />
+            {hud && (
+              <View style={styles.hud} pointerEvents="none">
+                <Text style={styles.hudText}>{hud}</Text>
+              </View>
+            )}
           </>
         )}
         {mini && (
@@ -209,9 +283,9 @@ const styles = themedStyles(() => ({
   web: { flex: 1, backgroundColor: '#000' },
   upNext: { flex: 1 },
   upNextContent: { paddingHorizontal: 16, paddingBottom: 24, gap: 12 },
-  seekZone: { position: 'absolute', top: 0, width: '40%', height: '70%' },
-  seekLeft: { left: 0 },
-  seekRight: { right: 0 },
+  gestureZone: { position: 'absolute', top: 0, left: 0, right: 0, height: '75%' },
+  hud: { position: 'absolute', top: '35%', alignSelf: 'center', backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12 },
+  hudText: { color: '#fff', fontSize: 18, fontWeight: '700' },
   switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 4 },
   toggleText: { color: colors.text, fontSize: 15, fontWeight: '600' },
   upNextTitle: { color: colors.text, fontSize: 16, fontWeight: '700', marginTop: 4 },

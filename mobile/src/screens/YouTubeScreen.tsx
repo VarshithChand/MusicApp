@@ -7,6 +7,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useToggleYouTubeFavorite, useTrending, useYouTube, useYouTubeFavorites, useYouTubeVideo } from '../api/hooks';
 import { YouTubeResult } from '../api/types';
 import { Icon } from '../components/Icon';
+import { GENRES } from '../data/genres';
+import { TASTES } from '../data/tastes';
+import { useAuth } from '../store/auth';
 import { useYouTubePlayer } from '../store/youtubePlayer';
 import { colors, themedStyles } from '../theme/theme';
 
@@ -30,14 +33,23 @@ const formatDuration = (seconds: number | null | undefined) => {
   return `${m}:${String(s).padStart(2, '0')}`;
 };
 
-const MOODS = ['Mass', 'Class', 'Riding', 'Traveling', 'Alone', 'Sad'] as const;
+const MOODS = ['Mass', 'Class', 'Riding', 'Traveling', 'Alone', 'Sad', 'Romantic', 'Party'] as const;
 
 export function YouTubeScreen() {
   const insets = useSafeAreaInsets();
   const [text, setText] = useState('');
   const [lookupId, setLookupId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState<string | null>(null);
-  const [mood, setMood] = useState<string | null>(null);
+  const [mood, setMood] = useState<string | null | undefined>(undefined);
+  const user = useAuth((s) => s.user);
+  const firstTaste = user?.song_tastes?.[0];
+  const firstGenre = user?.genres?.[0];
+  const defaultMood = firstTaste
+    ? (TASTES.find((t) => t.key === firstTaste)?.label ?? null)
+    : firstGenre
+      ? (GENRES.find((g) => g.key === firstGenre)?.label ?? null)
+      : null;
+  const activeMood = mood === undefined ? defaultMood : mood;
   const [filterOpen, setFilterOpen] = useState(false);
   const [panel, setPanel] = useState<'favorites' | 'recent' | null>(null);
   const [badLink, setBadLink] = useState(false);
@@ -46,13 +58,13 @@ export function YouTubeScreen() {
   const recent = useYouTubePlayer((s) => s.recent);
   const video = useYouTubeVideo(lookupId);
   const query = searchTerm
-    ? mood
-      ? `${searchTerm} ${mood.toLowerCase()} songs`
+    ? activeMood
+      ? `${searchTerm} ${activeMood.toLowerCase()} songs`
       : searchTerm
-    : mood
-      ? `telugu ${mood.toLowerCase()} songs`
+    : activeMood
+      ? `telugu ${activeMood.toLowerCase()} songs`
       : null;
-  const resultsLabel = [mood, searchTerm].filter(Boolean).join(' · ');
+  const resultsLabel = [activeMood, searchTerm].filter(Boolean).join(' · ');
   const topHits = useYouTube(query ?? '', 'viewCount');
   const latest = useYouTube(query ?? '', 'date');
   const popularTe = useTrending('popular');
@@ -197,7 +209,7 @@ export function YouTubeScreen() {
             accessibilityState={{ expanded: filterOpen }}
           >
             <Text style={styles.panelBtnText} numberOfLines={1}>
-              {mood ? `Filter: ${mood}` : 'Filter'}
+              {activeMood ? `Filter: ${activeMood}` : 'Filter'}
             </Text>
           </Pressable>
         </View>
@@ -207,7 +219,7 @@ export function YouTubeScreen() {
         <View style={styles.dropdown}>
           {['All moods', ...MOODS].map((label) => {
             const value = label === 'All moods' ? null : label;
-            const on = mood === value;
+            const on = activeMood === value;
             return (
               <Pressable
                 key={label}
@@ -280,6 +292,8 @@ export function YouTubeScreen() {
         </>
       )}
 
+      {panel === null && (
+        <>
       {badLink && <Text style={styles.error}>Type at least two letters, or paste a YouTube link.</Text>}
       {video.isFetching && <LoadingBars />}
       {video.isError && <Text style={styles.error}>{video.error instanceof Error ? video.error.message : "Couldn't fetch that video."}</Text>}
@@ -337,6 +351,8 @@ export function YouTubeScreen() {
           <Text style={styles.sectionTitle}>Latest Telugu songs</Text>
           {videoRows(latestTe.data?.results, { fetching: latestTe.isFetching, error: latestTe.isError, configured: latestTe.data?.configured })}
         </>
+      )}
+      </>
       )}
     </ScrollView>
   );

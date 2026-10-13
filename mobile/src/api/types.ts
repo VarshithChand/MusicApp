@@ -4,6 +4,10 @@ export interface User {
   email: string;
   is_admin?: boolean;
   gender?: 'male' | 'female' | null;
+  song_tastes?: string[];
+  taste_changes?: number;
+  date_of_birth?: string | null;
+  genres?: string[];
 }
 
 export interface Song {

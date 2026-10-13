@@ -63,6 +63,12 @@ export function LocalMediaScreen() {
       .filter((v) => !q || v.title.toLowerCase().includes(q));
   }, [tab, audio, video, onlyFavorites, favoriteAudio, favoriteVideo, query]);
 
+  const videoIndex = playingVideo ? filtered.findIndex((v) => (v as LocalVideoFile).uri === playingVideo.uri) : -1;
+  const stepVideo = (delta: 1 | -1) => {
+    const next = (filtered as LocalVideoFile[])[videoIndex + delta];
+    if (next) setPlayingVideo({ uri: next.uri, title: next.title });
+  };
+
   const openSettings = () => Linking.openSettings();
 
   return (
@@ -136,7 +142,13 @@ export function LocalMediaScreen() {
         />
       )}
 
-      <LocalVideoModal uri={playingVideo?.uri ?? null} title={playingVideo?.title ?? ''} onClose={() => setPlayingVideo(null)} />
+      <LocalVideoModal
+        uri={playingVideo?.uri ?? null}
+        title={playingVideo?.title ?? ''}
+        onClose={() => setPlayingVideo(null)}
+        onPrev={videoIndex > 0 ? () => stepVideo(-1) : undefined}
+        onNext={videoIndex >= 0 && videoIndex < filtered.length - 1 ? () => stepVideo(1) : undefined}
+      />
     </View>
   );
 }
