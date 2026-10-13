@@ -22,6 +22,7 @@ export function LoginScreen() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -72,8 +73,19 @@ export function LoginScreen() {
             value={password}
             onChangeText={setPassword}
             placeholder="At least 8 characters"
-            secureTextEntry
+            secureTextEntry={!showPassword}
             autoComplete="password"
+            trailing={
+              <Pressable
+                style={styles.eyeButton}
+                onPress={() => setShowPassword((v) => !v)}
+                accessibilityRole="button"
+                accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+                accessibilityState={{ checked: showPassword }}
+              >
+                <Icon name={showPassword ? 'eyeOff' : 'eye'} size={22} color={colors.muted} />
+              </Pressable>
+            }
           />
           {error && <Text style={styles.error}>{error}</Text>}
           <Pressable
@@ -107,11 +119,14 @@ export function LoginScreen() {
   );
 }
 
-function Field({ label, ...input }: { label: string } & React.ComponentProps<typeof TextInput>) {
+function Field({ label, trailing, ...input }: { label: string; trailing?: React.ReactNode } & React.ComponentProps<typeof TextInput>) {
   return (
     <View style={styles.field}>
       <Text style={styles.label}>{label}</Text>
-      <TextInput {...input} placeholderTextColor="#7C8391" style={styles.input} accessibilityLabel={label} />
+      <View style={styles.inputRow}>
+        <TextInput {...input} placeholderTextColor="#7C8391" style={styles.input} accessibilityLabel={label} />
+        {trailing}
+      </View>
     </View>
   );
 }
@@ -125,16 +140,18 @@ const styles = StyleSheet.create({
   form: { gap: 16, marginTop: 16 },
   field: { gap: 8 },
   label: { color: colors.text, fontSize: 14, fontWeight: '500' },
-  input: {
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     height: 52,
     borderRadius: 14,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.surface,
-    paddingHorizontal: 16,
-    color: colors.text,
-    fontSize: 16,
+    paddingRight: 4,
   },
+  input: { flex: 1, height: 52, paddingHorizontal: 16, color: colors.text, fontSize: 16 },
+  eyeButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   error: { color: colors.danger, fontSize: 14 },
   button: { height: 54, borderRadius: 27, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center', marginTop: 8 },
   buttonText: { color: colors.onAccent, fontSize: 16, fontWeight: '600' },
