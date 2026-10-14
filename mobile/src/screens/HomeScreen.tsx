@@ -1,6 +1,6 @@
 import { useNavigation } from '@react-navigation/native';
 import { useQueryClient } from '@tanstack/react-query';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Image, Pressable, RefreshControl, ScrollView, View } from 'react-native';
 import { AppText as Text } from '../components/AppText';
 import { LoadingBars } from '../components/LoadingBars';
@@ -22,11 +22,41 @@ import { languageLabel } from '../data/languages';
 import { Cover } from '../components/Cover';
 import { Icon } from '../components/Icon';
 import { SongRow } from '../components/SongRow';
-import { YouTubeResponse, YouTubeResult } from '../api/types';
+import { Song, YouTubeResponse, YouTubeResult } from '../api/types';
 import { playQueue } from '../player/controls';
 import { useAuth } from '../store/auth';
 import { useYouTubePlayer } from '../store/youtubePlayer';
 import { colors, themedStyles } from '../theme/theme';
+
+/** How many of the newest songs are held at the front, so a new arrival is never shuffled out of sight. */
+const NEWEST_KEPT_FIRST = 3;
+
+/** Deterministic for a given pass, so a re-render doesn't reorder the list under the listener's finger. */
+function shuffled<T>(items: T[], pass: number): T[] {
+  const out = [...items];
+  let state = (pass * 7919 + 1) % 2147483647;
+  const next = () => {
+    state = (state * 48271) % 2147483647;
+    return state / 2147483647;
+  };
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(next() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
+/**
+ * Newly added songs first, everything else in a fresh order on every refresh, so Home is not the
+ * same list each time and anything just added is seen rather than buried. Ids rise as songs are
+ * added, so the highest ones are the newest.
+ */
+function forHome(songs: Song[] | undefined, pass: number): Song[] {
+  if (!songs?.length) return [];
+  const newest = [...songs].sort((a, b) => b.id - a.id).slice(0, NEWEST_KEPT_FIRST);
+  const held = new Set(newest.map((s) => s.id));
+  return [...newest, ...shuffled(songs.filter((s) => !held.has(s.id)), pass)];
+}
 
 function greeting() {
   const h = new Date().getHours();
@@ -53,6 +83,9 @@ export function HomeScreen() {
   const isAdmin = !!useAuth((s) => s.user)?.is_admin;
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
+  // Bumped on every pull-to-refresh, which is what re-orders the list below.
+  const [pass, setPass] = useState(0);
+  const popularShown = useMemo(() => forHome(popular.data, pass), [popular.data, pass]);
 
   // Asks the server for fresh Telugu results (it skips its cache) and stores them where the rows read from.
   const refreshVideos = (kind: 'trending' | 'popular') =>
@@ -62,6 +95,7 @@ export function HomeScreen() {
 
   const refresh = async () => {
     setRefreshing(true);
+    setPass((n) => n + 1);
     try {
       await Promise.all([
         recent.refetch(),
@@ -80,7 +114,8 @@ export function HomeScreen() {
   const videoRow = (title: string, q: typeof trending) =>
     !!q.data?.results.length && (
       <View style={styles.section}>
-        <Text style={styles.h2}>{title}</Text>
+        {/* A stand-in list is not in the chosen language, so it must not keep that language's heading. */}
+        <Text style={styles.h2}>{q.data?.note ? 'Popular music videos' : title}</Text>
         {!!q.data?.note && isAdmin && <Text style={styles.muted}>{q.data.note}</Text>}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hrow}>
           {q.data.results.map((v: YouTubeResult) => (
@@ -189,11 +224,11 @@ export function HomeScreen() {
         </View>
       )}
 
-      {!!popular.data?.length && (
+      {!!popularShown.length && (
         <View style={styles.section}>
           <Text style={styles.h2}>Popular</Text>
-          {popular.data.slice(0, 10).map((s, i) => (
-            <SongRow key={s.id} song={s} onPress={() => play(popular.data, i)} />
+          {popularShown.slice(0, 10).map((s, i) => (
+            <SongRow key={s.id} song={s} onPress={() => play(popularShown, i)} />
           ))}
         </View>
       )}
