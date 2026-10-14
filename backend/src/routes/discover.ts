@@ -236,6 +236,8 @@ export function youtubeStatus() {
   return {
     lastError: lastFailure,
     quotaSpentUntil: quotaSpent() ? new Date(quotaSpentUntil).toISOString() : null,
+    // Which music channels answered, so a handle that YouTube no longer knows is visible rather than silent.
+    channels: { known: [...uploadsPlaylists.keys()], unknown: [...unknownHandles] },
   };
 }
 
@@ -508,6 +510,151 @@ discoverRouter.delete("/youtube-video/:id/favorite", async (req: AuthedRequest, 
   res.status(204).end();
 });
 
+// --- Songs from the music channels themselves ---------------------------------
+//
+// A search costs 100 of the 10,000 daily units and the day runs out after about fifty of them.
+// Reading what a channel has published costs 1, and a Telugu label's channel is Telugu by
+// definition, so there is no guessing at a video's language either. These lists therefore come
+// from the labels, and searching is kept for what a listener actually types.
+
+/** Music channels per language, by their YouTube handle. Unknown handles are skipped, not fatal. */
+const MUSIC_CHANNELS: Record<string, string[]> = {
+  te: ["AdityaMusic", "SaregamaTelugu", "MangoMusicIndia", "LahariMusic"],
+  hi: ["tseries", "ZeeMusicCompany", "SonyMusicIndiaVEVO"],
+  ta: ["ThinkMusicIndia", "SaregamaTamil", "SonyMusicSouth"],
+  kn: ["AnandAudioOfficial", "LahariMusic"],
+  ml: ["SaregamaMalayalam", "ThinkMusicIndia"],
+};
+
+const POOL_TTL_MS = 6 * 60 * 60_000;
+const PER_CHANNEL = 25;
+type PoolItem = { publishedAt: string; views: number; video: unknown };
+const poolCache = new Map<string, { at: number; items: PoolItem[] }>();
+const uploadsPlaylists = new Map<string, string>();
+/** Handles that YouTube does not recognise, so we stop asking about them. */
+const unknownHandles = new Set<string>();
+
+/** A channel's uploads playlist, which never changes, so it is worth remembering for good. */
+async function uploadsPlaylistFor(handle: string, key: string): Promise<string | null> {
+  const known = uploadsPlaylists.get(handle);
+  if (known) return known;
+  if (unknownHandles.has(handle)) return null;
+
+  const saved = await loadSaved(`channel:${handle}`);
+  const savedId = saved?.results?.[0];
+  if (typeof savedId === "string") {
+    uploadsPlaylists.set(handle, savedId);
+    return savedId;
+  }
+
+  const url = new URL("https://www.googleapis.com/youtube/v3/channels");
+  url.search = new URLSearchParams({ part: "contentDetails", forHandle: handle, key }).toString();
+  const response = await fetch(url);
+  const body = (await response.json().catch(() => null)) as
+    | { items?: { contentDetails?: { relatedPlaylists?: { uploads?: string } } }[]; error?: YtError }
+    | null;
+  if (!response.ok) {
+    noteFailure(`channel ${handle}`, response.status, body?.error);
+    return null;
+  }
+  const uploads = body?.items?.[0]?.contentDetails?.relatedPlaylists?.uploads;
+  if (!uploads) {
+    unknownHandles.add(handle);
+    return null;
+  }
+  uploadsPlaylists.set(handle, uploads);
+  saveResults(`channel:${handle}`, [uploads]);
+  return uploads;
+}
+
+/** The newest video ids a channel has published. */
+async function recentUploads(playlistId: string, key: string): Promise<string[]> {
+  const url = new URL("https://www.googleapis.com/youtube/v3/playlistItems");
+  url.search = new URLSearchParams({
+    part: "contentDetails",
+    playlistId,
+    maxResults: String(PER_CHANNEL),
+    key,
+  }).toString();
+  const response = await fetch(url);
+  const body = (await response.json().catch(() => null)) as
+    | { items?: { contentDetails?: { videoId?: string } }[]; error?: YtError }
+    | null;
+  if (!response.ok || !body?.items) {
+    noteFailure("channel uploads", response.status, body?.error);
+    return [];
+  }
+  return body.items.map((i) => i.contentDetails?.videoId).filter((id): id is string => !!id);
+}
+
+/** Fills in what a list needs to show and to sort by: title, length, when it appeared and how watched it is. */
+async function describeVideos(ids: string[], key: string): Promise<PoolItem[]> {
+  const out: PoolItem[] = [];
+  for (let from = 0; from < ids.length; from += 50) {
+    const url = new URL("https://www.googleapis.com/youtube/v3/videos");
+    url.search = new URLSearchParams({
+      part: "snippet,contentDetails,statistics",
+      id: ids.slice(from, from + 50).join(","),
+      key,
+    }).toString();
+    const response = await fetch(url);
+    const body = (await response.json().catch(() => null)) as
+      | {
+          items?: {
+            id: string;
+            snippet: { title: string; channelTitle: string; publishedAt?: string; thumbnails?: { medium?: { url: string } } };
+            contentDetails: { duration: string };
+            statistics?: { viewCount?: string };
+          }[];
+          error?: YtError;
+        }
+      | null;
+    if (!response.ok || !body?.items) {
+      noteFailure("video details", response.status, body?.error);
+      continue;
+    }
+    for (const i of body.items) {
+      out.push({
+        publishedAt: i.snippet.publishedAt ?? "",
+        views: Number(i.statistics?.viewCount ?? 0),
+        video: {
+          videoId: i.id,
+          title: decode(i.snippet.title),
+          channel: decode(i.snippet.channelTitle),
+          thumbnail: i.snippet.thumbnails?.medium?.url ?? null,
+          durationSeconds: isoDurationToSeconds(i.contentDetails.duration),
+          publishedAt: i.snippet.publishedAt ?? null,
+        },
+      });
+    }
+  }
+  return out;
+}
+
+/** Everything the language's channels have put out lately, ready to order by date or by views. */
+async function channelPool(lang: string, key: string): Promise<PoolItem[] | null> {
+  const fresh = poolCache.get(lang);
+  if (fresh && Date.now() - fresh.at < POOL_TTL_MS) return fresh.items;
+
+  const handles = MUSIC_CHANNELS[lang];
+  if (!handles?.length) return null;
+
+  const ids: string[] = [];
+  for (const handle of handles) {
+    const playlist = await uploadsPlaylistFor(handle, key);
+    if (playlist) ids.push(...(await recentUploads(playlist, key)));
+  }
+  if (!ids.length) return null;
+
+  const items = await describeVideos([...new Set(ids)], key);
+  if (!items.length) return null;
+  poolCache.set(lang, { at: Date.now(), items });
+  return items;
+}
+
+const byNewest = (items: PoolItem[]) => [...items].sort((a, b) => b.publishedAt.localeCompare(a.publishedAt));
+const byViews = (items: PoolItem[]) => [...items].sort((a, b) => b.views - a.views);
+
 // --- Trending / popular in a language (official YouTube player only) ----------
 
 const TRENDING_LANGUAGES: Record<string, { query: string; trending: string; popular: string }> = {
@@ -543,6 +690,16 @@ discoverRouter.get("/trending", async (req, res) => {
   // A pull-to-refresh skips the cache, but not if it was refreshed in the last few minutes (protects the daily quota).
   const wantFresh = req.query.fresh === "1" && age >= MIN_FRESH_MS;
   if (hit && age < TREND_TTL[kind] && !wantFresh) return res.json({ configured: true, results: hit.results });
+
+  // What the language's own labels have released. A few quota units against a search's hundred, and
+  // every song is in the language because the channel is, so this is tried before anything else.
+  const pool = await channelPool(lang, YT_KEY);
+  if (pool?.length) {
+    const results = (kind === "trending" ? byNewest(pool) : byViews(pool)).slice(0, 30).map((i) => i.video);
+    trendCache.set(key, { at: Date.now(), results });
+    saveResults(`trend:${key}`, results);
+    return res.json({ configured: true, results });
+  }
 
   // Searching for the day is spent: serve what was saved, else the chart, rather than a call that will be refused.
   if (quotaSpent()) {
