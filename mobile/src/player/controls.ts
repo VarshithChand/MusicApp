@@ -1,3 +1,4 @@
+import { PermissionsAndroid, Platform } from 'react-native';
 import TrackPlayer, { AppKilledPlaybackBehavior, Capability, Track } from 'react-native-track-player';
 import { mediaUrl } from '../api/http';
 import { LocalAudioFile, Song } from '../api/types';
@@ -5,15 +6,36 @@ import { LocalAudioFile, Song } from '../api/types';
 let setup: Promise<void> | null = null;
 
 /** Initialises the native player once and enables lock-screen / notification controls. */
+/**
+ * Android 13 and later refuse to show any notification until asked, and the playback controls are a
+ * notification, so without this there is nothing on the lock screen to press. Declining only costs
+ * the controls; the music itself plays either way.
+ */
+async function askToShowControls(): Promise<void> {
+  if (Platform.OS !== 'android' || Platform.Version < 33) return;
+  try {
+    await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS, {
+      title: 'Playback controls',
+      message: 'Let Musica show the player on your lock screen and notification shade.',
+      buttonPositive: 'Allow',
+      buttonNegative: 'Not now',
+    });
+  } catch {
+    // Not being able to ask is no reason to stop the music starting.
+  }
+}
+
 export function setupPlayer(): Promise<void> {
   setup ??= (async () => {
+    await askToShowControls();
     try {
       await TrackPlayer.setupPlayer();
     } catch {
       // Already initialised (e.g. after a JS reload) — safe to continue.
     }
     await TrackPlayer.updateOptions({
-      android: { appKilledPlaybackBehavior: AppKilledPlaybackBehavior.StopPlaybackAndRemoveNotification },
+      // Keep playing when the app is swiped away: the notification is how someone comes back to it.
+      android: { appKilledPlaybackBehavior: AppKilledPlaybackBehavior.ContinuePlayback },
       forwardJumpInterval: 5,
       backwardJumpInterval: 5,
       capabilities: [

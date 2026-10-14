@@ -8,6 +8,9 @@
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+    <!-- Android 13+ will not show any notification without this, including the playback controls
+         on the lock screen, so without it there is nothing to press while the phone is locked. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- Lets the app hand a downloaded update to Android's installer; Android still asks the owner. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 

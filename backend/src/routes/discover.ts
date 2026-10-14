@@ -430,10 +430,9 @@ discoverRouter.get("/youtube", async (req, res) => {
   const cacheKey = `${order}:${lang ?? "any"}:${q.toLowerCase()}`;
 
   // A filter asks the same handful of questions over and over, so answer it from the library.
-  if (mood) {
-    const stocked = await libraryVideos(lang, mood, order === "date" ? "newest" : "views");
-    if (stocked.length >= 10) return res.json({ configured: true, results: stocked });
-  }
+  // A few is better than a spinner: a half-stocked mood still plays, and the top-up fills the rest.
+  const stocked = mood ? await libraryVideos(lang, mood, order === "date" ? "newest" : "views") : [];
+  if (stocked.length >= ENOUGH_FOR_A_FILTER) return res.json({ configured: true, results: stocked });
 
   const hit = ytCache.get(cacheKey) ?? (await loadSaved(`search:${cacheKey}`));
   if (hit && Date.now() - hit.at < SEARCH_TTL_MS) {
@@ -453,6 +452,8 @@ discoverRouter.get("/youtube", async (req, res) => {
   const results = await searchYouTube(q, order, lang);
   if (!results) {
     if (hit) return res.json({ configured: true, results: hit.results, stale: true });
+    // Whatever the library holds for this mood beats an apology, however little of it there is.
+    if (stocked.length) return res.json({ configured: true, results: stocked });
     const daily = quotaSpent();
     if (daily) {
       const chart = await fetchPopularChart(YT_KEY, lang, order === "date");
@@ -652,8 +653,15 @@ async function libraryVideos(lang: string | null, mood: string | null, order: "n
 
 /** How many we want on hand before a bucket counts as stocked. */
 const LIBRARY_TARGET = 20;
-/** Searches the top-up may spend in one day, leaving the rest of the allowance for listeners. */
-const TOPUP_SEARCH_BUDGET = 20;
+/** Enough of a mood on hand to answer with instead of searching. */
+const ENOUGH_FOR_A_FILTER = 6;
+/**
+ * Searches one top-up run may spend. Eight is a language's worth of moods, so the one being listened
+ * to is complete after a single run, and four runs a day still leaves most of the allowance unspent.
+ */
+const TOPUP_SEARCH_BUDGET = 8;
+/** How often to look for a mood that is running short. */
+const TOPUP_EVERY_MS = 6 * 60 * 60_000;
 const TOPUP_MOODS = ["mass", "class", "riding", "traveling", "alone", "sad", "romantic", "party"];
 
 /**
@@ -661,21 +669,28 @@ const TOPUP_MOODS = ["mass", "class", "riding", "traveling", "alone", "sad", "ro
  * show without anyone being asked to do it. It stops the moment its own small budget is used up, and
  * it only ever asks about buckets that are actually short.
  */
+let topUpFrom = 0;
+
 async function topUpLibrary(): Promise<void> {
   if (!YT_KEY || quotaSpent()) return;
   let spent = 0;
-  for (const lang of Object.keys(TRENDING_LANGUAGES)) {
-    for (const mood of TOPUP_MOODS) {
-      if (spent >= TOPUP_SEARCH_BUDGET || quotaSpent()) return;
-      const have = await libraryVideos(lang, mood, "newest", LIBRARY_TARGET);
-      if (have.length >= LIBRARY_TARGET) continue;
-
-      const name = SEARCH_LANGUAGES[lang] ?? "";
-      const found = await searchYouTube(`${mood} songs ${name}`.trim(), "viewCount", lang);
-      spent++;
-      if (found?.length) await saveVideos(found as LibraryVideo[], lang, mood);
+  // Every language and mood pair, walked from where the last run left off so none is starved.
+  const buckets = Object.keys(TRENDING_LANGUAGES).flatMap((lang) => TOPUP_MOODS.map((mood) => ({ lang, mood })));
+  for (let n = 0; n < buckets.length; n++) {
+    const { lang, mood } = buckets[(topUpFrom + n) % buckets.length];
+    if (spent >= TOPUP_SEARCH_BUDGET || quotaSpent()) {
+      topUpFrom = (topUpFrom + n) % buckets.length;
+      return;
     }
+    const have = await libraryVideos(lang, mood, "newest", LIBRARY_TARGET);
+    if (have.length >= LIBRARY_TARGET) continue;
+
+    const name = SEARCH_LANGUAGES[lang] ?? "";
+    const found = await searchYouTube(`${mood} songs ${name}`.trim(), "viewCount", lang);
+    spent++;
+    if (found?.length) await saveVideos(found as LibraryVideo[], lang, mood);
   }
+  topUpFrom = 0;
 }
 
 // --- Songs from the music channels themselves ---------------------------------
@@ -954,5 +969,5 @@ export function startLibraryTopUp(): void {
     topUpLibrary().catch((e) => console.error("library top-up failed:", e instanceof Error ? e.message : e));
   };
   setTimeout(run, 60_000).unref?.();
-  setInterval(run, 24 * 60 * 60_000).unref?.();
+  setInterval(run, TOPUP_EVERY_MS).unref?.();
 }
