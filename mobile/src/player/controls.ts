@@ -29,13 +29,19 @@ export function setupPlayer(): Promise<void> {
   setup ??= (async () => {
     await askToShowControls();
     try {
-      await TrackPlayer.setupPlayer();
+      // Hand the pausing and resuming to the player: it then stops for a call, for another app
+      // taking the sound, and when earbuds leave an ear, which the phone reports the same way.
+      await TrackPlayer.setupPlayer({ autoHandleInterruptions: true });
     } catch {
       // Already initialised (e.g. after a JS reload) — safe to continue.
     }
     await TrackPlayer.updateOptions({
-      // Keep playing when the app is swiped away: the notification is how someone comes back to it.
-      android: { appKilledPlaybackBehavior: AppKilledPlaybackBehavior.ContinuePlayback },
+      android: {
+        // Keep playing when the app is swiped away: the notification is how someone comes back to it.
+        appKilledPlaybackBehavior: AppKilledPlaybackBehavior.ContinuePlayback,
+        // Stop rather than duck when something interrupts, so a song is not half-heard under it.
+        alwaysPauseOnInterruption: true,
+      },
       forwardJumpInterval: 5,
       backwardJumpInterval: 5,
       capabilities: [
@@ -46,6 +52,7 @@ export function setupPlayer(): Promise<void> {
         Capability.SeekTo,
         Capability.JumpForward,
         Capability.JumpBackward,
+        Capability.Stop,
       ],
       compactCapabilities: [Capability.Play, Capability.Pause, Capability.SkipToNext],
     });
