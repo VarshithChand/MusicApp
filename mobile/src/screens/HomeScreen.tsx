@@ -14,6 +14,7 @@ import { Icon } from '../components/Icon';
 import { SongRow } from '../components/SongRow';
 import { YouTubeResponse, YouTubeResult } from '../api/types';
 import { playQueue } from '../player/controls';
+import { useAuth } from '../store/auth';
 import { useYouTubePlayer } from '../store/youtubePlayer';
 import { colors, themedStyles } from '../theme/theme';
 
@@ -36,6 +37,8 @@ export function HomeScreen() {
   const genreLabel = GENRES.find((g) => g.key === genre)?.label ?? '';
   const genreVideos = useYouTube(genre ? `${genreLabel.toLowerCase()} songs telugu hindi english` : '', 'viewCount');
   const playVideo = useYouTubePlayer((s) => s.play);
+  // Why a list stood in for another is upkeep, not something to explain to everyone.
+  const isAdmin = !!useAuth((s) => s.user)?.is_admin;
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
 
@@ -66,7 +69,7 @@ export function HomeScreen() {
     !!q.data?.results.length && (
       <View style={styles.section}>
         <Text style={styles.h2}>{title}</Text>
-        {!!q.data?.note && <Text style={styles.muted}>{q.data.note}</Text>}
+        {!!q.data?.note && isAdmin && <Text style={styles.muted}>{q.data.note}</Text>}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hrow}>
           {q.data.results.map((v: YouTubeResult) => (
             <Pressable key={v.videoId} style={styles.vcard} onPress={() => playVideo(v.videoId, v.title)} accessibilityLabel={`Play ${v.title}`}>

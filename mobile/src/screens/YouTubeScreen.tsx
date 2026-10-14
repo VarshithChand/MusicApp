@@ -43,6 +43,8 @@ export function YouTubeScreen() {
   const [searchTerm, setSearchTerm] = useState<string | null>(null);
   const [mood, setMood] = useState<string | null | undefined>(undefined);
   const user = useAuth((s) => s.user);
+  // Why a list stood in for another is upkeep, not something to explain to everyone.
+  const isAdmin = !!user?.is_admin;
   const firstTaste = user?.song_tastes?.[0];
   const firstGenre = user?.genres?.[0];
   const defaultMood = firstTaste
@@ -118,7 +120,7 @@ export function YouTubeScreen() {
     <>
       {status.fetching && <LoadingBars />}
       {!!status.error && <Text style={styles.error}>{videoErrorText(status.error)}</Text>}
-      {!!status.note && <Text style={styles.muted}>{status.note}</Text>}
+      {!!status.note && isAdmin && <Text style={styles.muted}>{status.note}</Text>}
       {status.configured === false && <Text style={styles.error}>Video search isn't set up on the server yet.</Text>}
       {list?.length === 0 && <Text style={styles.muted}>Nothing found.</Text>}
       {list?.map((r, i) => (
