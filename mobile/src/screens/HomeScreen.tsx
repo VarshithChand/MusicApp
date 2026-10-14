@@ -32,8 +32,6 @@ import { colors, themedStyles } from '../theme/theme';
 
 /** How many of the newest songs are held at the front, so a new arrival is never shuffled out of sight. */
 const NEWEST_KEPT_FIRST = 3;
-/** A video counts as just released, and so worth holding at the front of its row, for this long. */
-const JUST_RELEASED_DAYS = 3;
 
 /** Deterministic for a given pass, so a re-render doesn't reorder the list under the listener's finger. */
 function shuffled<T>(items: T[], pass: number): T[] {
@@ -51,22 +49,14 @@ function shuffled<T>(items: T[], pass: number): T[] {
 }
 
 /**
- * Newly arrived videos first, the rest in a fresh order on every refresh, so a row is not the same
- * every time. Keeping the newest at the front means an upload from today is seen rather than landing
- * somewhere down a shuffled list.
+ * A fresh order for the whole row on every refresh. Nothing is held at the front: only a couple of
+ * videos fit on screen, so anything pinned there is a video that never changes however many times
+ * the listener pulls. New uploads still arrive in the row -- the server puts them in the list -- they
+ * simply take their turn in it like everything else.
  */
 function videosForHome(videos: YouTubeResult[] | undefined, pass: number): YouTubeResult[] {
   if (!videos?.length) return [];
-  // Only a couple of videos fit on screen, so holding several at the front would leave the shuffle
-  // happening entirely out of sight. Just-released ones still come first, but only while they are
-  // genuinely just released, and only one at a time, leaving the rest of the row free to move.
-  const justOut = Date.now() - JUST_RELEASED_DAYS * 86400_000;
-  const newest = [...videos]
-    .filter((v) => v.publishedAt && Date.parse(v.publishedAt) >= justOut)
-    .sort((a, b) => (b.publishedAt ?? '').localeCompare(a.publishedAt ?? ''))
-    .slice(0, 1);
-  const held = new Set(newest.map((v) => v.videoId));
-  return [...newest, ...shuffled(videos.filter((v) => !held.has(v.videoId)), pass)];
+  return shuffled(videos, pass);
 }
 
 /**
