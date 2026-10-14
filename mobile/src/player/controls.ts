@@ -44,6 +44,8 @@ export function setupPlayer(): Promise<void> {
       },
       forwardJumpInterval: 5,
       backwardJumpInterval: 5,
+      // Without this the song's position on the notification only moves when something else happens.
+      progressUpdateEventInterval: 1,
       capabilities: [
         Capability.Play,
         Capability.Pause,
@@ -54,7 +56,19 @@ export function setupPlayer(): Promise<void> {
         Capability.JumpBackward,
         Capability.Stop,
       ],
-      compactCapabilities: [Capability.Play, Capability.Pause, Capability.SkipToNext],
+      // What the notification itself offers. Said plainly rather than left to be inferred from the
+      // list above, which also covers the headset and would crowd the notification with jump buttons
+      // beside the skips. SeekTo is what puts the draggable position bar there.
+      notificationCapabilities: [
+        Capability.Play,
+        Capability.Pause,
+        Capability.SkipToNext,
+        Capability.SkipToPrevious,
+        Capability.SeekTo,
+        Capability.Stop,
+      ],
+      // The three that survive when the notification is collapsed to a single line.
+      compactCapabilities: [Capability.SkipToPrevious, Capability.Play, Capability.SkipToNext],
     });
   })();
   return setup;

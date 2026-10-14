@@ -35,6 +35,8 @@ window.addEventListener('message', function (e) {
   if (typeof d.info.currentTime === 'number') now = d.info.currentTime;
   if (typeof d.info.playerState === 'number') state = d.info.playerState;
   if (d.info.playerState === 0) window.ReactNativeWebView.postMessage('ended');
+  if (d.info.playerState === 1) window.ReactNativeWebView.postMessage('playing');
+  if (d.info.playerState === 2) window.ReactNativeWebView.postMessage('paused');
 });
 function setVol(v) {
   frame.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'setVolume', args: [v] }), 'https://www.youtube.com');
@@ -58,7 +60,7 @@ function seekBy(seconds) {
 export function YouTubeFloatingPlayer() {
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
-  const { videoId, title, mode, minimize, maximize, close, play, playNext, autoplay, setAutoplay } = useYouTubePlayer();
+  const { videoId, title, mode, minimize, maximize, close, play, playNext, autoplay, setAutoplay, queue } = useYouTubePlayer();
   // What plays next follows the filter in use: more of the same mood, taken from the app's own
   // library rather than from YouTube, so it costs nothing and works whatever the day's allowance.
   const { primary: accountLanguage } = usePreferredLanguages();
@@ -98,6 +100,7 @@ export function YouTubeFloatingPlayer() {
   // Our own landscape view: YouTube's in-player fullscreen button depends on the phone's WebView and
   // auto-rotate setting and doesn't work everywhere, so this rotates the same player to fill the screen.
   const [landscape, setLandscape] = useState(false);
+  const [paused, setPaused] = useState(false);
   const mini = mode === 'mini';
 
   useEffect(() => {
@@ -122,6 +125,26 @@ export function YouTubeFloatingPlayer() {
     onVolume: (level) => inject(`setVol(${Math.round(level * 100)})`),
   });
   const hud = gestures.hud;
+
+  /**
+   * The videos to step through. Playing from a list sets one; starting from a single video elsewhere
+   * does not, so the list shown underneath stands in -- which is what someone would expect "next" to
+   * mean when that is what they can see.
+   */
+  const playlist = queue.length ? queue : (related.data?.results ?? []).map((r) => ({
+    videoId: r.videoId,
+    title: r.title,
+    channel: r.channel,
+    thumbnail: r.thumbnail,
+  }));
+  const at = playlist.findIndex((v) => v.videoId === videoId);
+  // Something opened from elsewhere is not in the list, so next starts it rather than doing nothing.
+  const step = (delta: 1 | -1) => {
+    const target = at < 0 ? (delta === 1 ? playlist[0] : undefined) : playlist[at + delta];
+    if (target) play(target.videoId, target.title, { channel: target.channel, thumbnail: target.thumbnail });
+  };
+  const canGoBack = at > 0;
+  const canGoOn = at < 0 ? playlist.length > 0 : at < playlist.length - 1;
 
   if (!videoId) return null;
 
@@ -172,7 +195,10 @@ export function YouTubeFloatingPlayer() {
           javaScriptEnabled
           allowsFullscreenVideo
           onMessage={(e) => {
-            if (e.nativeEvent.data === 'ended') playedOut();
+            const message = e.nativeEvent.data;
+            if (message === 'ended') playedOut();
+            else if (message === 'playing') setPaused(false);
+            else if (message === 'paused') setPaused(true);
           }}
           pointerEvents={mini ? 'none' : 'auto'}
           style={styles.web}
@@ -205,6 +231,36 @@ export function YouTubeFloatingPlayer() {
           </Pressable>
         )}
       </View>
+      {!mini && !landscape && (
+        <View style={styles.transport}>
+          <Pressable
+            style={[styles.transportBtn, !canGoBack && styles.transportOff]}
+            onPress={() => step(-1)}
+            disabled={!canGoBack}
+            accessibilityLabel="Previous video"
+          >
+            <Icon name="prev" size={26} color={colors.text} />
+          </Pressable>
+          <Pressable
+            style={[styles.transportBtn, styles.transportMain]}
+            onPress={() => inject('togglePlay()')}
+            accessibilityLabel={paused ? 'Play' : 'Pause'}
+          >
+            <Icon name={paused ? 'play' : 'pause'} size={28} color={colors.onAccent} />
+          </Pressable>
+          <Pressable
+            style={[styles.transportBtn, !canGoOn && styles.transportOff]}
+            onPress={() => step(1)}
+            disabled={!canGoOn}
+            accessibilityLabel="Next video"
+          >
+            <Icon name="next" size={26} color={colors.text} />
+          </Pressable>
+          <Pressable style={styles.transportBtn} onPress={close} accessibilityLabel="Stop and close the player">
+            <Icon name="close" size={24} color={colors.text} />
+          </Pressable>
+        </View>
+      )}
       {!mini && !landscape && (
         <ScrollView style={styles.upNext} contentContainerStyle={styles.upNextContent}>
           <View style={styles.switchRow}>
@@ -268,6 +324,10 @@ const styles = themedStyles(() => ({
   gestureZone: { position: 'absolute', top: 0, left: 0, right: 0, height: '75%' },
   hud: { position: 'absolute', top: '35%', alignSelf: 'center', backgroundColor: 'rgba(0,0,0,0.7)', paddingHorizontal: 22, paddingVertical: 12, borderRadius: 16, zIndex: 10, elevation: 10 },
   hudText: { color: '#fff', fontSize: 22, fontWeight: '700' },
+  transport: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 20, paddingVertical: 12 },
+  transportBtn: { width: 52, height: 52, borderRadius: 26, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
+  transportMain: { width: 62, height: 62, borderRadius: 31, backgroundColor: colors.accent, borderColor: colors.accent },
+  transportOff: { opacity: 0.35 },
   switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 4 },
   toggleText: { color: colors.text, fontSize: 15, fontWeight: '600' },
   upNextTitle: { color: colors.text, fontSize: 16, fontWeight: '700', marginTop: 4 },

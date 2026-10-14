@@ -22,6 +22,24 @@ export default async function playbackService() {
     else await TrackPlayer.play();
   });
 
+  /**
+   * A track that will not play, usually a local file that has been moved or deleted since the list
+   * was built. Step over it rather than leaving the notification sitting on a song that is silent.
+   */
+  TrackPlayer.addEventListener(Event.PlaybackError, async () => {
+    try {
+      const queue = await TrackPlayer.getQueue();
+      const at = await TrackPlayer.getActiveTrackIndex();
+      if (at !== undefined && at + 1 < queue.length) await TrackPlayer.skipToNext();
+      else await TrackPlayer.reset();
+    } catch {
+      // Nothing more to be done; leaving it stopped is better than looping on the failure.
+    }
+  });
+
+  // At the end of the list, clear the notification rather than leave a dead one behind.
+  TrackPlayer.addEventListener(Event.PlaybackQueueEnded, () => TrackPlayer.reset());
+
   TrackPlayer.addEventListener(Event.PlaybackActiveTrackChanged, (e) => {
     if (e.track?.id && !String(e.track.id).startsWith('local-') && useAuth.getState().accessToken) {
       api(`/songs/${e.track.id}/played`, { method: 'POST' }).catch(() => {});
