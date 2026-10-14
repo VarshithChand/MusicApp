@@ -273,3 +273,7 @@ CREATE TABLE IF NOT EXISTS youtube_videos (
 );
 CREATE INDEX IF NOT EXISTS youtube_videos_language_mood ON youtube_videos (language, mood);
 CREATE INDEX IF NOT EXISTS youtube_videos_published ON youtube_videos (published_at DESC);
+
+-- Entries gathered before searches checked a video's own language could be filed under the wrong one,
+-- so clear those once. Anything added since was checked, and this matches nothing after that moment.
+DELETE FROM youtube_videos WHERE added_at < TIMESTAMPTZ '2026-10-14 07:30:00+00';

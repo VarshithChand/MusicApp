@@ -336,17 +336,32 @@ interface ChartPage {
 const decode = (s: string) =>
   s.replace(/&amp;/g, "&").replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">");
 
-// Looks up video lengths for a batch of IDs (one quota unit per call, however many IDs).
-async function fetchDurations(ids: string[], key: string) {
-  const durations = new Map<string, number | null>();
-  if (!ids.length) return durations;
+/**
+ * Looks up what a batch of videos are: how long, and what language they are in. One quota unit per
+ * call however many ids, and the language comes in the same breath as the length, so knowing it
+ * costs nothing extra -- which is what makes it worth checking rather than trusting the query.
+ */
+async function fetchVideoFacts(ids: string[], key: string) {
+  const facts = new Map<string, { duration: number | null; language: string | null }>();
+  if (!ids.length) return facts;
   const url = new URL("https://www.googleapis.com/youtube/v3/videos");
-  url.search = new URLSearchParams({ part: "contentDetails", id: ids.join(","), key }).toString();
+  url.search = new URLSearchParams({ part: "contentDetails,snippet", id: ids.join(","), key }).toString();
   const body = (await fetch(url).then((r) => (r.ok ? r.json() : null)).catch(() => null)) as
-    | { items?: { id: string; contentDetails: { duration: string } }[] }
+    | {
+        items?: {
+          id: string;
+          contentDetails: { duration: string };
+          snippet?: { defaultAudioLanguage?: string; defaultLanguage?: string };
+        }[];
+      }
     | null;
-  for (const d of body?.items ?? []) durations.set(d.id, isoDurationToSeconds(d.contentDetails.duration));
-  return durations;
+  for (const d of body?.items ?? []) {
+    facts.set(d.id, {
+      duration: isoDurationToSeconds(d.contentDetails.duration),
+      language: d.snippet?.defaultAudioLanguage ?? d.snippet?.defaultLanguage ?? null,
+    });
+  }
+  return facts;
 }
 
 /** One search against YouTube. Returns null when it refuses, having already recorded why. */
@@ -382,15 +397,24 @@ async function searchYouTube(q: string, order: string, lang: string | null): Pro
     return null;
   }
 
-  const durations = await fetchDurations(body.items.map((i) => i.id.videoId), YT_KEY);
-  return body.items.map((i) => ({
-    videoId: i.id.videoId,
-    title: decode(i.snippet.title),
-    channel: decode(i.snippet.channelTitle),
-    thumbnail: i.snippet.thumbnails?.medium?.url ?? null,
-    durationSeconds: durations.get(i.id.videoId) ?? null,
-    publishedAt: i.snippet.publishedAt ?? null,
-  }));
+  const facts = await fetchVideoFacts(body.items.map((i) => i.id.videoId), YT_KEY);
+  return body.items
+    // Asking YouTube for one language does not stop it answering in another, so drop anything that
+    // says it is something else. A video that declares nothing is kept, since most never do and
+    // throwing those away would empty the list.
+    .filter((i) => {
+      if (!lang) return true;
+      const spoken = facts.get(i.id.videoId)?.language?.toLowerCase().split("-")[0];
+      return !spoken || spoken === lang;
+    })
+    .map((i) => ({
+      videoId: i.id.videoId,
+      title: decode(i.snippet.title),
+      channel: decode(i.snippet.channelTitle),
+      thumbnail: i.snippet.thumbnails?.medium?.url ?? null,
+      durationSeconds: facts.get(i.id.videoId)?.duration ?? null,
+      publishedAt: i.snippet.publishedAt ?? null,
+    }));
 }
 
 discoverRouter.get("/youtube", async (req, res) => {
@@ -889,13 +913,13 @@ discoverRouter.get("/trending", async (req, res) => {
     return res.status(502).json({ error: failureMessage(daily, "YouTube is unavailable right now."), reason });
   }
 
-  const durations = await fetchDurations(body.items.map((i) => i.id.videoId), YT_KEY);
+  const facts = await fetchVideoFacts(body.items.map((i) => i.id.videoId), YT_KEY);
   const results = body.items.map((i) => ({
     videoId: i.id.videoId,
     title: decode(i.snippet.title),
     channel: decode(i.snippet.channelTitle),
     thumbnail: i.snippet.thumbnails?.medium?.url ?? null,
-    durationSeconds: durations.get(i.id.videoId) ?? null,
+    durationSeconds: facts.get(i.id.videoId)?.duration ?? null,
   }));
   trendCache.set(key, { at: Date.now(), results });
   saveResults(`trend:${key}`, results);
