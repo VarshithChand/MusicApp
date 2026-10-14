@@ -117,11 +117,11 @@ export function HomeScreen() {
     }
   };
 
-  const videoRow = (title: string, q: typeof trending) =>
+  const videoRow = (title: string, q: typeof trending, standInTitle: string) =>
     !!q.data?.results.length && (
       <View style={styles.section}>
         {/* A stand-in list is not in the chosen language, so it must not keep that language's heading. */}
-        <Text style={styles.h2}>{q.data?.note ? 'Popular music videos' : title}</Text>
+        <Text style={styles.h2}>{q.data?.note ? standInTitle : title}</Text>
         {!!q.data?.note && isAdmin && <Text style={styles.muted}>{q.data.note}</Text>}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hrow}>
           {q.data.results.map((v: YouTubeResult) => (
@@ -184,12 +184,12 @@ export function HomeScreen() {
           {genreVideos.data?.configured && !genreVideos.data.results.length && (
             <Text style={styles.muted}>No {genreLabel.toLowerCase()} songs found right now.</Text>
           )}
-          {videoRow(`${genreLabel} songs`, genreVideos)}
+          {videoRow(`${genreLabel} songs`, genreVideos, `Popular ${genreLabel.toLowerCase()} videos`)}
         </>
       ) : (
         <>
-          {videoRow(`Trending ${langName} videos`, trending)}
-          {videoRow(`Popular ${langName} videos`, hits)}
+          {videoRow(`Latest ${langName} videos`, trending, 'Latest music videos')}
+          {videoRow(`Popular ${langName} videos`, hits, 'Popular music videos')}
         </>
       )}
 

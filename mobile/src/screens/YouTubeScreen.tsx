@@ -372,7 +372,7 @@ export function YouTubeScreen() {
         <>
           <Text style={styles.sectionTitle}>{popularTe.data?.note ? 'Popular music videos' : `Popular ${langName} hits`}</Text>
           {videoRows(popularTe.data?.results, { fetching: popularTe.isFetching, error: popularTe.error, configured: popularTe.data?.configured, note: popularTe.data?.note })}
-          <Text style={styles.sectionTitle}>Latest {langName} songs</Text>
+          <Text style={styles.sectionTitle}>{latestTe.data?.note ? 'Latest music videos' : `Latest ${langName} songs`}</Text>
           {videoRows(latestTe.data?.results, { fetching: latestTe.isFetching, error: latestTe.error, configured: latestTe.data?.configured })}
         </>
       )}
