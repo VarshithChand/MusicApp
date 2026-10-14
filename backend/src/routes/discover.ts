@@ -247,6 +247,8 @@ export function youtubeStatus() {
  */
 const CHART_TTL_MS = 60 * 60_000;
 const CHART_REGION = "IN";
+/** Pages of the chart to walk; each is one quota unit and 50 more videos to pick a language from. */
+const CHART_PAGES = 4;
 const CHART_NOTE = "Showing popular music videos instead: searching by language has reached its daily limit and comes back after midnight Pacific time.";
 type ChartItem = { language: string | null; publishedAt: string; video: unknown };
 const chartCache = new Map<string, { at: number; items: ChartItem[] }>();
@@ -264,40 +266,38 @@ async function fetchPopularChart(key: string, lang: string | null, newestFirst =
   const fresh = chartCache.get(CHART_REGION);
   if (fresh && Date.now() - fresh.at < CHART_TTL_MS) return inLanguage(fresh.items, lang, newestFirst);
 
-  const url = new URL("https://www.googleapis.com/youtube/v3/videos");
-  url.search = new URLSearchParams({
-    part: "snippet,contentDetails",
-    chart: "mostPopular",
-    videoCategoryId: "10", // Music
-    regionCode: CHART_REGION,
-    maxResults: "50", // the most allowed, since only some will be in any one language
-    key,
-  }).toString();
+  // Only a fraction of a region-wide chart is in any one language, so walk several pages. Each page
+  // costs a single quota unit, against a hundred for one search, so this stays cheap enough to be free.
+  const pages: ChartPage["items"] = [];
+  let pageToken: string | undefined;
+  for (let page = 0; page < CHART_PAGES; page++) {
+    const url = new URL("https://www.googleapis.com/youtube/v3/videos");
+    url.search = new URLSearchParams({
+      part: "snippet,contentDetails",
+      chart: "mostPopular",
+      videoCategoryId: "10", // Music
+      regionCode: CHART_REGION,
+      maxResults: "50", // the most a single page allows
+      key,
+      ...(pageToken ? { pageToken } : {}),
+    }).toString();
 
-  const response = await fetch(url);
-  const body = (await response.json().catch(() => null)) as
-    | {
-        items?: {
-          id: string;
-          snippet: {
-            title: string;
-            channelTitle: string;
-            publishedAt?: string;
-            thumbnails?: { medium?: { url: string } };
-            defaultAudioLanguage?: string;
-            defaultLanguage?: string;
-          };
-          contentDetails: { duration: string };
-        }[];
-        error?: YtError;
+    const response = await fetch(url);
+    const body = (await response.json().catch(() => null)) as ChartPage | null;
+    if (!response.ok || !body?.items) {
+      // Keep whatever earlier pages gave us; only complain when there is nothing at all.
+      if (!pages.length) {
+        noteFailure("popular chart", response.status, body?.error);
+        return null;
       }
-    | null;
-  if (!response.ok || !body?.items) {
-    noteFailure("popular chart", response.status, body?.error);
-    return null;
+      break;
+    }
+    pages.push(...body.items);
+    pageToken = body.nextPageToken;
+    if (!pageToken) break;
   }
 
-  const items: ChartItem[] = body.items.map((i) => ({
+  const items: ChartItem[] = pages.map((i) => ({
     language: i.snippet.defaultAudioLanguage ?? i.snippet.defaultLanguage ?? null,
     publishedAt: i.snippet.publishedAt ?? "",
     video: {
@@ -310,6 +310,23 @@ async function fetchPopularChart(key: string, lang: string | null, newestFirst =
   }));
   chartCache.set(CHART_REGION, { at: Date.now(), items });
   return inLanguage(items, lang, newestFirst);
+}
+
+interface ChartPage {
+  nextPageToken?: string;
+  items?: {
+    id: string;
+    snippet: {
+      title: string;
+      channelTitle: string;
+      publishedAt?: string;
+      thumbnails?: { medium?: { url: string } };
+      defaultAudioLanguage?: string;
+      defaultLanguage?: string;
+    };
+    contentDetails: { duration: string };
+  }[];
+  error?: YtError;
 }
 
 const decode = (s: string) =>
@@ -544,7 +561,7 @@ discoverRouter.get("/trending", async (req, res) => {
     regionCode: "IN",
     relevanceLanguage: lang,
     order: "viewCount",
-    maxResults: "15",
+    maxResults: "25",
     q: cfg[kind],
     key: YT_KEY,
   };
