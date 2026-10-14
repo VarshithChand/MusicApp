@@ -79,7 +79,7 @@ class LocalMediaModule(private val ctx: ReactApplicationContext) : ReactContextB
     }
 
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-      val activity = currentActivity
+      val activity = ctx.currentActivity
       if (activity == null) {
         promise.reject("NO_ACTIVITY", "The app has to be on screen to confirm a delete.")
         return
@@ -117,14 +117,14 @@ class LocalMediaModule(private val ctx: ReactApplicationContext) : ReactContextB
     }
   }
 
-  override fun onActivityResult(activity: Activity?, requestCode: Int, resultCode: Int, data: Intent?) {
+  override fun onActivityResult(activity: Activity, requestCode: Int, resultCode: Int, data: Intent?) {
     if (requestCode != DELETE_REQUEST) return
     val waiting = pendingDelete ?: return
     pendingDelete = null
     waiting.resolve(resultCode == Activity.RESULT_OK)
   }
 
-  override fun onNewIntent(intent: Intent?) {}
+  override fun onNewIntent(intent: Intent) {}
 
   private companion object {
     /** Identifies our delete dialog when the system reports the answer back. */
