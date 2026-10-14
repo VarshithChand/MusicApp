@@ -436,7 +436,11 @@ discoverRouter.get("/youtube", async (req, res) => {
   }
 
   const hit = ytCache.get(cacheKey) ?? (await loadSaved(`search:${cacheKey}`));
-  if (hit && Date.now() - hit.at < SEARCH_TTL_MS) return res.json({ configured: true, results: hit.results });
+  if (hit && Date.now() - hit.at < SEARCH_TTL_MS) {
+    // Answering from the cache still teaches the library, which is what the filters read from.
+    if (mood) await saveVideos(hit.results as LibraryVideo[], lang, mood);
+    return res.json({ configured: true, results: hit.results });
+  }
 
   // The day's searching is gone: serve what was saved, else the chart, rather than a call that will be refused.
   if (quotaSpent()) {
@@ -650,7 +654,7 @@ async function libraryVideos(lang: string | null, mood: string | null, order: "n
 const LIBRARY_TARGET = 20;
 /** Searches the top-up may spend in one day, leaving the rest of the allowance for listeners. */
 const TOPUP_SEARCH_BUDGET = 20;
-const TOPUP_MOODS = ["mass", "melody", "romantic", "sad", "party", "devotional"];
+const TOPUP_MOODS = ["mass", "class", "riding", "traveling", "alone", "sad", "romantic", "party"];
 
 /**
  * Fills thin parts of the library on its own, a little at a time, so that filters have something to

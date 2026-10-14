@@ -64,6 +64,12 @@ export function YouTubeScreen() {
       ? (GENRES.find((g) => g.key === firstGenre)?.label ?? null)
       : null;
   const activeMood = mood ?? defaultMood;
+
+  // The filter shown here starts from the listener's own song tastes rather than a choice they made,
+  // so record it: otherwise the player sees no filter at all and plays something unrelated next.
+  useEffect(() => {
+    if (!mood && defaultMood) setMood(defaultMood);
+  }, [mood, defaultMood, setMood]);
   const [filterOpen, setFilterOpen] = useState(false);
   const [panel, setPanel] = useState<'favorites' | 'recent' | null>(null);
   const [badLink, setBadLink] = useState(false);
