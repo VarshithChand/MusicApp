@@ -14,6 +14,8 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS song_tastes TEXT[] NOT NULL DEFAULT '
 ALTER TABLE users ADD COLUMN IF NOT EXISTS taste_changes INT NOT NULL DEFAULT 0;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS date_of_birth DATE;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS genres TEXT[] NOT NULL DEFAULT '{}';
+-- Which languages a listener wants songs in; empty means no preference, so show everything.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS languages TEXT[] NOT NULL DEFAULT '{}';
 
 CREATE TABLE IF NOT EXISTS artists (
   id         SERIAL PRIMARY KEY,

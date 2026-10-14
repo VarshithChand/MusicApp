@@ -4,11 +4,19 @@ import { Image, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react
 import { AppText as Text } from '../components/AppText';
 import { LoadingBars } from '../components/LoadingBars';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useToggleYouTubeFavorite, useTrending, useYouTube, useYouTubeFavorites, useYouTubeVideo } from '../api/hooks';
+import {
+  usePreferredLanguages,
+  useToggleYouTubeFavorite,
+  useTrending,
+  useYouTube,
+  useYouTubeFavorites,
+  useYouTubeVideo,
+} from '../api/hooks';
 import { videoErrorText } from '../api/http';
 import { YouTubeResult } from '../api/types';
 import { Icon } from '../components/Icon';
 import { GENRES } from '../data/genres';
+import { languageLabel } from '../data/languages';
 import { TASTES } from '../data/tastes';
 import { useAuth } from '../store/auth';
 import { useYouTubePlayer } from '../store/youtubePlayer';
@@ -68,10 +76,12 @@ export function YouTubeScreen() {
       ? `telugu ${activeMood.toLowerCase()} songs`
       : null;
   const resultsLabel = [activeMood, searchTerm].filter(Boolean).join(' · ');
-  const topHits = useYouTube(query ?? '', 'viewCount');
-  const latest = useYouTube(query ?? '', 'date');
-  const popularTe = useTrending('popular');
-  const latestTe = useYouTube('telugu songs', 'date');
+  const { primary } = usePreferredLanguages();
+  const langName = languageLabel(primary);
+  const topHits = useYouTube(query ?? '', 'viewCount', primary);
+  const latest = useYouTube(query ?? '', 'date', primary);
+  const popularTe = useTrending('popular', primary);
+  const latestTe = useYouTube(`${langName.toLowerCase()} songs`, 'date', primary);
   const favorites = useYouTubeFavorites();
   const { add, remove } = useToggleYouTubeFavorite();
 
@@ -350,9 +360,9 @@ export function YouTubeScreen() {
         </>
       ) : (
         <>
-          <Text style={styles.sectionTitle}>Popular Telugu hits</Text>
+          <Text style={styles.sectionTitle}>Popular {langName} hits</Text>
           {videoRows(popularTe.data?.results, { fetching: popularTe.isFetching, error: popularTe.error, configured: popularTe.data?.configured, note: popularTe.data?.note })}
-          <Text style={styles.sectionTitle}>Latest Telugu songs</Text>
+          <Text style={styles.sectionTitle}>Latest {langName} songs</Text>
           {videoRows(latestTe.data?.results, { fetching: latestTe.isFetching, error: latestTe.error, configured: latestTe.data?.configured })}
         </>
       )}

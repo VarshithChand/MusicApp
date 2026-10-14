@@ -10,6 +10,8 @@ export const authRouter = Router();
 
 const TASTES = ["mass", "class", "riding", "traveling", "alone", "sad", "romantic", "party"] as const;
 const GENRES = ["pop", "rock", "classical", "hip-hop", "folk", "jazz", "devotional", "film", "melody", "dj"] as const;
+// Keys match the YouTube language codes the discover routes already understand.
+const LANGUAGES = ["te", "hi", "ta", "kn", "ml", "en"] as const;
 const registerSchema = z.object({
   name: z.string().min(1).max(100),
   email: z.string().email(),
@@ -17,6 +19,7 @@ const registerSchema = z.object({
   gender: z.enum(["male", "female"]),
   songTastes: z.array(z.enum(TASTES)).max(TASTES.length).optional(),
   genres: z.array(z.enum(GENRES)).max(GENRES.length).optional(),
+  languages: z.array(z.enum(LANGUAGES)).max(LANGUAGES.length).optional(),
   dateOfBirth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
 });
 
@@ -52,12 +55,13 @@ const publicUser = (row: any) => ({
   taste_changes: row.taste_changes ?? 0,
   date_of_birth: birthDateString(row.date_of_birth),
   genres: row.genres ?? [],
+  languages: row.languages ?? [],
 });
 
 authRouter.post("/register", async (req, res) => {
   const parsed = registerSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
-  const { name, password, gender, songTastes, dateOfBirth, genres } = parsed.data;
+  const { name, password, gender, songTastes, dateOfBirth, genres, languages } = parsed.data;
   const email = parsed.data.email.toLowerCase();
   if (!validBirthDate(dateOfBirth)) return res.status(400).json({ error: "Enter a valid date of birth (YYYY-MM-DD)." });
 
@@ -66,8 +70,8 @@ authRouter.post("/register", async (req, res) => {
 
   const hash = await bcrypt.hash(password, 10);
   const [row] = await query(
-    "INSERT INTO users (name, email, password_hash, gender, song_tastes, date_of_birth, genres) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *",
-    [name, email, hash, gender, songTastes ?? [], dateOfBirth, genres ?? []],
+    "INSERT INTO users (name, email, password_hash, gender, song_tastes, date_of_birth, genres, languages) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *",
+    [name, email, hash, gender, songTastes ?? [], dateOfBirth, genres ?? [], languages ?? []],
   );
   res.status(201).json({ user: publicUser(row), ...signTokens(row.id, row.is_admin) });
 });
@@ -99,7 +103,7 @@ authRouter.post("/refresh", async (req, res) => {
 
 authRouter.get("/me", requireAuth, async (req: AuthedRequest, res) => {
   const [user] = await query(
-    "SELECT id, name, email, profile_image, is_admin, gender, song_tastes, taste_changes, date_of_birth, genres, created_at FROM users WHERE id = $1",
+    "SELECT id, name, email, profile_image, is_admin, gender, song_tastes, taste_changes, date_of_birth, genres, languages, created_at FROM users WHERE id = $1",
     [req.userId],
   );
   if (!user) return res.status(404).json({ error: "User not found" });
@@ -114,6 +118,7 @@ authRouter.put("/me/preferences", requireAuth, async (req: AuthedRequest, res) =
       songTastes: z.array(z.enum(TASTES)).max(TASTES.length).optional(),
       dateOfBirth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
       genres: z.array(z.enum(GENRES)).max(GENRES.length).optional(),
+  languages: z.array(z.enum(LANGUAGES)).max(LANGUAGES.length).optional(),
     })
     .safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "Invalid preferences." });
@@ -123,7 +128,7 @@ authRouter.put("/me/preferences", requireAuth, async (req: AuthedRequest, res) =
   const [row] = await query("SELECT * FROM users WHERE id = $1", [req.userId]);
   if (!row) return res.status(404).json({ error: "User not found" });
 
-  const { gender, songTastes, dateOfBirth, genres } = parsed.data;
+  const { gender, songTastes, dateOfBirth, genres, languages } = parsed.data;
   let tastes: string[] = row.song_tastes ?? [];
   let changes: number = row.taste_changes ?? 0;
   if (songTastes !== undefined) {
@@ -135,8 +140,8 @@ authRouter.put("/me/preferences", requireAuth, async (req: AuthedRequest, res) =
     }
   }
   const [updated] = await query(
-    "UPDATE users SET gender = $1, song_tastes = $2, taste_changes = $3, date_of_birth = COALESCE($4::date, date_of_birth), genres = COALESCE($5::text[], genres) WHERE id = $6 RETURNING *",
-    [gender ?? row.gender, tastes, changes, dateOfBirth ?? null, genres ?? null, req.userId],
+    "UPDATE users SET gender = $1, song_tastes = $2, taste_changes = $3, date_of_birth = COALESCE($4::date, date_of_birth), genres = COALESCE($5::text[], genres), languages = COALESCE($6::text[], languages) WHERE id = $7 RETURNING *",
+    [gender ?? row.gender, tastes, changes, dateOfBirth ?? null, genres ?? null, languages ?? null, req.userId],
   );
   res.json(publicUser(updated));
 });

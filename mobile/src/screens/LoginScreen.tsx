@@ -6,7 +6,6 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  StyleSheet,
   TextInput,
   View,
 } from 'react-native';
@@ -15,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon } from '../components/Icon';
 import { DateField } from '../components/DateField';
 import { GENRES } from '../data/genres';
+import { LANGUAGES } from '../data/languages';
 import { TASTES } from '../data/tastes';
 import { useAuth } from '../store/auth';
 import { colors, themedStyles } from '../theme/theme';
@@ -32,6 +32,7 @@ export function LoginScreen() {
   const [gender, setGender] = useState<'male' | 'female' | null>(null);
   const [tastes, setTastes] = useState<string[]>([]);
   const [genres, setGenres] = useState<string[]>([]);
+  const [languages, setLanguages] = useState<string[]>([]);
   const [dateOfBirth, setDateOfBirth] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -99,7 +100,7 @@ export function LoginScreen() {
     setBusy(true);
     try {
       if (isLogin) await login(email.trim(), password);
-      else if (gender) await register(name.trim(), email.trim(), password, gender, tastes, dateOfBirth, genres);
+      else if (gender) await register(name.trim(), email.trim(), password, gender, tastes, dateOfBirth, genres, languages);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Something went wrong');
     } finally {
@@ -254,6 +255,29 @@ export function LoginScreen() {
 
           {showDetailsStep && (
             <View style={styles.field}>
+              <Text style={styles.label}>Languages you listen in (optional)</Text>
+              <Text style={styles.hint}>Home, YouTube and search stay in these. Leave it empty to hear everything.</Text>
+              <View style={styles.tasteRow}>
+                {LANGUAGES.map((l) => {
+                  const on = languages.includes(l.key);
+                  return (
+                    <Pressable
+                      key={l.key}
+                      style={[styles.tasteChip, on && styles.genderBtnOn]}
+                      onPress={() => setLanguages(on ? languages.filter((k) => k !== l.key) : [...languages, l.key])}
+                      accessibilityRole="checkbox"
+                      accessibilityState={{ checked: on }}
+                    >
+                      <Text style={[styles.genderText, on && styles.genderTextOn]}>{l.label}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+          )}
+
+          {showDetailsStep && (
+            <View style={styles.field}>
               <Text style={styles.label}>Genres you listen to (optional)</Text>
               <View style={styles.tasteRow}>
                 {GENRES.map((g) => {
@@ -351,6 +375,7 @@ const styles = themedStyles(() => ({
   form: { gap: 16, marginTop: 16 },
   field: { gap: 8 },
   label: { color: colors.text, fontSize: 14, fontWeight: '500' },
+  hint: { color: colors.muted, fontSize: 12, marginTop: 2 },
   inputRow: {
     flexDirection: 'row',
     alignItems: 'center',

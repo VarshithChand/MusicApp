@@ -8,6 +8,8 @@ export interface User {
   taste_changes?: number;
   date_of_birth?: string | null;
   genres?: string[];
+  /** Languages the listener wants songs in; empty means no preference. */
+  languages?: string[];
 }
 
 export interface Song {

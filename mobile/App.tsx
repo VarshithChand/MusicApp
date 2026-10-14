@@ -7,6 +7,8 @@ import { AddToPlaylistSheet } from './src/components/AddToPlaylistSheet';
 import { SplashAnimation } from './src/components/SplashAnimation';
 import { YouTubeFloatingPlayer } from './src/components/YouTubeFloatingPlayer';
 import { AppNavigator } from './src/navigation/AppNavigator';
+import { goToLocalMedia, navigationRef } from './src/navigation/offline';
+import { useNetwork } from './src/store/network';
 import { setupPlayer } from './src/player/controls';
 import { useAuth } from './src/store/auth';
 import { setAppIconVariant } from './src/native/appIcon';
@@ -30,6 +32,12 @@ export default function App() {
   useEffect(() => {
     setVolumeBoost(boost);
   }, [boost]);
+
+  // Losing the server leaves only the files on the phone worth showing, so go there.
+  const offline = useNetwork((s) => s.offline);
+  useEffect(() => {
+    if (offline && signedIn) goToLocalMedia();
+  }, [offline, signedIn]);
   const iconVariant = useRef<'dark' | 'light'>('dark');
   useEffect(() => {
     iconVariant.current = resolved === 'dark' ? 'dark' : 'light';
@@ -73,7 +81,7 @@ export default function App() {
     <SafeAreaProvider>
       <QueryClientProvider client={queryClient}>
         <StatusBar barStyle={isLight ? 'dark-content' : 'light-content'} />
-        <NavigationContainer theme={navTheme}>
+        <NavigationContainer theme={navTheme} ref={navigationRef}>
           <AppNavigator key={resolved} />
           {signedIn && <AddToPlaylistSheet />}
           {signedIn && <YouTubeFloatingPlayer />}

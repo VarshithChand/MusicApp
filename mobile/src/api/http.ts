@@ -1,4 +1,5 @@
 import { API_URL } from '../config';
+import { useNetwork } from '../store/network';
 
 export class ApiError extends Error {
   /** `reason` is the server's machine-readable code, where it sends one (e.g. YouTube's "quotaExceeded"). */
@@ -23,14 +24,22 @@ interface RequestOptions {
 }
 
 export async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
-  const res = await fetch(`${API_URL}${path}`, {
-    method: opts.method ?? 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(opts.token ? { Authorization: `Bearer ${opts.token}` } : {}),
-    },
-    body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}${path}`, {
+      method: opts.method ?? 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(opts.token ? { Authorization: `Bearer ${opts.token}` } : {}),
+      },
+      body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
+    });
+  } catch (e) {
+    // fetch only rejects when the request never reached the server, which is what being offline looks like.
+    useNetwork.getState().setOffline(true);
+    throw e;
+  }
+  useNetwork.getState().setOffline(false);
   if (res.status === 204) return undefined as T;
   const data = await res.json().catch(() => null);
   if (!res.ok) {

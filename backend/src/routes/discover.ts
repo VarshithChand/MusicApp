@@ -148,6 +148,17 @@ discoverRouter.post("/import", async (req, res) => {
 // --- YouTube (official embedded player only: we search, the app plays the video in YouTube's own player) ---
 
 const YT_KEY = process.env.YOUTUBE_API_KEY;
+
+/** Language names appended to a search so results actually come back in that language. */
+const SEARCH_LANGUAGES: Record<string, string> = {
+  te: "Telugu",
+  hi: "Hindi",
+  ta: "Tamil",
+  kn: "Kannada",
+  ml: "Malayalam",
+  en: "English",
+};
+
 // A search costs 100 of the 10,000 free daily quota units, so results are reused for 6 hours.
 const SEARCH_TTL_MS = 6 * 60 * 60_000;
 const ytCache = new Map<string, { at: number; results: unknown[] }>();
@@ -302,7 +313,10 @@ discoverRouter.get("/youtube", async (req, res) => {
   if (q.length < 2) return res.json({ configured: true, results: [] });
 
   const order = ["relevance", "viewCount", "date"].includes(String(req.query.order)) ? String(req.query.order) : "relevance";
-  const cacheKey = `${order}:${q.toLowerCase()}`;
+  // A listener who picked languages gets results in one of them; the name is appended because
+  // relevanceLanguage alone only nudges the ranking, it does not keep other languages out.
+  const lang = SEARCH_LANGUAGES[String(req.query.lang ?? "").toLowerCase()] ? String(req.query.lang).toLowerCase() : null;
+  const cacheKey = `${order}:${lang ?? "any"}:${q.toLowerCase()}`;
   const hit = ytCache.get(cacheKey) ?? (await loadSaved(`search:${cacheKey}`));
   if (hit && Date.now() - hit.at < SEARCH_TTL_MS) return res.json({ configured: true, results: hit.results });
 
@@ -321,8 +335,9 @@ discoverRouter.get("/youtube", async (req, res) => {
     videoSyndicated: "true", // plays outside youtube.com
     maxResults: "8",
     order,
-    q,
+    q: lang ? `${q} ${SEARCH_LANGUAGES[lang]} song` : q,
     key: YT_KEY,
+    ...(lang ? { relevanceLanguage: lang, regionCode: "IN" } : {}),
   }).toString();
   if (order === "date") url.searchParams.set("publishedAfter", new Date(Date.now() - 30 * 86400_000).toISOString());
 
@@ -450,6 +465,7 @@ const TRENDING_LANGUAGES: Record<string, { query: string; trending: string; popu
   ta: { query: "Tamil", trending: "new Tamil songs", popular: "Tamil hit songs" },
   kn: { query: "Kannada", trending: "new Kannada songs", popular: "Kannada hit songs" },
   ml: { query: "Malayalam", trending: "new Malayalam songs", popular: "Malayalam hit songs" },
+  en: { query: "English", trending: "new English songs", popular: "English hit songs" },
 };
 
 // Each search costs 100 of the free 10,000 daily units, so these cache times keep the Home rows fresh without running out.

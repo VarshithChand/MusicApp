@@ -5,6 +5,7 @@ import { LocalAudioFile, LocalVideoFile } from './types';
 interface LocalMediaNative {
   listAudio(): Promise<LocalAudioFile[]>;
   listVideo(): Promise<LocalVideoFile[]>;
+  deleteMedia(uri: string): Promise<boolean>;
 }
 
 function native(): LocalMediaNative {
@@ -42,6 +43,12 @@ export async function hasLocalMediaPermission(kind: 'audio' | 'video'): Promise<
   if (!permission) return true;
   return PermissionsAndroid.check(permission);
 }
+
+/**
+ * Deletes a file from the phone for good. From Android 11 the system asks the owner to confirm,
+ * so false means they declined -- the file is still there and nothing went wrong.
+ */
+export const deleteLocalMedia = (uri: string): Promise<boolean> => native().deleteMedia(uri);
 
 export const listLocalAudio = (): Promise<LocalAudioFile[]> => native().listAudio();
 export const listLocalVideo = (): Promise<LocalVideoFile[]> => native().listVideo();

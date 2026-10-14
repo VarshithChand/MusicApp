@@ -1,14 +1,16 @@
 import { useNavigation } from '@react-navigation/native';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { FlatList, Linking, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, FlatList, Linking, Modal, Pressable, TextInput, View } from 'react-native';
 import { AppText as Text } from '../components/AppText';
 import { LoadingBars } from '../components/LoadingBars';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { hasLocalMediaPermission, listLocalAudio, listLocalVideo, requestLocalMediaPermission } from '../api/localMedia';
+import { deleteLocalMedia, hasLocalMediaPermission, listLocalAudio, listLocalVideo, requestLocalMediaPermission } from '../api/localMedia';
 import { LocalAudioFile, LocalVideoFile } from '../api/types';
 import { Chip } from '../components/Chip';
+import { Icon } from '../components/Icon';
 import { LocalMediaRow } from '../components/LocalMediaRow';
 import { LocalVideoModal } from '../components/LocalVideoModal';
+import { OfflineBanner } from '../components/OfflineBanner';
 import { useLocalFavorites } from '../store/localFavorites';
 import { playLocalQueue } from '../player/controls';
 import { colors, themedStyles } from '../theme/theme';
@@ -26,6 +28,7 @@ export function LocalMediaScreen() {
   const [audio, setAudio] = useState<LocalAudioFile[]>([]);
   const [video, setVideo] = useState<LocalVideoFile[]>([]);
   const [playingVideo, setPlayingVideo] = useState<{ uri: string; title: string } | null>(null);
+  const [menuFor, setMenuFor] = useState<{ uri: string; title: string } | null>(null);
   const favoriteAudio = useLocalFavorites((s) => s.audio);
   const favoriteVideo = useLocalFavorites((s) => s.video);
 
@@ -69,11 +72,38 @@ export function LocalMediaScreen() {
     if (next) setPlayingVideo({ uri: next.uri, title: next.title });
   };
 
+  // The file is gone from the phone, so drop it from the list rather than rescanning the whole library.
+  const forget = (uri: string) => {
+    setAudio((list) => list.filter((a) => a.uri !== uri));
+    setVideo((list) => list.filter((v) => v.uri !== uri));
+    if (playingVideo?.uri === uri) setPlayingVideo(null);
+  };
+
+  const confirmDelete = (target: { uri: string; title: string }) => {
+    setMenuFor(null);
+    Alert.alert('Delete from this phone?', `"${target.title}" will be deleted from this phone for good.`, [
+      { text: 'Keep', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            // From Android 11 the system asks as well; false means the owner said no there.
+            if (await deleteLocalMedia(target.uri)) forget(target.uri);
+          } catch (e) {
+            Alert.alert("Couldn't delete", e instanceof Error ? e.message : 'That file is still on this phone.');
+          }
+        },
+      },
+    ]);
+  };
+
   const openSettings = () => Linking.openSettings();
 
   return (
     <View style={[styles.flex, { paddingTop: insets.top }]}>
       <Text style={[styles.h1, styles.h1Padded]}>Local Media</Text>
+      <OfflineBanner />
 
       <View style={styles.chips}>
         <Chip label="Audio" active={tab === 'audio'} onPress={() => setTab('audio')} />
@@ -134,13 +164,44 @@ export function LocalMediaScreen() {
           }
           renderItem={({ item, index }) =>
             tab === 'audio' ? (
-              <LocalMediaRow kind="audio" item={item as LocalAudioFile} onPress={() => playLocalQueue(filtered as LocalAudioFile[], index).then(() => navigation.navigate('NowPlaying'))} />
+              <LocalMediaRow
+                kind="audio"
+                item={item as LocalAudioFile}
+                onPress={() => playLocalQueue(filtered as LocalAudioFile[], index).then(() => navigation.navigate('NowPlaying'))}
+                onDelete={() => setMenuFor({ uri: item.uri, title: item.title })}
+              />
             ) : (
-              <LocalMediaRow kind="video" item={item as LocalVideoFile} onPress={() => setPlayingVideo({ uri: (item as LocalVideoFile).uri, title: item.title })} />
+              <LocalMediaRow
+                kind="video"
+                item={item as LocalVideoFile}
+                onPress={() => setPlayingVideo({ uri: (item as LocalVideoFile).uri, title: item.title })}
+                onDelete={() => setMenuFor({ uri: item.uri, title: item.title })}
+              />
             )
           }
         />
       )}
+
+      <Modal visible={!!menuFor} transparent animationType="fade" onRequestClose={() => setMenuFor(null)}>
+        <Pressable style={styles.sheetBackdrop} onPress={() => setMenuFor(null)} accessibilityLabel="Close menu">
+          <View style={styles.sheet}>
+            <Text style={styles.sheetTitle} numberOfLines={2}>
+              {menuFor?.title}
+            </Text>
+            <Pressable
+              style={styles.sheetItem}
+              onPress={() => menuFor && confirmDelete(menuFor)}
+              accessibilityLabel="Delete from this phone"
+            >
+              <Icon name="trash" size={20} color={colors.danger} />
+              <Text style={styles.sheetDanger}>Delete from this phone</Text>
+            </Pressable>
+            <Pressable style={styles.sheetItem} onPress={() => setMenuFor(null)} accessibilityLabel="Cancel">
+              <Text style={styles.sheetCancel}>Cancel</Text>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Modal>
 
       <LocalVideoModal
         uri={playingVideo?.uri ?? null}
@@ -177,4 +238,10 @@ const styles = themedStyles(() => ({
   retryBtn: { height: 44, paddingHorizontal: 22, borderRadius: 22, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' },
   retryText: { color: colors.onAccent, fontSize: 14, fontWeight: '700' },
   linkText: { color: colors.accent, fontSize: 13, fontWeight: '600' },
+  sheetBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
+  sheet: { backgroundColor: colors.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, gap: 4 },
+  sheetTitle: { color: colors.text, fontSize: 15, fontWeight: '700', marginBottom: 8 },
+  sheetItem: { flexDirection: 'row', alignItems: 'center', gap: 12, height: 52 },
+  sheetDanger: { color: colors.danger, fontSize: 15, fontWeight: '600' },
+  sheetCancel: { color: colors.muted, fontSize: 15, fontWeight: '600' },
 }));

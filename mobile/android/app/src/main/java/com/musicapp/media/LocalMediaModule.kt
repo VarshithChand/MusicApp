@@ -1,12 +1,16 @@
 package com.musicapp.media
 
+import android.app.Activity
+import android.app.RecoverableSecurityException
 import android.content.ContentUris
 import android.content.Context
+import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
 import android.util.Size
+import com.facebook.react.bridge.ActivityEventListener
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
@@ -23,8 +27,15 @@ import java.util.concurrent.Executors
  * module assumes permission is already granted and simply returns an empty list if a query fails for any reason
  * (including a missing permission), so a stale/denied permission never crashes the app.
  */
-class LocalMediaModule(private val ctx: ReactApplicationContext) : ReactContextBaseJavaModule(ctx) {
+class LocalMediaModule(private val ctx: ReactApplicationContext) : ReactContextBaseJavaModule(ctx), ActivityEventListener {
   private val worker = Executors.newSingleThreadExecutor()
+
+  /** The delete waiting on the system's confirmation dialog, if any. */
+  private var pendingDelete: Promise? = null
+
+  init {
+    ctx.addActivityEventListener(this)
+  }
 
   override fun getName() = "LocalMedia"
 
@@ -48,6 +59,76 @@ class LocalMediaModule(private val ctx: ReactApplicationContext) : ReactContextB
         promise.reject("LIST_VIDEO_FAILED", e.message, e)
       }
     }
+  }
+
+  /**
+   * Deletes one file from the phone, for real and for good.
+   *
+   * From Android 11 the app cannot remove media it did not create on its own say-so: the system shows its
+   * own confirmation dialog and reports back here, so resolving false means the owner said no, not that
+   * anything failed. Android 10 asks the same question through a recoverable error; older versions, which
+   * have no such protection, delete on the storage permission alone.
+   */
+  @ReactMethod
+  fun deleteMedia(uriString: String, promise: Promise) {
+    val uri = try {
+      Uri.parse(uriString)
+    } catch (e: Exception) {
+      promise.reject("BAD_URI", "That doesn't look like a media file on this phone.", e)
+      return
+    }
+
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+      val activity = currentActivity
+      if (activity == null) {
+        promise.reject("NO_ACTIVITY", "The app has to be on screen to confirm a delete.")
+        return
+      }
+      if (pendingDelete != null) {
+        promise.reject("DELETE_BUSY", "Another delete is still waiting to be confirmed.")
+        return
+      }
+      try {
+        val request = MediaStore.createDeleteRequest(ctx.contentResolver, listOf(uri))
+        pendingDelete = promise
+        activity.startIntentSenderForResult(request.intentSender, DELETE_REQUEST, null, 0, 0, 0)
+      } catch (e: Exception) {
+        pendingDelete = null
+        promise.reject("DELETE_FAILED", e.message, e)
+      }
+      return
+    }
+
+    worker.execute {
+      try {
+        val removed = ctx.contentResolver.delete(uri, null, null)
+        if (removed > 0) promise.resolve(true)
+        else promise.reject("DELETE_FAILED", "That file couldn't be removed. It may already be gone.")
+      } catch (e: SecurityException) {
+        // Android 10 hands back the permission to ask for; older versions never get here.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && e is RecoverableSecurityException) {
+          promise.reject("DELETE_NEEDS_CONFIRMATION", "Android needs you to confirm this delete in its own files app.", e)
+        } else {
+          promise.reject("DELETE_FAILED", e.message, e)
+        }
+      } catch (e: Exception) {
+        promise.reject("DELETE_FAILED", e.message, e)
+      }
+    }
+  }
+
+  override fun onActivityResult(activity: Activity?, requestCode: Int, resultCode: Int, data: Intent?) {
+    if (requestCode != DELETE_REQUEST) return
+    val waiting = pendingDelete ?: return
+    pendingDelete = null
+    waiting.resolve(resultCode == Activity.RESULT_OK)
+  }
+
+  override fun onNewIntent(intent: Intent?) {}
+
+  private companion object {
+    /** Identifies our delete dialog when the system reports the answer back. */
+    const val DELETE_REQUEST = 7301
   }
 
   private fun queryAudio(): WritableArray {

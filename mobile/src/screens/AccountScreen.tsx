@@ -6,6 +6,7 @@ import { AppText as Text } from '../components/AppText';
 import { Icon } from '../components/Icon';
 import { DateField } from '../components/DateField';
 import { GENRES } from '../data/genres';
+import { LANGUAGES, languageLabel } from '../data/languages';
 import { TASTES } from '../data/tastes';
 import { useAuth } from '../store/auth';
 import { colors, themedStyles } from '../theme/theme';
@@ -31,6 +32,7 @@ export function AccountScreen() {
   const [tastes, setTastes] = useState<string[]>(user?.song_tastes ?? []);
   const [dob, setDob] = useState<string>(user?.date_of_birth ?? '');
   const [genres, setGenres] = useState<string[]>(user?.genres ?? []);
+  const [languages, setLanguages] = useState<string[]>(user?.languages ?? []);
   const [saving, setSaving] = useState(false);
 
   const changes = user?.taste_changes ?? 0;
@@ -42,6 +44,7 @@ export function AccountScreen() {
     setTastes(user?.song_tastes ?? []);
     setDob(user?.date_of_birth ?? '');
     setGenres(user?.genres ?? []);
+    setLanguages(user?.languages ?? []);
     setEditing(true);
   };
 
@@ -56,6 +59,7 @@ export function AccountScreen() {
         ...(tastesChanged ? { songTastes: tastes } : {}),
         ...(dobChanged ? { dateOfBirth: dob } : {}),
         genres,
+        languages,
       });
       setEditing(false);
     } catch (e) {
@@ -110,6 +114,10 @@ export function AccountScreen() {
           <Text style={styles.value}>{user?.gender ? (user.gender === 'male' ? 'Male' : 'Female') : 'Not set'}</Text>
           <Text style={styles.label}>Date of birth</Text>
           <Text style={styles.value}>{formatDob(user?.date_of_birth)}</Text>
+          <Text style={styles.label}>Languages</Text>
+          <Text style={styles.value}>
+            {(user?.languages ?? []).length ? (user?.languages ?? []).map(languageLabel).join(', ') : 'All languages'}
+          </Text>
           <Text style={styles.label}>Genres</Text>
           <Text style={styles.value}>
             {(user?.genres ?? []).length ? (user?.genres ?? []).map((k) => GENRES.find((g) => g.key === k)?.label ?? k).join(', ') : 'Not set'}
@@ -136,6 +144,25 @@ export function AccountScreen() {
                 >
                   <Icon name={g} size={18} color={on ? colors.onAccent : colors.text} />
                   <Text style={[styles.pillText, on && styles.pillTextOn]}>{g === 'male' ? 'Male' : 'Female'}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          <Text style={styles.label}>Languages</Text>
+          <Text style={styles.muted}>Home, YouTube and search stay in these. Pick none to hear everything.</Text>
+          <View style={styles.row}>
+            {LANGUAGES.map((l) => {
+              const on = languages.includes(l.key);
+              return (
+                <Pressable
+                  key={l.key}
+                  style={[styles.pill, on && styles.pillOn]}
+                  onPress={() => setLanguages(on ? languages.filter((k) => k !== l.key) : [...languages, l.key])}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: on }}
+                >
+                  <Text style={[styles.pillText, on && styles.pillTextOn]}>{l.label}</Text>
                 </Pressable>
               );
             })}

@@ -19,8 +19,15 @@ interface AuthState {
     songTastes: string[],
     dateOfBirth: string,
     genres: string[],
+    languages: string[],
   ) => Promise<void>;
-  updatePreferences: (prefs: { gender?: 'male' | 'female'; songTastes?: string[]; dateOfBirth?: string; genres?: string[] }) => Promise<void>;
+  updatePreferences: (prefs: {
+    gender?: 'male' | 'female';
+    songTastes?: string[];
+    dateOfBirth?: string;
+    genres?: string[];
+    languages?: string[];
+  }) => Promise<void>;
   setTokens: (accessToken: string, refreshToken: string) => void;
   logout: () => void;
 }
@@ -38,11 +45,11 @@ export const useAuth = create<AuthState>()(
         hydrated: false,
         login: async (email, password) =>
           save(await request<AuthResponse>('/auth/login', { method: 'POST', body: { email, password } })),
-        register: async (name, email, password, gender, songTastes, dateOfBirth, genres) =>
+        register: async (name, email, password, gender, songTastes, dateOfBirth, genres, languages) =>
           save(
             await request<AuthResponse>('/auth/register', {
               method: 'POST',
-              body: { name, email, password, gender, songTastes, dateOfBirth, genres },
+              body: { name, email, password, gender, songTastes, dateOfBirth, genres, languages },
             }),
           ),
         updatePreferences: async (prefs) => {

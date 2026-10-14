@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '../store/auth';
 import { api } from './index';
 import {
   Album,
@@ -144,10 +145,11 @@ export function useImportSong() {
 }
 
 /** Searches YouTube's Music category (empty until the server has a YouTube key). */
-export function useYouTube(q: string, order: 'relevance' | 'viewCount' | 'date' = 'relevance') {
+export function useYouTube(q: string, order: 'relevance' | 'viewCount' | 'date' = 'relevance', lang?: string) {
   return useQuery({
-    queryKey: ['youtube', q, order],
-    queryFn: () => api<YouTubeResponse>(`/discover/youtube?q=${encodeURIComponent(q)}&order=${order}`),
+    queryKey: ['youtube', q, order, lang ?? 'any'],
+    queryFn: () =>
+      api<YouTubeResponse>(`/discover/youtube?q=${encodeURIComponent(q)}&order=${order}${lang ? `&lang=${lang}` : ''}`),
     enabled: q.trim().length > 1,
     staleTime: 10 * 60_000,
   });
@@ -185,6 +187,17 @@ export function useToggleYouTubeFavorite() {
 }
 
 /** Trending (last 30 days) or all-time popular music videos in a language, played only in YouTube's own player. */
+const NO_LANGUAGES: string[] = [];
+
+/**
+ * The languages the signed-in listener picked, and the one to lead with.
+ * An empty list means no preference, so the app falls back to its usual default.
+ */
+export function usePreferredLanguages() {
+  const languages = useAuth((s) => s.user?.languages) ?? NO_LANGUAGES;
+  return { languages, primary: languages[0] ?? 'te' };
+}
+
 export function useTrending(kind: 'trending' | 'popular', lang = 'te') {
   return useQuery({
     queryKey: ['trending', kind, lang],

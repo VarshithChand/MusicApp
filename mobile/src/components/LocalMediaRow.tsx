@@ -1,5 +1,5 @@
 import React from 'react';
-import { Image, Pressable, StyleSheet, View } from 'react-native';
+import { Image, Pressable, View } from 'react-native';
 import { AppText as Text } from './AppText';
 import { LocalAudioFile, LocalVideoFile } from '../api/types';
 import { useLocalFavorites } from '../store/localFavorites';
@@ -19,15 +19,17 @@ interface AudioProps {
   kind: 'audio';
   item: LocalAudioFile;
   onPress: () => void;
+  onDelete?: () => void;
 }
 interface VideoProps {
   kind: 'video';
   item: LocalVideoFile;
   onPress: () => void;
+  onDelete?: () => void;
 }
 
 /** One local audio or video file: artwork/thumbnail, title + details, and a favorite star (device-only). */
-export function LocalMediaRow({ kind, item, onPress }: AudioProps | VideoProps) {
+export function LocalMediaRow({ kind, item, onPress, onDelete }: AudioProps | VideoProps) {
   const isFavorite = useLocalFavorites((s) => s.isFavorite(kind, item.uri));
   const toggle = useLocalFavorites((s) => s.toggle);
   const thumb = kind === 'audio' ? item.artworkUri : item.thumbnailUri;
@@ -58,6 +60,11 @@ export function LocalMediaRow({ kind, item, onPress }: AudioProps | VideoProps) 
       <Pressable style={styles.favBtn} onPress={() => toggle(kind, item.uri)} accessibilityLabel={isFavorite ? 'Remove from favorites' : 'Add to favorites'} hitSlop={8}>
         <Icon name="heart" size={20} color={colors.accent} filled={isFavorite} />
       </Pressable>
+      {onDelete && (
+        <Pressable style={styles.favBtn} onPress={onDelete} accessibilityLabel={`More options for ${item.title}`} hitSlop={8}>
+          <Icon name="more" size={20} color={colors.muted} />
+        </Pressable>
+      )}
     </Pressable>
   );
 }

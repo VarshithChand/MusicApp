@@ -6,9 +6,19 @@ import { AppText as Text } from '../components/AppText';
 import { LoadingBars } from '../components/LoadingBars';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api } from '../api';
-import { useArtists, useLikedSongs, useRecentlyPlayed, useSongs, useTrending, useYouTube, useYouTubeFavorites } from '../api/hooks';
+import {
+  useArtists,
+  useLikedSongs,
+  usePreferredLanguages,
+  useRecentlyPlayed,
+  useSongs,
+  useTrending,
+  useYouTube,
+  useYouTubeFavorites,
+} from '../api/hooks';
 import { videoErrorText } from '../api/http';
 import { GENRES } from '../data/genres';
+import { languageLabel } from '../data/languages';
 import { Cover } from '../components/Cover';
 import { Icon } from '../components/Icon';
 import { SongRow } from '../components/SongRow';
@@ -31,11 +41,13 @@ export function HomeScreen() {
   const artists = useArtists();
   const liked = useLikedSongs();
   const ytFavorites = useYouTubeFavorites();
-  const trending = useTrending('trending');
-  const hits = useTrending('popular');
+  const { primary } = usePreferredLanguages();
+  const langName = languageLabel(primary);
+  const trending = useTrending('trending', primary);
+  const hits = useTrending('popular', primary);
   const [genre, setGenre] = useState<string | null>(null);
   const genreLabel = GENRES.find((g) => g.key === genre)?.label ?? '';
-  const genreVideos = useYouTube(genre ? `${genreLabel.toLowerCase()} songs telugu hindi english` : '', 'viewCount');
+  const genreVideos = useYouTube(genre ? `${genreLabel.toLowerCase()} songs` : '', 'viewCount', primary);
   const playVideo = useYouTubePlayer((s) => s.play);
   // Why a list stood in for another is upkeep, not something to explain to everyone.
   const isAdmin = !!useAuth((s) => s.user)?.is_admin;
@@ -44,8 +56,8 @@ export function HomeScreen() {
 
   // Asks the server for fresh Telugu results (it skips its cache) and stores them where the rows read from.
   const refreshVideos = (kind: 'trending' | 'popular') =>
-    api<YouTubeResponse>(`/discover/trending?kind=${kind}&lang=te&fresh=1`)
-      .then((data) => queryClient.setQueryData(['trending', kind, 'te'], data))
+    api<YouTubeResponse>(`/discover/trending?kind=${kind}&lang=${primary}&fresh=1`)
+      .then((data) => queryClient.setQueryData(['trending', kind, primary], data))
       .catch(() => {});
 
   const refresh = async () => {
@@ -137,8 +149,8 @@ export function HomeScreen() {
         </>
       ) : (
         <>
-          {videoRow('Trending Telugu videos', trending)}
-          {videoRow('Popular Telugu videos', hits)}
+          {videoRow(`Trending ${langName} videos`, trending)}
+          {videoRow(`Popular ${langName} videos`, hits)}
         </>
       )}
 
