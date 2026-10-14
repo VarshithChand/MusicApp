@@ -84,7 +84,7 @@ export function YouTubeScreen() {
   const chosenLanguage = useSelection((s) => s.language);
   const primary = chosenLanguage ?? accountLanguage;
   const langName = languageLabel(primary);
-  const topHits = useYouTube(query ?? '', 'viewCount', primary);
+  const topHits = useYouTube(query ?? '', 'viewCount', primary, activeMood?.toLowerCase() ?? null);
   // The newest come from the same search, sorted here. Asking YouTube a second time costs another
   // hundred of the day's allowance and would answer much the same question.
   const latestResults = useMemo(() => {

@@ -145,11 +145,15 @@ export function useImportSong() {
 }
 
 /** Searches YouTube's Music category (empty until the server has a YouTube key). */
-export function useYouTube(q: string, order: 'relevance' | 'viewCount' | 'date' = 'relevance', lang?: string) {
+export function useYouTube(q: string, order: 'relevance' | 'viewCount' | 'date' = 'relevance', lang?: string, mood?: string | null) {
   return useQuery({
-    queryKey: ['youtube', q, order, lang ?? 'any'],
+    queryKey: ['youtube', q, order, lang ?? 'any', mood ?? 'any'],
     queryFn: () =>
-      api<YouTubeResponse>(`/discover/youtube?q=${encodeURIComponent(q)}&order=${order}${lang ? `&lang=${lang}` : ''}`),
+      api<YouTubeResponse>(
+        `/discover/youtube?q=${encodeURIComponent(q)}&order=${order}${lang ? `&lang=${lang}` : ''}${
+          mood ? `&mood=${encodeURIComponent(mood)}` : ''
+        }`,
+      ),
     enabled: q.trim().length > 1,
     staleTime: 10 * 60_000,
   });

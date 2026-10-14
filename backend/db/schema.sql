@@ -256,3 +256,20 @@ CREATE TABLE IF NOT EXISTS youtube_cache (
   results JSONB NOT NULL,
   at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- A library of YouTube videos the app has already found, so a filter or a repeat search is answered
+-- from here rather than spending part of the day's small search allowance on a question already asked.
+CREATE TABLE IF NOT EXISTS youtube_videos (
+  video_id         TEXT PRIMARY KEY,
+  title            TEXT NOT NULL,
+  channel          TEXT,
+  thumbnail        TEXT,
+  duration_seconds INT,
+  language         TEXT,
+  mood             TEXT,
+  published_at     TIMESTAMPTZ,
+  views            BIGINT NOT NULL DEFAULT 0,
+  added_at         TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS youtube_videos_language_mood ON youtube_videos (language, mood);
+CREATE INDEX IF NOT EXISTS youtube_videos_published ON youtube_videos (published_at DESC);

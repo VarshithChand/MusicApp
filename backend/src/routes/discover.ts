@@ -349,27 +349,9 @@ async function fetchDurations(ids: string[], key: string) {
   return durations;
 }
 
-discoverRouter.get("/youtube", async (req, res) => {
-  if (!YT_KEY) return res.json({ configured: false, results: [] });
-  const q = String(req.query.q ?? "").trim();
-  if (q.length < 2) return res.json({ configured: true, results: [] });
-
-  const order = ["relevance", "viewCount", "date"].includes(String(req.query.order)) ? String(req.query.order) : "relevance";
-  // A listener who picked languages gets results in one of them; the name is appended because
-  // relevanceLanguage alone only nudges the ranking, it does not keep other languages out.
-  const lang = SEARCH_LANGUAGES[String(req.query.lang ?? "").toLowerCase()] ? String(req.query.lang).toLowerCase() : null;
-  const cacheKey = `${order}:${lang ?? "any"}:${q.toLowerCase()}`;
-  const hit = ytCache.get(cacheKey) ?? (await loadSaved(`search:${cacheKey}`));
-  if (hit && Date.now() - hit.at < SEARCH_TTL_MS) return res.json({ configured: true, results: hit.results });
-
-  // The day's searching is gone: serve what was saved, else the chart, rather than a call that will be refused.
-  if (quotaSpent()) {
-    if (hit) return res.json({ configured: true, results: hit.results, stale: true });
-    const chart = await fetchPopularChart(YT_KEY, lang, order === "date");
-    if (chart?.length) return res.json({ configured: true, results: chart, note: CHART_NOTE });
-    return res.status(502).json({ error: QUOTA_MESSAGE, reason: "quotaExceeded" });
-  }
-
+/** One search against YouTube. Returns null when it refuses, having already recorded why. */
+async function searchYouTube(q: string, order: string, lang: string | null): Promise<LibraryVideo[] | null> {
+  if (!YT_KEY) return null;
   const url = new URL("https://www.googleapis.com/youtube/v3/search");
   url.search = new URLSearchParams({
     part: "snippet",
@@ -396,17 +378,12 @@ discoverRouter.get("/youtube", async (req, res) => {
       }
     | null;
   if (!response.ok || !body?.items) {
-    const { reason, daily } = noteFailure("search", response.status, body?.error);
-    if (hit) return res.json({ configured: true, results: hit.results, stale: true });
-    if (daily) {
-      const chart = await fetchPopularChart(YT_KEY, lang, order === "date");
-      if (chart?.length) return res.json({ configured: true, results: chart, note: CHART_NOTE });
-    }
-    return res.status(502).json({ error: failureMessage(daily, "YouTube search is unavailable right now."), reason });
+    noteFailure("search", response.status, body?.error);
+    return null;
   }
 
   const durations = await fetchDurations(body.items.map((i) => i.id.videoId), YT_KEY);
-  const results = body.items.map((i) => ({
+  return body.items.map((i) => ({
     videoId: i.id.videoId,
     title: decode(i.snippet.title),
     channel: decode(i.snippet.channelTitle),
@@ -414,9 +391,56 @@ discoverRouter.get("/youtube", async (req, res) => {
     durationSeconds: durations.get(i.id.videoId) ?? null,
     publishedAt: i.snippet.publishedAt ?? null,
   }));
+}
+
+discoverRouter.get("/youtube", async (req, res) => {
+  if (!YT_KEY) return res.json({ configured: false, results: [] });
+  const q = String(req.query.q ?? "").trim();
+  if (q.length < 2) return res.json({ configured: true, results: [] });
+
+  const order = ["relevance", "viewCount", "date"].includes(String(req.query.order)) ? String(req.query.order) : "relevance";
+  // A listener who picked languages gets results in one of them; the name is appended because
+  // relevanceLanguage alone only nudges the ranking, it does not keep other languages out.
+  const lang = SEARCH_LANGUAGES[String(req.query.lang ?? "").toLowerCase()] ? String(req.query.lang).toLowerCase() : null;
+  const mood = String(req.query.mood ?? "").trim().toLowerCase() || null;
+  const cacheKey = `${order}:${lang ?? "any"}:${q.toLowerCase()}`;
+
+  // A filter asks the same handful of questions over and over, so answer it from the library.
+  if (mood) {
+    const stocked = await libraryVideos(lang, mood, order === "date" ? "newest" : "views");
+    if (stocked.length >= 10) return res.json({ configured: true, results: stocked });
+  }
+
+  const hit = ytCache.get(cacheKey) ?? (await loadSaved(`search:${cacheKey}`));
+  if (hit && Date.now() - hit.at < SEARCH_TTL_MS) return res.json({ configured: true, results: hit.results });
+
+  // The day's searching is gone: serve what was saved, else the chart, rather than a call that will be refused.
+  if (quotaSpent()) {
+    if (hit) return res.json({ configured: true, results: hit.results, stale: true });
+    const chart = await fetchPopularChart(YT_KEY, lang, order === "date");
+    if (chart?.length) return res.json({ configured: true, results: chart, note: CHART_NOTE });
+    return res.status(502).json({ error: QUOTA_MESSAGE, reason: "quotaExceeded" });
+  }
+
+  const results = await searchYouTube(q, order, lang);
+  if (!results) {
+    if (hit) return res.json({ configured: true, results: hit.results, stale: true });
+    const daily = quotaSpent();
+    if (daily) {
+      const chart = await fetchPopularChart(YT_KEY, lang, order === "date");
+      if (chart?.length) return res.json({ configured: true, results: chart, note: CHART_NOTE });
+    }
+    return res.status(502).json({
+      error: failureMessage(daily, "YouTube search is unavailable right now."),
+      reason: lastFailure?.reason ?? null,
+    });
+  }
+
   if (ytCache.size > 200) ytCache.clear();
   ytCache.set(cacheKey, { at: Date.now(), results });
   saveResults(`search:${cacheKey}`, results);
+  // Everything found goes to the library, so this question never costs a search again.
+  await saveVideos(results, lang, mood);
   res.json({ configured: true, results });
 });
 
@@ -511,6 +535,107 @@ discoverRouter.delete("/youtube-video/:id/favorite", async (req: AuthedRequest, 
   await query("DELETE FROM media_favorites WHERE user_id = $1 AND kind = 'youtube' AND external_id = $2", [req.userId, req.params.id]);
   res.status(204).end();
 });
+
+// --- The video library -------------------------------------------------------
+//
+// Searching is capped at about fifty calls a day, which is far too few to answer a filter every
+// time one is tapped. So every video the app ever finds is kept here, and the filters read from
+// this instead. A question already answered is never paid for twice, and the lists keep working
+// on a day the allowance is gone.
+
+interface LibraryVideo {
+  videoId: string;
+  title: string;
+  channel: string | null;
+  thumbnail: string | null;
+  durationSeconds: number | null;
+  publishedAt?: string | null;
+}
+
+/** Puts videos in the library, filing them under the language and mood they were found for. */
+async function saveVideos(videos: LibraryVideo[], lang: string | null, mood: string | null, views = 0): Promise<void> {
+  if (!videos.length) return;
+  try {
+    for (const v of videos) {
+      await query(
+        `INSERT INTO youtube_videos (video_id, title, channel, thumbnail, duration_seconds, language, mood, published_at, views)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         ON CONFLICT (video_id) DO UPDATE SET
+           title = EXCLUDED.title,
+           thumbnail = EXCLUDED.thumbnail,
+           duration_seconds = COALESCE(EXCLUDED.duration_seconds, youtube_videos.duration_seconds),
+           language = COALESCE(EXCLUDED.language, youtube_videos.language),
+           mood = COALESCE(EXCLUDED.mood, youtube_videos.mood),
+           views = GREATEST(EXCLUDED.views, youtube_videos.views)`,
+        [v.videoId, v.title, v.channel, v.thumbnail, v.durationSeconds, lang, mood, v.publishedAt ?? null, views],
+      );
+    }
+  } catch (e) {
+    // The library is an optimisation; failing to add to it must never fail the request that found them.
+    console.error("saving videos failed:", e instanceof Error ? e.message : e);
+  }
+}
+
+/** Reads back what the library holds for a language and mood. */
+async function libraryVideos(lang: string | null, mood: string | null, order: "newest" | "views" | "random", limit = 30) {
+  const sort = order === "newest" ? "published_at DESC NULLS LAST" : order === "views" ? "views DESC" : "random()";
+  try {
+    const rows = await query<{
+      video_id: string;
+      title: string;
+      channel: string | null;
+      thumbnail: string | null;
+      duration_seconds: number | null;
+      published_at: Date | null;
+    }>(
+      `SELECT video_id, title, channel, thumbnail, duration_seconds, published_at
+         FROM youtube_videos
+        WHERE ($1::text IS NULL OR language = $1)
+          AND ($2::text IS NULL OR mood = $2)
+        ORDER BY ${sort}
+        LIMIT $3`,
+      [lang, mood, limit],
+    );
+    return rows.map((r) => ({
+      videoId: r.video_id,
+      title: r.title,
+      channel: r.channel,
+      thumbnail: r.thumbnail,
+      durationSeconds: r.duration_seconds,
+      publishedAt: r.published_at ? new Date(r.published_at).toISOString() : null,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+/** How many we want on hand before a bucket counts as stocked. */
+const LIBRARY_TARGET = 20;
+/** Searches the top-up may spend in one day, leaving the rest of the allowance for listeners. */
+const TOPUP_SEARCH_BUDGET = 20;
+const TOPUP_MOODS = ["mass", "melody", "romantic", "sad", "party", "devotional"];
+
+/**
+ * Fills thin parts of the library on its own, a little at a time, so that filters have something to
+ * show without anyone being asked to do it. It stops the moment its own small budget is used up, and
+ * it only ever asks about buckets that are actually short.
+ */
+async function topUpLibrary(): Promise<void> {
+  if (!YT_KEY || quotaSpent()) return;
+  let spent = 0;
+  for (const lang of Object.keys(TRENDING_LANGUAGES)) {
+    for (const mood of TOPUP_MOODS) {
+      if (spent >= TOPUP_SEARCH_BUDGET || quotaSpent()) return;
+      const have = await libraryVideos(lang, mood, "newest", LIBRARY_TARGET);
+      if (have.length >= LIBRARY_TARGET) continue;
+
+      const name = SEARCH_LANGUAGES[lang] ?? "";
+      const found = await searchYouTube(`${mood} songs ${name}`.trim(), "viewCount", lang);
+      spent++;
+      if (found?.length) await saveVideos(found as LibraryVideo[], lang, mood);
+    }
+  }
+}
 
 // --- Songs from the music channels themselves ---------------------------------
 //
@@ -719,6 +844,7 @@ discoverRouter.get("/trending", async (req, res) => {
     const results = (kind === "trending" ? byNewest(pool) : byViews(pool)).slice(0, 30).map((i) => i.video);
     trendCache.set(key, { at: Date.now(), results });
     saveResults(`trend:${key}`, results);
+    await saveVideos(results as LibraryVideo[], lang, null);
     return res.json({ configured: true, results });
   }
 
@@ -775,3 +901,17 @@ discoverRouter.get("/trending", async (req, res) => {
   saveResults(`trend:${key}`, results);
   res.json({ configured: true, results });
 });
+
+
+/**
+ * Keeps the library stocked without anyone having to do it: once a little after startup, so a deploy
+ * does not delay the first filling, and daily thereafter. It is deliberately quiet about failing --
+ * a background top-up is not worth troubling a running server over.
+ */
+export function startLibraryTopUp(): void {
+  const run = () => {
+    topUpLibrary().catch((e) => console.error("library top-up failed:", e instanceof Error ? e.message : e));
+  };
+  setTimeout(run, 60_000).unref?.();
+  setInterval(run, 24 * 60 * 60_000).unref?.();
+}

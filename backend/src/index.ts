@@ -7,7 +7,7 @@ import { adminRouter } from "./routes/admin";
 import { appRouter } from "./routes/app";
 import { authRouter } from "./routes/auth";
 import { albumsRouter, artistsRouter, genresRouter, moodsRouter, moviesRouter, songsRouter } from "./routes/catalog";
-import { discoverRouter, youtubeStatus } from "./routes/discover";
+import { discoverRouter, startLibraryTopUp, youtubeStatus } from "./routes/discover";
 import { playlistsRouter, usersRouter } from "./routes/playlists";
 import { failInterruptedJobs, uploadsRouter } from "./routes/uploads";
 import { storageStatus } from "./storage";
@@ -57,6 +57,8 @@ app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
 });
 
 failInterruptedJobs().catch((err) => console.error("could not clean up interrupted uploads:", err));
+// Keeps the video library stocked so the filters answer without spending the day's searches.
+startLibraryTopUp();
 
 const port = Number(process.env.PORT) || 4000;
 app.listen(port, () => console.log(`API listening on :${port}`));
