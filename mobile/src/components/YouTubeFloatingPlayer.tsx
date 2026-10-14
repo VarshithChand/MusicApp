@@ -3,8 +3,9 @@ import { BackHandler, Image, Pressable, ScrollView, StatusBar, StyleSheet, Switc
 import { AppText as Text } from './AppText';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
-import { useToggleYouTubeFavorite, useTrending, useYouTubeFavorites } from '../api/hooks';
+import { useLibrary, usePreferredLanguages, useToggleYouTubeFavorite, useTrending, useYouTubeFavorites } from '../api/hooks';
 import { useYouTubePlayer } from '../store/youtubePlayer';
+import { useSelection } from '../store/selection';
 import { colors, themedStyles } from '../theme/theme';
 import { Icon } from './Icon';
 import { useVideoGestures } from './useVideoGestures';
@@ -58,7 +59,15 @@ export function YouTubeFloatingPlayer() {
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
   const { videoId, title, mode, minimize, maximize, close, play, playNext, autoplay, setAutoplay } = useYouTubePlayer();
-  const related = useTrending('popular');
+  // What plays next follows the filter in use: more of the same mood, taken from the app's own
+  // library rather than from YouTube, so it costs nothing and works whatever the day's allowance.
+  const { primary: accountLanguage } = usePreferredLanguages();
+  const chosenLanguage = useSelection((s) => s.language);
+  const mood = useSelection((s) => s.mood);
+  const language = chosenLanguage ?? accountLanguage;
+  const sameMood = useLibrary(language, mood?.toLowerCase() ?? null);
+  const popular = useTrending('popular', language);
+  const related = sameMood.data?.results?.length ? sameMood : popular;
   const favorites = useYouTubeFavorites();
   const { add, remove } = useToggleYouTubeFavorite();
   const current = favorites.data?.find((v) => v.videoId === videoId);
@@ -207,7 +216,7 @@ export function YouTubeFloatingPlayer() {
               thumbColor="#fff"
             />
           </View>
-          <Text style={styles.upNextTitle}>Up next</Text>
+          <Text style={styles.upNextTitle}>{sameMood.data?.results?.length && mood ? `More ${mood.toLowerCase()}` : 'Up next'}</Text>
           {related.data?.results
             .filter((r) => r.videoId !== videoId)
             .map((r) => (

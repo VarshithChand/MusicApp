@@ -7,8 +7,11 @@ interface SelectionState {
   language: string | null;
   /** Genre key, or null for every genre. */
   genre: string | null;
+  /** The mood being filtered by, or null for none. What plays next follows it. */
+  mood: string | null;
   setLanguage: (language: string | null) => void;
   setGenre: (genre: string | null) => void;
+  setMood: (mood: string | null) => void;
 }
 
 /**
@@ -20,8 +23,10 @@ export const useSelection = create<SelectionState>()(
     (set) => ({
       language: null,
       genre: null,
+      mood: null,
       setLanguage: (language) => set({ language }),
       setGenre: (genre) => set({ genre }),
+      setMood: (mood) => set({ mood }),
     }),
     { name: 'selection', storage: createJSONStorage(() => AsyncStorage) },
   ),

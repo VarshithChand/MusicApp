@@ -468,6 +468,19 @@ discoverRouter.get("/youtube", async (req, res) => {
   res.json({ configured: true, results });
 });
 
+/**
+ * GET /discover/library?lang=te&mood=romantic
+ * Videos straight from the library, for the list under the player. It never calls YouTube, so what
+ * plays next can follow the filter the listener chose without spending any of the day's searches.
+ */
+discoverRouter.get("/library", async (req, res) => {
+  const lang = SEARCH_LANGUAGES[String(req.query.lang ?? "").toLowerCase()] ? String(req.query.lang).toLowerCase() : null;
+  const mood = String(req.query.mood ?? "").trim().toLowerCase() || null;
+  const limit = Math.min(50, Math.max(1, Number(req.query.limit ?? 25) || 25));
+  const results = await libraryVideos(lang, mood, "random", limit);
+  res.json({ configured: true, results });
+});
+
 // --- One video by ID, for the Video page (paste a URL, look it up) -----------
 
 const VIDEO_ID = /^[\w-]{11}$/;

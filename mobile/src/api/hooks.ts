@@ -159,6 +159,20 @@ export function useYouTube(q: string, order: 'relevance' | 'viewCount' | 'date' 
   });
 }
 
+/**
+ * Videos held in the app's own library, for what plays next. It never reaches YouTube, so the list
+ * under the player can follow the chosen filter without costing any of the day's searches.
+ */
+export function useLibrary(lang: string | null, mood: string | null) {
+  return useQuery({
+    queryKey: ['library', lang ?? 'any', mood ?? 'any'],
+    queryFn: () =>
+      api<YouTubeResponse>(`/discover/library?limit=25${lang ? `&lang=${lang}` : ''}${mood ? `&mood=${encodeURIComponent(mood)}` : ''}`),
+    enabled: !!mood,
+    staleTime: 10 * 60_000,
+  });
+}
+
 /** Looks up one YouTube video by its ID (the Video page: paste a URL, fetch its details). */
 export function useYouTubeVideo(videoId: string | null) {
   return useQuery({

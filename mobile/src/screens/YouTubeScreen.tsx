@@ -50,7 +50,9 @@ export function YouTubeScreen() {
   const [text, setText] = useState('');
   const [lookupId, setLookupId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState<string | null>(null);
-  const [mood, setMood] = useState<string | null | undefined>(undefined);
+  // Kept with the other choices, so what plays next can follow the filter the listener picked.
+  const mood = useSelection((s) => s.mood);
+  const setMood = useSelection((s) => s.setMood);
   const user = useAuth((s) => s.user);
   // Why a list stood in for another is upkeep, not something to explain to everyone.
   const isAdmin = !!user?.is_admin;
@@ -61,7 +63,7 @@ export function YouTubeScreen() {
     : firstGenre
       ? (GENRES.find((g) => g.key === firstGenre)?.label ?? null)
       : null;
-  const activeMood = mood === undefined ? defaultMood : mood;
+  const activeMood = mood ?? defaultMood;
   const [filterOpen, setFilterOpen] = useState(false);
   const [panel, setPanel] = useState<'favorites' | 'recent' | null>(null);
   const [badLink, setBadLink] = useState(false);
