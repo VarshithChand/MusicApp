@@ -19,6 +19,7 @@ import { GENRES } from '../data/genres';
 import { languageLabel } from '../data/languages';
 import { TASTES } from '../data/tastes';
 import { useAuth } from '../store/auth';
+import { useSelection } from '../store/selection';
 import { useYouTubePlayer } from '../store/youtubePlayer';
 import { colors, themedStyles } from '../theme/theme';
 
@@ -76,7 +77,10 @@ export function YouTubeScreen() {
       ? `telugu ${activeMood.toLowerCase()} songs`
       : null;
   const resultsLabel = [activeMood, searchTerm].filter(Boolean).join(' · ');
-  const { primary } = usePreferredLanguages();
+  const { primary: accountLanguage } = usePreferredLanguages();
+  // Whatever was picked on Home, so the two pages never disagree about the language.
+  const chosenLanguage = useSelection((s) => s.language);
+  const primary = chosenLanguage ?? accountLanguage;
   const langName = languageLabel(primary);
   const topHits = useYouTube(query ?? '', 'viewCount', primary);
   const latest = useYouTube(query ?? '', 'date', primary);

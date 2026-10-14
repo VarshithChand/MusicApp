@@ -248,11 +248,19 @@ export function youtubeStatus() {
 const CHART_TTL_MS = 60 * 60_000;
 const CHART_REGION = "IN";
 const CHART_NOTE = "Showing popular music videos instead: searching by language has reached its daily limit and comes back after midnight Pacific time.";
-const chartCache = new Map<string, { at: number; results: unknown[] }>();
+type ChartItem = { language: string | null; video: unknown };
+const chartCache = new Map<string, { at: number; items: ChartItem[] }>();
 
-async function fetchPopularChart(key: string): Promise<unknown[] | null> {
+/** Keeps only what the listener asked to hear. A video that never says its language is left out, because
+ * a chart for the whole region is mostly other languages and guessing would put them back on the page. */
+function inLanguage(items: ChartItem[], lang: string | null): unknown[] {
+  if (!lang) return items.map((i) => i.video);
+  return items.filter((i) => i.language?.toLowerCase().split("-")[0] === lang).map((i) => i.video);
+}
+
+async function fetchPopularChart(key: string, lang: string | null): Promise<unknown[] | null> {
   const fresh = chartCache.get(CHART_REGION);
-  if (fresh && Date.now() - fresh.at < CHART_TTL_MS) return fresh.results;
+  if (fresh && Date.now() - fresh.at < CHART_TTL_MS) return inLanguage(fresh.items, lang);
 
   const url = new URL("https://www.googleapis.com/youtube/v3/videos");
   url.search = new URLSearchParams({
@@ -260,7 +268,7 @@ async function fetchPopularChart(key: string): Promise<unknown[] | null> {
     chart: "mostPopular",
     videoCategoryId: "10", // Music
     regionCode: CHART_REGION,
-    maxResults: "15",
+    maxResults: "50", // the most allowed, since only some will be in any one language
     key,
   }).toString();
 
@@ -269,7 +277,13 @@ async function fetchPopularChart(key: string): Promise<unknown[] | null> {
     | {
         items?: {
           id: string;
-          snippet: { title: string; channelTitle: string; thumbnails?: { medium?: { url: string } } };
+          snippet: {
+            title: string;
+            channelTitle: string;
+            thumbnails?: { medium?: { url: string } };
+            defaultAudioLanguage?: string;
+            defaultLanguage?: string;
+          };
           contentDetails: { duration: string };
         }[];
         error?: YtError;
@@ -280,15 +294,18 @@ async function fetchPopularChart(key: string): Promise<unknown[] | null> {
     return null;
   }
 
-  const results = body.items.map((i) => ({
-    videoId: i.id,
-    title: decode(i.snippet.title),
-    channel: decode(i.snippet.channelTitle),
-    thumbnail: i.snippet.thumbnails?.medium?.url ?? null,
-    durationSeconds: isoDurationToSeconds(i.contentDetails.duration),
+  const items: ChartItem[] = body.items.map((i) => ({
+    language: i.snippet.defaultAudioLanguage ?? i.snippet.defaultLanguage ?? null,
+    video: {
+      videoId: i.id,
+      title: decode(i.snippet.title),
+      channel: decode(i.snippet.channelTitle),
+      thumbnail: i.snippet.thumbnails?.medium?.url ?? null,
+      durationSeconds: isoDurationToSeconds(i.contentDetails.duration),
+    },
   }));
-  chartCache.set(CHART_REGION, { at: Date.now(), results });
-  return results;
+  chartCache.set(CHART_REGION, { at: Date.now(), items });
+  return inLanguage(items, lang);
 }
 
 const decode = (s: string) =>
@@ -496,7 +513,7 @@ discoverRouter.get("/trending", async (req, res) => {
   // Searching for the day is spent: serve what was saved, else the chart, rather than a call that will be refused.
   if (quotaSpent()) {
     if (hit) return res.json({ configured: true, results: hit.results, stale: true });
-    const chart = await fetchPopularChart(YT_KEY);
+    const chart = await fetchPopularChart(YT_KEY, lang);
     if (chart?.length) return res.json({ configured: true, results: chart, note: CHART_NOTE });
     return res.status(502).json({ error: QUOTA_MESSAGE, reason: "quotaExceeded" });
   }
@@ -528,7 +545,7 @@ discoverRouter.get("/trending", async (req, res) => {
     if (hit) return res.json({ configured: true, results: hit.results, stale: true });
     // Searching is capped separately from the rest of the quota, so the chart often still answers.
     if (daily) {
-      const chart = await fetchPopularChart(YT_KEY);
+      const chart = await fetchPopularChart(YT_KEY, lang);
       if (chart?.length) return res.json({ configured: true, results: chart, note: CHART_NOTE });
     }
     return res.status(502).json({ error: failureMessage(daily, "YouTube is unavailable right now."), reason });

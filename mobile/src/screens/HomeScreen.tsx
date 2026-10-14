@@ -18,13 +18,15 @@ import {
 } from '../api/hooks';
 import { videoErrorText } from '../api/http';
 import { GENRES } from '../data/genres';
-import { languageLabel } from '../data/languages';
+import { LANGUAGES, languageLabel } from '../data/languages';
 import { Cover } from '../components/Cover';
+import { Dropdown } from '../components/Dropdown';
 import { Icon } from '../components/Icon';
 import { SongRow } from '../components/SongRow';
 import { Song, YouTubeResponse, YouTubeResult } from '../api/types';
 import { playQueue } from '../player/controls';
 import { useAuth } from '../store/auth';
+import { useSelection } from '../store/selection';
 import { useYouTubePlayer } from '../store/youtubePlayer';
 import { colors, themedStyles } from '../theme/theme';
 
@@ -71,11 +73,15 @@ export function HomeScreen() {
   const artists = useArtists();
   const liked = useLikedSongs();
   const ytFavorites = useYouTubeFavorites();
-  const { primary } = usePreferredLanguages();
+  const genre = useSelection((s) => s.genre);
+  const setGenre = useSelection((s) => s.setGenre);
+  const chosenLanguage = useSelection((s) => s.language);
+  const setLanguage = useSelection((s) => s.setLanguage);
+  const { primary: accountLanguage } = usePreferredLanguages();
+  const primary = chosenLanguage ?? accountLanguage;
   const langName = languageLabel(primary);
   const trending = useTrending('trending', primary);
   const hits = useTrending('popular', primary);
-  const [genre, setGenre] = useState<string | null>(null);
   const genreLabel = GENRES.find((g) => g.key === genre)?.label ?? '';
   const genreVideos = useYouTube(genre ? `${genreLabel.toLowerCase()} songs` : '', 'viewCount', primary);
   const playVideo = useYouTubePlayer((s) => s.play);
@@ -155,22 +161,20 @@ export function HomeScreen() {
       {popular.isLoading && <LoadingBars />}
       {popular.isError && <Text style={styles.error}>Couldn't load music. Check your connection.</Text>}
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
-        {[{ key: null, label: 'All' }, ...GENRES].map((g) => {
-          const on = genre === g.key;
-          return (
-            <Pressable
-              key={g.key ?? 'all'}
-              style={[styles.chip, on && styles.chipOn]}
-              onPress={() => setGenre(g.key)}
-              accessibilityRole="radio"
-              accessibilityState={{ selected: on }}
-            >
-              <Text style={[styles.chipText, on && styles.chipTextOn]}>{g.label}</Text>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
+      <View style={styles.pickers}>
+        <Dropdown
+          label="Language"
+          value={primary}
+          options={LANGUAGES.map((l) => ({ key: l.key, label: l.label }))}
+          onChange={setLanguage}
+        />
+        <Dropdown
+          label="Genre"
+          value={genre}
+          options={[{ key: null, label: 'All genres' }, ...GENRES.map((g) => ({ key: g.key, label: g.label }))]}
+          onChange={setGenre}
+        />
+      </View>
 
       {genre ? (
         <>
@@ -285,6 +289,7 @@ const styles = themedStyles(() => ({
   h2: { color: colors.text, fontSize: 18, fontWeight: '600', marginBottom: 8 },
   hrow: { gap: 14 },
   chipRow: { gap: 8 },
+  pickers: { flexDirection: 'row', gap: 10 },
   muted: { color: colors.muted, fontSize: 14 },
   chip: { height: 36, paddingHorizontal: 16, borderRadius: 18, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, justifyContent: 'center' },
   chipOn: { backgroundColor: colors.accent, borderColor: colors.accent },

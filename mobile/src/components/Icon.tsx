@@ -23,6 +23,7 @@ const ICONS = {
   heart: { d: ['M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.5A4 4 0 0 1 19 10c0 5.5-7 10-7 10z'] },
   plus: { d: ['M12 5v14M5 12h14'] },
   chevronDown: { d: ['M6 9l6 6 6-6'] },
+  check: { d: ['M5 13l4 4L19 7'] },
   back: { d: ['M15 6l-6 6 6 6'] },
   volume: { d: ['M4 9v6h4l5 4V5L8 9z'] },
   queue: { d: ['M4 6h12M4 12h12M4 18h7M18 15v6l4-3z'] },
