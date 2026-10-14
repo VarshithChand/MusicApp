@@ -10,6 +10,10 @@ let setup: Promise<void> | null = null;
  * Android 13 and later refuse to show any notification until asked, and the playback controls are a
  * notification, so without this there is nothing on the lock screen to press. Declining only costs
  * the controls; the music itself plays either way.
+ *
+ * Asked when a song is first started rather than when the app opens: at startup there is nothing
+ * playing, so the request has nothing to explain itself with, and it would arrive over whatever the
+ * listener was actually looking at.
  */
 async function askToShowControls(): Promise<void> {
   if (Platform.OS !== 'android' || Platform.Version < 33) return;
@@ -27,7 +31,6 @@ async function askToShowControls(): Promise<void> {
 
 export function setupPlayer(): Promise<void> {
   setup ??= (async () => {
-    await askToShowControls();
     try {
       // Hand the pausing and resuming to the player: it then stops for a call, for another app
       // taking the sound, and when earbuds leave an ear, which the phone reports the same way.
@@ -92,6 +95,7 @@ export function toTrack(song: Song): Track {
 export async function playQueue(songs: Song[], index = 0) {
   if (!songs.length) return;
   await setupPlayer();
+  await askToShowControls();
   await TrackPlayer.reset();
   await TrackPlayer.add(songs.map(toTrack));
   await TrackPlayer.skip(index);
@@ -114,6 +118,7 @@ function toLocalTrack(file: LocalAudioFile): Track {
 export async function playLocalQueue(files: LocalAudioFile[], index = 0) {
   if (!files.length) return;
   await setupPlayer();
+  await askToShowControls();
   await TrackPlayer.reset();
   await TrackPlayer.add(files.map(toLocalTrack));
   await TrackPlayer.skip(index);
