@@ -3,7 +3,7 @@ import { BackHandler, Image, Pressable, ScrollView, StatusBar, StyleSheet, Switc
 import { AppText as Text } from './AppText';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
-import { useTrending } from '../api/hooks';
+import { useToggleYouTubeFavorite, useTrending, useYouTubeFavorites } from '../api/hooks';
 import { useYouTubePlayer } from '../store/youtubePlayer';
 import { colors, themedStyles } from '../theme/theme';
 import { Icon } from './Icon';
@@ -59,6 +59,32 @@ export function YouTubeFloatingPlayer() {
   const { width, height } = useWindowDimensions();
   const { videoId, title, mode, minimize, maximize, close, play, playNext, autoplay, setAutoplay } = useYouTubePlayer();
   const related = useTrending('popular');
+  const favorites = useYouTubeFavorites();
+  const { add, remove } = useToggleYouTubeFavorite();
+  const current = favorites.data?.find((v) => v.videoId === videoId);
+
+  const toggleFavorite = () => {
+    if (!videoId) return;
+    if (current) remove.mutate(videoId);
+    else add.mutate({ videoId, title, channel: null, thumbnail: `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg` });
+  };
+
+  /**
+   * What to play when one finishes. Playing a favourite means the rest of them follow, in the order
+   * they were saved, and once they run out the usual next video takes over -- so a run of favourites
+   * ends by carrying on rather than by stopping.
+   */
+  const playedOut = () => {
+    if (!autoplay) return;
+    const saved = favorites.data ?? [];
+    const at = saved.findIndex((v) => v.videoId === videoId);
+    const nextFavorite = at >= 0 ? saved[at + 1] : undefined;
+    if (nextFavorite) {
+      play(nextFavorite.videoId, nextFavorite.title, { channel: nextFavorite.channel, thumbnail: nextFavorite.thumbnail });
+      return;
+    }
+    playNext();
+  };
   const webRef = useRef<React.ComponentRef<typeof WebView>>(null);
   // Our own landscape view: YouTube's in-player fullscreen button depends on the phone's WebView and
   // auto-rotate setting and doesn't work everywhere, so this rotates the same player to fill the screen.
@@ -116,6 +142,13 @@ export function YouTubeFloatingPlayer() {
           <Text style={styles.title} numberOfLines={2}>
             {title}
           </Text>
+          <Pressable
+            style={styles.iconBtn}
+            onPress={toggleFavorite}
+            accessibilityLabel={current ? 'Remove from favorites' : 'Add to favorites'}
+          >
+            <Icon name="heart" size={22} color={colors.accent} filled={!!current} />
+          </Pressable>
           <Pressable style={styles.iconBtn} onPress={() => setLandscape(true)} accessibilityLabel="Full screen">
             <Icon name="expand" size={22} color={colors.text} />
           </Pressable>
@@ -130,7 +163,7 @@ export function YouTubeFloatingPlayer() {
           javaScriptEnabled
           allowsFullscreenVideo
           onMessage={(e) => {
-            if (e.nativeEvent.data === 'ended') playNext();
+            if (e.nativeEvent.data === 'ended') playedOut();
           }}
           pointerEvents={mini ? 'none' : 'auto'}
           style={styles.web}
