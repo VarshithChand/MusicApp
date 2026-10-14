@@ -252,7 +252,7 @@ const CHART_REGION = "IN";
 /** Pages of the chart to walk; each is one quota unit and 50 more videos to pick a language from. */
 const CHART_PAGES = 4;
 const CHART_NOTE = "Showing popular music videos instead: searching by language has reached its daily limit and comes back after midnight Pacific time.";
-type ChartItem = { language: string | null; publishedAt: string; video: unknown };
+type ChartItem = { language: string | null; publishedAt: string; channelId: string | null; video: unknown };
 const chartCache = new Map<string, { at: number; items: ChartItem[] }>();
 
 /** Keeps only what the listener asked to hear. A video that never says its language is left out, because
@@ -302,6 +302,7 @@ async function fetchPopularChart(key: string, lang: string | null, newestFirst =
   const items: ChartItem[] = pages.map((i) => ({
     language: i.snippet.defaultAudioLanguage ?? i.snippet.defaultLanguage ?? null,
     publishedAt: i.snippet.publishedAt ?? "",
+    channelId: i.snippet.channelId ?? null,
     video: {
       videoId: i.id,
       title: decode(i.snippet.title),
@@ -322,6 +323,7 @@ interface ChartPage {
       title: string;
       channelTitle: string;
       publishedAt?: string;
+      channelId?: string;
       thumbnails?: { medium?: { url: string } };
       defaultAudioLanguage?: string;
       defaultLanguage?: string;
@@ -631,19 +633,38 @@ async function describeVideos(ids: string[], key: string): Promise<PoolItem[]> {
   return out;
 }
 
+/**
+ * Which channels publish in this language, found rather than assumed: whoever is on the region's
+ * music chart with a video in the language is, by definition, a label publishing in it. A channel's
+ * uploads playlist is its own id with the leading "UC" swapped for "UU", so this needs no extra call.
+ */
+async function discoveredPlaylists(lang: string, key: string): Promise<string[]> {
+  const chart = chartCache.get(CHART_REGION);
+  if (!chart || Date.now() - chart.at >= CHART_TTL_MS) await fetchPopularChart(key, null);
+  const items = chartCache.get(CHART_REGION)?.items ?? [];
+  const channels = new Set<string>();
+  for (const i of items) {
+    if (i.language?.toLowerCase().split("-")[0] !== lang) continue;
+    if (i.channelId?.startsWith("UC")) channels.add(`UU${i.channelId.slice(2)}`);
+  }
+  return [...channels];
+}
+
 /** Everything the language's channels have put out lately, ready to order by date or by views. */
 async function channelPool(lang: string, key: string): Promise<PoolItem[] | null> {
   const fresh = poolCache.get(lang);
   if (fresh && Date.now() - fresh.at < POOL_TTL_MS) return fresh.items;
 
-  const handles = MUSIC_CHANNELS[lang];
-  if (!handles?.length) return null;
+  const playlists = new Set<string>();
+  for (const handle of MUSIC_CHANNELS[lang] ?? []) {
+    const playlist = await uploadsPlaylistFor(handle, key);
+    if (playlist) playlists.add(playlist);
+  }
+  for (const playlist of await discoveredPlaylists(lang, key)) playlists.add(playlist);
+  if (!playlists.size) return null;
 
   const ids: string[] = [];
-  for (const handle of handles) {
-    const playlist = await uploadsPlaylistFor(handle, key);
-    if (playlist) ids.push(...(await recentUploads(playlist, key)));
-  }
+  for (const playlist of playlists) ids.push(...(await recentUploads(playlist, key)));
   if (!ids.length) return null;
 
   const items = await describeVideos([...new Set(ids)], key);

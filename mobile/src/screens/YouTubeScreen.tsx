@@ -69,12 +69,14 @@ export function YouTubeScreen() {
   const playFromList = useYouTubePlayer((s) => s.playFromList);
   const recent = useYouTubePlayer((s) => s.recent);
   const video = useYouTubeVideo(lookupId);
+  // The server adds the chosen language to the search itself, so naming one here would both
+  // repeat it and, worse, pin every filter to Telugu whatever the listener picked.
   const query = searchTerm
     ? activeMood
       ? `${searchTerm} ${activeMood.toLowerCase()} songs`
       : searchTerm
     : activeMood
-      ? `telugu ${activeMood.toLowerCase()} songs`
+      ? `${activeMood.toLowerCase()} songs`
       : null;
   const resultsLabel = [activeMood, searchTerm].filter(Boolean).join(' · ');
   const { primary: accountLanguage } = usePreferredLanguages();
