@@ -58,11 +58,13 @@ react {
  * Set this to true to Run Proguard on Release builds to minify the Java bytecode.
  */
 /**
- * Strips the code and resources nothing reaches, which is most of what a library ships. The release
- * is checked by launching it in an emulator before it is published, so a rule that strips too much
- * is caught rather than shipped.
+ * Off for now. Stripping unreachable code and resources is worth having, but with it on the release
+ * stopped being the app in front after about fifteen seconds -- no crash, no error, it simply left
+ * the foreground, which is what something stripped that is only reached by name looks like. Finding
+ * which one needs its own run at it, with keep rules written and checked; the size this was meant to
+ * save is largely had anyway by building one apk per processor instead of one holding four.
  */
-def enableProguardInReleaseBuilds = true
+def enableProguardInReleaseBuilds = false
 
 /**
  * The preferred build flavor of JavaScriptCore (JSC)
