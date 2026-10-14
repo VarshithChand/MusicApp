@@ -160,7 +160,7 @@ const SEARCH_LANGUAGES: Record<string, string> = {
 };
 
 // A search costs 100 of the 10,000 free daily quota units, so results are reused for 6 hours.
-const SEARCH_TTL_MS = 6 * 60 * 60_000;
+const SEARCH_TTL_MS = 24 * 60 * 60_000;
 const ytCache = new Map<string, { at: number; results: unknown[] }>();
 
 // Results are also kept in the database, so a restart or deploy doesn't force new searches,
@@ -337,9 +337,11 @@ discoverRouter.get("/youtube", async (req, res) => {
   const hit = ytCache.get(cacheKey) ?? (await loadSaved(`search:${cacheKey}`));
   if (hit && Date.now() - hit.at < SEARCH_TTL_MS) return res.json({ configured: true, results: hit.results });
 
-  // The day's quota is gone: serve what was saved rather than spending a call we know will be refused.
+  // The day's searching is gone: serve what was saved, else the chart, rather than a call that will be refused.
   if (quotaSpent()) {
     if (hit) return res.json({ configured: true, results: hit.results, stale: true });
+    const chart = await fetchPopularChart(YT_KEY, lang);
+    if (chart?.length) return res.json({ configured: true, results: chart, note: CHART_NOTE });
     return res.status(502).json({ error: QUOTA_MESSAGE, reason: "quotaExceeded" });
   }
 
@@ -350,7 +352,7 @@ discoverRouter.get("/youtube", async (req, res) => {
     videoCategoryId: "10", // Music
     videoEmbeddable: "true",
     videoSyndicated: "true", // plays outside youtube.com
-    maxResults: "8",
+    maxResults: "25", // enough for the app to show both the most watched and the newest from one search
     order,
     q: lang ? `${q} ${SEARCH_LANGUAGES[lang]} song` : q,
     key: YT_KEY,
@@ -360,11 +362,21 @@ discoverRouter.get("/youtube", async (req, res) => {
 
   const response = await fetch(url);
   const body = (await response.json().catch(() => null)) as
-    | { items?: { id: { videoId: string }; snippet: { title: string; channelTitle: string; thumbnails?: { medium?: { url: string } } } }[]; error?: YtError }
+    | {
+        items?: {
+          id: { videoId: string };
+          snippet: { title: string; channelTitle: string; publishedAt?: string; thumbnails?: { medium?: { url: string } } };
+        }[];
+        error?: YtError;
+      }
     | null;
   if (!response.ok || !body?.items) {
     const { reason, daily } = noteFailure("search", response.status, body?.error);
     if (hit) return res.json({ configured: true, results: hit.results, stale: true });
+    if (daily) {
+      const chart = await fetchPopularChart(YT_KEY, lang);
+      if (chart?.length) return res.json({ configured: true, results: chart, note: CHART_NOTE });
+    }
     return res.status(502).json({ error: failureMessage(daily, "YouTube search is unavailable right now."), reason });
   }
 
@@ -375,6 +387,7 @@ discoverRouter.get("/youtube", async (req, res) => {
     channel: decode(i.snippet.channelTitle),
     thumbnail: i.snippet.thumbnails?.medium?.url ?? null,
     durationSeconds: durations.get(i.id.videoId) ?? null,
+    publishedAt: i.snippet.publishedAt ?? null,
   }));
   if (ytCache.size > 200) ytCache.clear();
   ytCache.set(cacheKey, { at: Date.now(), results });
@@ -486,7 +499,7 @@ const TRENDING_LANGUAGES: Record<string, { query: string; trending: string; popu
 };
 
 // Each search costs 100 of the free 10,000 daily units, so these cache times keep the Home rows fresh without running out.
-const TREND_TTL = { trending: 3 * 60 * 60_000, popular: 12 * 60 * 60_000 } as const;
+const TREND_TTL = { trending: 12 * 60 * 60_000, popular: 24 * 60 * 60_000 } as const;
 const TREND_WINDOW_DAYS = { trending: 30, popular: 30 } as const;
 const MIN_FRESH_MS = 10 * 60_000;
 const trendCache = new Map<string, { at: number; results: unknown[] }>();

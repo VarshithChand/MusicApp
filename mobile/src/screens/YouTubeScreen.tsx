@@ -1,5 +1,5 @@
 import Clipboard from '@react-native-clipboard/clipboard';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { AppText as Text } from '../components/AppText';
 import { LoadingBars } from '../components/LoadingBars';
@@ -83,7 +83,13 @@ export function YouTubeScreen() {
   const primary = chosenLanguage ?? accountLanguage;
   const langName = languageLabel(primary);
   const topHits = useYouTube(query ?? '', 'viewCount', primary);
-  const latest = useYouTube(query ?? '', 'date', primary);
+  // The newest come from the same search, sorted here. Asking YouTube a second time costs another
+  // hundred of the day's allowance and would answer much the same question.
+  const latestResults = useMemo(() => {
+    const results = topHits.data?.results;
+    if (!results?.length) return results;
+    return [...results].sort((a, b) => (b.publishedAt ?? '').localeCompare(a.publishedAt ?? ''));
+  }, [topHits.data?.results]);
   const popularTe = useTrending('popular', primary);
   const latestTe = useYouTube(`${langName.toLowerCase()} songs`, 'date', primary);
   const favorites = useYouTubeFavorites();
@@ -360,7 +366,7 @@ export function YouTubeScreen() {
             configured: topHits.data?.configured,
           })}
           <Text style={styles.sectionTitle}>Latest for "{resultsLabel}"</Text>
-          {videoRows(latest.data?.results, { fetching: latest.isFetching, error: latest.error, configured: latest.data?.configured })}
+          {videoRows(latestResults, { fetching: topHits.isFetching, error: topHits.error, configured: topHits.data?.configured })}
         </>
       ) : (
         <>

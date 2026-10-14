@@ -120,6 +120,8 @@ export interface YouTubeResult {
   channel: string;
   thumbnail: string | null;
   durationSeconds?: number | null;
+  /** When YouTube published it; used to show the newest without spending a second search. */
+  publishedAt?: string | null;
 }
 
 export interface YouTubeResponse {
