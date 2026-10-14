@@ -113,6 +113,17 @@ class AppUpdateModule(private val ctx: ReactApplicationContext) : ReactContextBa
     }
   }
 
+  /**
+   * Required by React Native for any module JS listens to: without these it refuses to build the
+   * emitter at all, and the error brings the whole app down on startup rather than just the update
+   * check. There is nothing to do here -- the emitting side keeps no per-listener state.
+   */
+  @ReactMethod
+  fun addListener(eventName: String) = Unit
+
+  @ReactMethod
+  fun removeListeners(count: Int) = Unit
+
   private fun emit(progress: Double) {
     val payload = Arguments.createMap().apply { putDouble("progress", progress) }
     ctx.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)

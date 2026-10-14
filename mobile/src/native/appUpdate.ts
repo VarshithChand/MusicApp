@@ -27,6 +27,9 @@ export const installUpdate = (fileUri: string) => native()?.install(fileUri);
 
 /** Calls back with how far the download has got, from 0 to 1. */
 export function onDownloadProgress(listener: (progress: number) => void) {
+  // An older build without the native side would have nothing to listen to, and asking anyway
+  // throws, so say so plainly rather than letting it take the app down on startup.
+  if (!NativeModules.AppUpdate) return () => {};
   const emitter = new NativeEventEmitter(NativeModules.AppUpdate);
   // The emitter types its payload as a bare object, so read the one field we send.
   const sub = emitter.addListener('AppUpdateProgress', (e) => listener(Number((e as { progress?: number }).progress ?? 0)));
