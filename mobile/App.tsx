@@ -6,6 +6,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AddToPlaylistSheet } from './src/components/AddToPlaylistSheet';
 import { SplashAnimation } from './src/components/SplashAnimation';
 import { YouTubeFloatingPlayer } from './src/components/YouTubeFloatingPlayer';
+import { UpdatePrompt } from './src/components/UpdatePrompt';
 import { AppNavigator } from './src/navigation/AppNavigator';
 import { goToLocalMedia, navigationRef } from './src/navigation/offline';
 import { useNetwork } from './src/store/network';
@@ -85,6 +86,7 @@ export default function App() {
           <AppNavigator key={resolved} />
           {signedIn && <AddToPlaylistSheet />}
           {signedIn && <YouTubeFloatingPlayer />}
+          {signedIn && <UpdatePrompt />}
         </NavigationContainer>
         {splashing && <SplashAnimation onDone={() => setSplashing(false)} />}
       </QueryClientProvider>

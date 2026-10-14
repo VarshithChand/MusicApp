@@ -9,6 +9,7 @@ import com.facebook.react.defaults.DefaultReactHost.getDefaultReactHost
 import com.musicapp.appicon.AppIconPackage
 import com.musicapp.brightness.ScreenBrightnessPackage
 import com.musicapp.media.LocalMediaPackage
+import com.musicapp.update.AppUpdatePackage
 
 class MainApplication : Application(), ReactApplication {
 
@@ -20,6 +21,7 @@ class MainApplication : Application(), ReactApplication {
           add(LocalMediaPackage())
           add(AppIconPackage())
           add(ScreenBrightnessPackage())
+          add(AppUpdatePackage())
         },
     )
   }
