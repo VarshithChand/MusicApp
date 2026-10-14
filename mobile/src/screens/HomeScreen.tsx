@@ -66,6 +66,7 @@ export function HomeScreen() {
     !!q.data?.results.length && (
       <View style={styles.section}>
         <Text style={styles.h2}>{title}</Text>
+        {!!q.data?.note && <Text style={styles.muted}>{q.data.note}</Text>}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hrow}>
           {q.data.results.map((v: YouTubeResult) => (
             <Pressable key={v.videoId} style={styles.vcard} onPress={() => playVideo(v.videoId, v.title)} accessibilityLabel={`Play ${v.title}`}>

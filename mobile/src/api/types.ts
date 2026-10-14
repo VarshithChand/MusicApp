@@ -123,6 +123,8 @@ export interface YouTubeResult {
 export interface YouTubeResponse {
   configured: boolean;
   results: YouTubeResult[];
+  /** Set when the server stood something else in for the usual list, e.g. a daily search limit was reached. */
+  note?: string;
 }
 
 /** One video looked up by ID (the Video page: paste a URL, fetch its details). */

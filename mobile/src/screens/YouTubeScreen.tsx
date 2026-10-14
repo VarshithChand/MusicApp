@@ -113,11 +113,12 @@ export function YouTubeScreen() {
 
   const videoRows = (
     list: YouTubeResult[] | undefined,
-    status: { fetching: boolean; error: unknown; configured: boolean | undefined },
+    status: { fetching: boolean; error: unknown; configured: boolean | undefined; note?: string },
   ) => (
     <>
       {status.fetching && <LoadingBars />}
       {!!status.error && <Text style={styles.error}>{videoErrorText(status.error)}</Text>}
+      {!!status.note && <Text style={styles.muted}>{status.note}</Text>}
       {status.configured === false && <Text style={styles.error}>Video search isn't set up on the server yet.</Text>}
       {list?.length === 0 && <Text style={styles.muted}>Nothing found.</Text>}
       {list?.map((r, i) => (
@@ -348,7 +349,7 @@ export function YouTubeScreen() {
       ) : (
         <>
           <Text style={styles.sectionTitle}>Popular Telugu hits</Text>
-          {videoRows(popularTe.data?.results, { fetching: popularTe.isFetching, error: popularTe.error, configured: popularTe.data?.configured })}
+          {videoRows(popularTe.data?.results, { fetching: popularTe.isFetching, error: popularTe.error, configured: popularTe.data?.configured, note: popularTe.data?.note })}
           <Text style={styles.sectionTitle}>Latest Telugu songs</Text>
           {videoRows(latestTe.data?.results, { fetching: latestTe.isFetching, error: latestTe.error, configured: latestTe.data?.configured })}
         </>

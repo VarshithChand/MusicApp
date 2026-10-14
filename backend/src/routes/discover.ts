@@ -228,6 +228,58 @@ export function youtubeStatus() {
   };
 }
 
+/**
+ * The most popular music videos in a region, taken from videos.list. That costs one quota unit and,
+ * unlike search, is not capped by the separate daily limit on search queries -- so it still answers
+ * once searching for the day has run out. It cannot be narrowed to a language, so it stands in for
+ * the usual rows rather than replacing them, and the app says so.
+ */
+const CHART_TTL_MS = 60 * 60_000;
+const CHART_REGION = "IN";
+const CHART_NOTE = "Showing popular music videos instead: searching by language has reached its daily limit and comes back after midnight Pacific time.";
+const chartCache = new Map<string, { at: number; results: unknown[] }>();
+
+async function fetchPopularChart(key: string): Promise<unknown[] | null> {
+  const fresh = chartCache.get(CHART_REGION);
+  if (fresh && Date.now() - fresh.at < CHART_TTL_MS) return fresh.results;
+
+  const url = new URL("https://www.googleapis.com/youtube/v3/videos");
+  url.search = new URLSearchParams({
+    part: "snippet,contentDetails",
+    chart: "mostPopular",
+    videoCategoryId: "10", // Music
+    regionCode: CHART_REGION,
+    maxResults: "15",
+    key,
+  }).toString();
+
+  const response = await fetch(url);
+  const body = (await response.json().catch(() => null)) as
+    | {
+        items?: {
+          id: string;
+          snippet: { title: string; channelTitle: string; thumbnails?: { medium?: { url: string } } };
+          contentDetails: { duration: string };
+        }[];
+        error?: YtError;
+      }
+    | null;
+  if (!response.ok || !body?.items) {
+    noteFailure("popular chart", response.status, body?.error);
+    return null;
+  }
+
+  const results = body.items.map((i) => ({
+    videoId: i.id,
+    title: decode(i.snippet.title),
+    channel: decode(i.snippet.channelTitle),
+    thumbnail: i.snippet.thumbnails?.medium?.url ?? null,
+    durationSeconds: isoDurationToSeconds(i.contentDetails.duration),
+  }));
+  chartCache.set(CHART_REGION, { at: Date.now(), results });
+  return results;
+}
+
 const decode = (s: string) =>
   s.replace(/&amp;/g, "&").replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">");
 
@@ -425,9 +477,11 @@ discoverRouter.get("/trending", async (req, res) => {
   const wantFresh = req.query.fresh === "1" && age >= MIN_FRESH_MS;
   if (hit && age < TREND_TTL[kind] && !wantFresh) return res.json({ configured: true, results: hit.results });
 
-  // The day's quota is gone: serve what was saved rather than spending a call we know will be refused.
+  // Searching for the day is spent: serve what was saved, else the chart, rather than a call that will be refused.
   if (quotaSpent()) {
     if (hit) return res.json({ configured: true, results: hit.results, stale: true });
+    const chart = await fetchPopularChart(YT_KEY);
+    if (chart?.length) return res.json({ configured: true, results: chart, note: CHART_NOTE });
     return res.status(502).json({ error: QUOTA_MESSAGE, reason: "quotaExceeded" });
   }
 
@@ -456,6 +510,11 @@ discoverRouter.get("/trending", async (req, res) => {
     const { reason, daily } = noteFailure("trending", response.status, body?.error);
     // Serve an older cached list rather than an error when YouTube (or the daily quota) is unavailable.
     if (hit) return res.json({ configured: true, results: hit.results, stale: true });
+    // Searching is capped separately from the rest of the quota, so the chart often still answers.
+    if (daily) {
+      const chart = await fetchPopularChart(YT_KEY);
+      if (chart?.length) return res.json({ configured: true, results: chart, note: CHART_NOTE });
+    }
     return res.status(502).json({ error: failureMessage(daily, "YouTube is unavailable right now."), reason });
   }
 
