@@ -95,7 +95,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          APK=mobile/android/app/build/outputs/apk/release/app-release.apk
+          # One build per processor type now. Phones get the 64-bit ARM one, which is what every
+          # Android phone of the last several years uses, and it is this that version.json describes.
+          APK=mobile/android/app/build/outputs/apk/release/app-arm64-v8a-release.apk
           test -f "$APK"
           APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -n 1)
           "$APKSIGNER" verify --print-certs "$APK" | tee cert.txt
@@ -136,7 +138,7 @@ jobs:
           arch: x86_64
           target: google_apis
           disable-animations: true
-          script: bash .github/scripts/smoke.sh mobile/android/app/build/outputs/apk/release/app-release.apk
+          script: bash .github/scripts/smoke.sh mobile/android/app/build/outputs/apk/release/app-x86_64-release.apk
 
       - uses: actions/upload-artifact@v4
         if: always()
@@ -153,12 +155,15 @@ jobs:
             echo "::error::App crashed in the emulator; not publishing. The previously published APK stays available."
             exit 1
           fi
-          cp mobile/android/app/build/outputs/apk/release/app-release.apk music.apk
+          OUT=mobile/android/app/build/outputs/apk/release
+          cp "$OUT/app-arm64-v8a-release.apk" music.apk
+          # For phones old enough to be 32-bit, which cannot run the one above.
+          cp "$OUT/app-armeabi-v7a-release.apk" music-32bit.apk
           gh release view latest >/dev/null 2>&1 || gh release create latest \
             --title "Latest Android build" \
-            --notes "Always the newest APK that passed the launch test. Download music.apk."
+            --notes "Always the newest APK that passed the launch test. Download music.apk, or music-32bit.apk for phones from before 64-bit."
           # APK first, manifest last: the manifest is only updated once the file it points to is in place.
-          gh release upload latest music.apk --clobber
+          gh release upload latest music.apk music-32bit.apk --clobber
           gh release upload latest version.json --clobber
 
           # Also keep this version permanently, so the Apps page can list previous versions.
@@ -167,8 +172,9 @@ jobs:
           VER="${{ steps.ver.outputs.name }}"
           VTAG="v${VER}"
           cp music.apk "music-${VER}.apk"
+          cp music-32bit.apk "music-${VER}-32bit.apk"
           sha256sum "music-${VER}.apk" > "music-${VER}.apk.sha256"
           gh release view "$VTAG" >/dev/null 2>&1 || gh release create "$VTAG" --latest=false --target "$GITHUB_SHA" \
             --title "Music ${VER}" --notes "Music app ${VER}"
-          gh release upload "$VTAG" "music-${VER}.apk" "music-${VER}.apk.sha256" version.json --clobber
+          gh release upload "$VTAG" "music-${VER}.apk" "music-${VER}-32bit.apk" "music-${VER}.apk.sha256" version.json --clobber
           echo "Published ${{ steps.ver.outputs.name }} (versionCode ${{ steps.ver.outputs.code }})"
