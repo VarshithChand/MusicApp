@@ -10,6 +10,7 @@ import { albumsRouter, artistsRouter, genresRouter, moodsRouter, moviesRouter, s
 import { discoverRouter, startLibraryTopUp, youtubeStatus } from "./routes/discover";
 import { playlistsRouter, usersRouter } from "./routes/playlists";
 import { failInterruptedJobs, uploadsRouter } from "./routes/uploads";
+import { closeStore, ready, storeStatus } from "./db";
 import { storageStatus } from "./storage";
 
 const app = express();
@@ -31,6 +32,8 @@ app.get("/health", (_req, res) =>
     },
     // Why YouTube last turned us away (a spent daily quota looks the same as a bad key from the app).
     youtube: youtubeStatus(),
+    // Where the data lives and, when it is Google Drive, whether changes are being saved.
+    dataStore: storeStatus(),
   }),
 );
 
@@ -56,9 +59,34 @@ app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
   res.status(500).json({ error: "Internal server error" });
 });
 
-failInterruptedJobs().catch((err) => console.error("could not clean up interrupted uploads:", err));
-// Keeps the video library stocked so the filters answer without spending the day's searches.
-startLibraryTopUp();
-
 const port = Number(process.env.PORT) || 4000;
-app.listen(port, () => console.log(`API listening on :${port}`));
+
+// Data has to be in place before the first request: with Google Drive as the store it is read in at startup.
+// If it cannot be, stop -- serving an empty app would look like everyone's account had vanished.
+ready()
+  .then(() => {
+    const server = app.listen(port, () => console.log(`API listening on :${port}`));
+    failInterruptedJobs().catch((err) => console.error("could not clean up interrupted uploads:", err));
+    // Keeps the video library stocked so the filters answer without spending the day's searches.
+    startLibraryTopUp();
+
+    // A restart or deploy sends SIGTERM: save anything not yet written before going.
+    const stop = (signal: string) => {
+      console.log(`${signal}: saving and shutting down`);
+      server.close();
+      closeStore()
+        .catch((err) => console.error("could not save on shutdown:", err))
+        .finally(() => process.exit(0));
+    };
+    process.once("SIGTERM", () => stop("SIGTERM"));
+    process.once("SIGINT", () => stop("SIGINT"));
+    // When started by another Node process (the verification script), it can ask for the same orderly stop.
+    // Windows cannot deliver SIGTERM to a child -- it just kills it -- so this is how that path gets tested there.
+    process.on("message", (m) => {
+      if (m === "shutdown") stop("shutdown request");
+    });
+  })
+  .catch((err) => {
+    console.error("could not load the app's data:", err);
+    process.exit(1);
+  });

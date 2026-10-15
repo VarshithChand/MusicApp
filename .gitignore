@@ -9,3 +9,6 @@ mobile/android/app/build/
 
 *.tmp
 *.tmp.*
+
+# Migration exports and reports: contain app data.
+backend/migration-out/

@@ -13,10 +13,12 @@
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test test/*.test.ts",
     "import:reference": "tsx src/importReference.ts",
-    "import:reference:prod": "node dist/importReference.js"
+    "import:reference:prod": "node dist/importReference.js",
+    "migrate:postgres-to-drive": "tsx src/migrateToDrive.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1144.0",
+    "@electric-sql/pglite": "^0.3.16",
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.5",

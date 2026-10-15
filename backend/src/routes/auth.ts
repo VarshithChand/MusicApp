@@ -69,10 +69,13 @@ authRouter.post("/register", async (req, res) => {
   if (existing.length) return res.status(409).json({ error: "Email already registered" });
 
   const hash = await bcrypt.hash(password, 10);
+  // The check above answers the usual case early, but two sign-ups a moment apart can both pass it. Letting
+  // the insert itself decide makes the second one a plain "already registered" instead of a server error.
   const [row] = await query(
-    "INSERT INTO users (name, email, password_hash, gender, song_tastes, date_of_birth, genres, languages) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *",
+    "INSERT INTO users (name, email, password_hash, gender, song_tastes, date_of_birth, genres, languages) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT (email) DO NOTHING RETURNING *",
     [name, email, hash, gender, songTastes ?? [], dateOfBirth, genres ?? [], languages ?? []],
   );
+  if (!row) return res.status(409).json({ error: "Email already registered" });
   res.status(201).json({ user: publicUser(row), ...signTokens(row.id, row.is_admin) });
 });
 

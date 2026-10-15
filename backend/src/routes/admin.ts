@@ -209,7 +209,7 @@ adminRouter.get("/movies/:id/songs", async (req, res) => {
       `SELECT s.id, s.title, s.audio_url, s.duration, s.singers, s.lyricist, s.music_director, s.track_number, s.language,
               s.description, s.description_source, s.status, s.downloadable, s.format, s.file_size,
               (SELECT COALESCE(json_agg(json_build_object('slug', m.slug, 'primary', sm.is_primary, 'source', sm.source, 'confidence', sm.confidence)
-                                        ORDER BY sm.is_primary DESC, m.slug), '[]'::json)
+                                        ORDER BY sm.is_primary DESC, sort_key(m.slug) COLLATE "C", m.slug COLLATE "C"), '[]'::json)
                  FROM song_moods sm JOIN moods m ON m.id = sm.mood_id WHERE sm.song_id = s.id) AS moods,
               (SELECT json_build_object('labels', c.labels, 'method', c.method, 'model_version', c.model_version,
                                         'review_status', c.review_status, 'error', c.error, 'features', c.features)
@@ -354,5 +354,5 @@ adminRouter.get("/user-stats", async (_req, res) => {
 
 /** The label vocabulary, grouped by kind, for the review screen. */
 adminRouter.get("/labels", async (_req, res) => {
-  res.json(await query("SELECT slug, name, kind FROM moods ORDER BY CASE kind WHEN 'style' THEN 0 WHEN 'mood' THEN 1 ELSE 2 END, name"));
+  res.json(await query("SELECT slug, name, kind FROM moods ORDER BY CASE kind WHEN 'style' THEN 0 WHEN 'mood' THEN 1 ELSE 2 END, sort_key(name) COLLATE \"C\", name COLLATE \"C\""));
 });

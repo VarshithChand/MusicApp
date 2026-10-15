@@ -21,7 +21,7 @@ const SONG_SELECT = `
          s.album_id, al.title AS album_title,
          s.genre_id, g.name AS genre_name, s.license_url, s.source, s.downloadable,
          s.singers, s.music_director, s.language, s.description, s.description_source, s.track_number,
-         (SELECT COALESCE(json_agg(m.slug ORDER BY sm.is_primary DESC, m.slug), '[]'::json)
+         (SELECT COALESCE(json_agg(m.slug ORDER BY sm.is_primary DESC, sort_key(m.slug) COLLATE "C", m.slug COLLATE "C"), '[]'::json)
             FROM song_moods sm JOIN moods m ON m.id = sm.mood_id WHERE sm.song_id = s.id AND sm.source = 'manual') AS moods
   FROM songs s
   JOIN artists ar ON ar.id = s.artist_id
@@ -83,15 +83,15 @@ songsRouter.get("/search", async (req, res) => {
        ORDER BY ${filter.orderBy} LIMIT $${songParams.length - 1} OFFSET $${songParams.length}`,
       songParams,
     ),
-    query("SELECT id, name, image_url FROM artists WHERE name ILIKE $1 ORDER BY name LIMIT 20", [like]),
+    query("SELECT id, name, image_url FROM artists WHERE name ILIKE $1 ORDER BY sort_key(name) COLLATE \"C\", name COLLATE \"C\" LIMIT 20", [like]),
     query(
       `SELECT al.id, al.title, COALESCE(al.poster_url, al.cover_url) AS cover_url, al.artist_id, ar.name AS artist_name
        FROM albums al JOIN artists ar ON ar.id = al.artist_id
        WHERE al.status = 'published' AND (al.title ILIKE $1 OR al.music_director ILIKE $1)
-       ORDER BY al.title LIMIT 20`,
+       ORDER BY sort_key(al.title) COLLATE "C", al.title COLLATE "C" LIMIT 20`,
       [like],
     ),
-    query("SELECT id, name FROM genres WHERE name ILIKE $1 ORDER BY name LIMIT 20", [like]),
+    query("SELECT id, name FROM genres WHERE name ILIKE $1 ORDER BY sort_key(name) COLLATE \"C\", name COLLATE \"C\" LIMIT 20", [like]),
   ]);
   // `interpretedAs` tells the app when the search was understood as categories, so it can say so.
   const categorySearch = parsed.groups.length > 0 || parsed.languages.length > 0;
@@ -175,7 +175,7 @@ songsRouter.delete("/:id/like", requireAuth, async (req: AuthedRequest, res) => 
 
 artistsRouter.get("/", async (req, res) => {
   const { limit, offset } = pageParams(req);
-  res.json(await query("SELECT id, name, image_url FROM artists ORDER BY name LIMIT $1 OFFSET $2", [limit, offset]));
+  res.json(await query("SELECT id, name, image_url FROM artists ORDER BY sort_key(name) COLLATE \"C\", name COLLATE \"C\" LIMIT $1 OFFSET $2", [limit, offset]));
 });
 
 artistsRouter.get("/:id", async (req, res) => {
@@ -224,7 +224,7 @@ albumsRouter.get("/:id/songs", async (req, res) => {
 // --- genres --------------------------------------------------------------
 
 genresRouter.get("/", async (_req, res) => {
-  res.json(await query("SELECT id, name FROM genres ORDER BY name"));
+  res.json(await query("SELECT id, name FROM genres ORDER BY sort_key(name) COLLATE \"C\", name COLLATE \"C\""));
 });
 
 // --- movies (soundtracks) ------------------------------------------------
@@ -279,7 +279,7 @@ moodsRouter.get("/", async (_req, res) => {
        FROM moods m
        LEFT JOIN song_moods sm ON sm.mood_id = m.id AND sm.source = 'manual'
        LEFT JOIN songs s ON s.id = sm.song_id AND s.status = 'published'
-       GROUP BY m.id ORDER BY CASE m.kind WHEN 'style' THEN 0 WHEN 'mood' THEN 1 ELSE 2 END, m.name`,
+       GROUP BY m.id ORDER BY CASE m.kind WHEN 'style' THEN 0 WHEN 'mood' THEN 1 ELSE 2 END, sort_key(m.name) COLLATE "C", m.name COLLATE "C"`,
     ),
   );
 });

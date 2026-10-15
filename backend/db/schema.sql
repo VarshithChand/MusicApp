@@ -277,3 +277,13 @@ CREATE INDEX IF NOT EXISTS youtube_videos_published ON youtube_videos (published
 -- Entries gathered before searches checked a video's own language could be filed under the wrong one,
 -- so clear those once. Anything added since was checked, and this matches nothing after that moment.
 DELETE FROM youtube_videos WHERE added_at < TIMESTAMPTZ '2026-10-14 07:30:00+00';
+
+-- How names and titles are put in order. Defined here, in plain SQL, so the order is the same whichever
+-- engine serves the data: the database server sorts by its locale (en_US) and the in-memory engine used with
+-- Google Drive by raw bytes, and those disagree about capitals and punctuation -- enough to change which
+-- 50 artists the first page shows. Letters are compared without case, spaces and punctuation are ignored,
+-- and callers compare the result byte-wise (COLLATE "C") so nothing depends on a locale.
+CREATE OR REPLACE FUNCTION sort_key(t text) RETURNS text LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+  SELECT translate(regexp_replace(t, '[ \t\n!-/:-@\[-`{-~]', '', 'g'),
+                   'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz')
+$$;
