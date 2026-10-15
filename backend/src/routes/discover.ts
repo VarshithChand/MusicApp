@@ -402,11 +402,7 @@ async function searchYouTube(q: string, order: string, lang: string | null): Pro
     // Asking YouTube for one language does not stop it answering in another, so drop anything that
     // says it is something else. A video that declares nothing is kept, since most never do and
     // throwing those away would empty the list.
-    .filter((i) => {
-      if (!lang) return true;
-      const spoken = facts.get(i.id.videoId)?.language?.toLowerCase().split("-")[0];
-      return !spoken || spoken === lang;
-    })
+    .filter((i) => !lang || inWantedLanguage(facts.get(i.id.videoId)?.language, lang))
     .map((i) => ({
       videoId: i.id.videoId,
       title: decode(i.snippet.title),
@@ -662,7 +658,9 @@ const ENOUGH_FOR_A_FILTER = 6;
 const TOPUP_SEARCH_BUDGET = 8;
 /** How often to look for a mood that is running short. */
 const TOPUP_EVERY_MS = 6 * 60 * 60_000;
-const TOPUP_MOODS = ["mass", "class", "riding", "traveling", "alone", "sad", "romantic", "party"];
+/** The moods the app offers, which the top-up fills and an import may tag a video with. */
+export const LIBRARY_MOODS = ["mass", "class", "riding", "traveling", "alone", "sad", "romantic", "party"] as const;
+const TOPUP_MOODS = LIBRARY_MOODS;
 
 /**
  * Fills thin parts of the library on its own, a little at a time, so that filters have something to
@@ -691,6 +689,219 @@ async function topUpLibrary(): Promise<void> {
     if (found?.length) await saveVideos(found as LibraryVideo[], lang, mood);
   }
   topUpFrom = 0;
+}
+
+// --- Lists imported by an admin ----------------------------------------------
+//
+// An admin can paste in lists of videos produced elsewhere -- typically by asking an AI to find what is new
+// and popular -- and the app serves those ahead of anything that spends YouTube searches. AI models often
+// produce links that look right and lead nowhere, so nothing is trusted: every link is looked up on
+// YouTube first (one quota unit per fifty videos, against a hundred per search), anything missing, private
+// or not playable outside YouTube is turned away, and the title, channel and picture are YouTube's own.
+
+export const IMPORT_LISTS = ["latest", "trending", "popular"] as const;
+export type ImportList = (typeof IMPORT_LISTS)[number];
+/** An imported list stands in for the live one only while it is this fresh. */
+const IMPORT_FRESH_DAYS = 14;
+/** Fewer than this and the row would look empty, so the usual sources fill it instead. */
+const IMPORT_MIN_TO_SERVE = 5;
+
+/**
+ * Whether YouTube's language tag allows a video into a list for `wanted`. No tag passes, since most videos
+ * have none. An English tag on a video wanted in an Indian language also passes: music labels often leave
+ * YouTube's language setting on English for every upload, so it says nothing about the song -- Pushpa 2's
+ * "Sooseki" is tagged English. Another Indian language does not pass, because that is how a film's dubbed
+ * versions show up, and those are the ones a listener who chose Telugu should not get.
+ */
+export function inWantedLanguage(tag: string | null | undefined, wanted: string): boolean {
+  if (!tag) return true;
+  const spoken = tag.toLowerCase().split("-")[0];
+  return spoken === wanted || (spoken === "en" && wanted !== "en");
+}
+
+/** The 11-character video id from any of the usual link forms, or from a bare id. */
+export function videoIdFrom(link: string): string | null {
+  const text = link.trim();
+  if (VIDEO_ID.test(text)) return text;
+  const m = /(?:youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|embed\/|live\/)|youtu\.be\/)([\w-]{11})/.exec(text);
+  return m ? m[1] : null;
+}
+
+export interface ImportEntry {
+  url: string;
+  language: string;
+  list: ImportList;
+  mood?: string | null;
+}
+
+export interface ImportReport {
+  accepted: number;
+  byList: Record<string, number>;
+  rejected: { url: string; reason: string }[];
+  dryRun: boolean;
+}
+
+interface YouTubeFacts {
+  title: string;
+  channel: string;
+  thumbnail: string | null;
+  duration: number | null;
+  publishedAt: string | null;
+  language: string | null;
+  embeddable: boolean;
+  privacy: string;
+}
+
+export async function importVideos(entries: ImportEntry[], dryRun: boolean): Promise<ImportReport> {
+  if (!YT_KEY) throw new Error("YOUTUBE_API_KEY is not set on this server, so links cannot be checked.");
+  const rejected: ImportReport["rejected"] = [];
+  const wanted: (ImportEntry & { id: string; rank: number })[] = [];
+  const seen = new Set<string>();
+  const rankIn: Record<string, number> = {};
+  for (const e of entries) {
+    const id = videoIdFrom(e.url);
+    if (!id) {
+      rejected.push({ url: e.url, reason: "not a YouTube video link" });
+      continue;
+    }
+    const key = `${e.language}:${e.list}:${id}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const listKey = `${e.language}:${e.list}`;
+    rankIn[listKey] = (rankIn[listKey] ?? 0) + 1;
+    wanted.push({ ...e, id, rank: rankIn[listKey] });
+  }
+
+  // What YouTube says about each one, fifty at a time.
+  const facts = new Map<string, YouTubeFacts>();
+  const ids = [...new Set(wanted.map((w) => w.id))];
+  for (let from = 0; from < ids.length; from += 50) {
+    const url = new URL("https://www.googleapis.com/youtube/v3/videos");
+    url.search = new URLSearchParams({ part: "snippet,contentDetails,status", id: ids.slice(from, from + 50).join(","), key: YT_KEY }).toString();
+    const res = await fetch(url);
+    const body = (await res.json().catch(() => null)) as
+      | {
+          items?: {
+            id: string;
+            snippet: {
+              title: string;
+              channelTitle: string;
+              publishedAt?: string;
+              thumbnails?: { medium?: { url: string } };
+              defaultAudioLanguage?: string;
+              defaultLanguage?: string;
+            };
+            contentDetails: { duration: string };
+            status: { embeddable: boolean; privacyStatus: string };
+          }[];
+          error?: YtError;
+        }
+      | null;
+    if (!res.ok || !body?.items) {
+      noteFailure("import check", res.status, body?.error);
+      throw new Error(`YouTube could not be asked about these links right now (HTTP ${res.status}). Nothing was imported.`);
+    }
+    for (const i of body.items) {
+      facts.set(i.id, {
+        title: decode(i.snippet.title),
+        channel: decode(i.snippet.channelTitle),
+        thumbnail: i.snippet.thumbnails?.medium?.url ?? null,
+        duration: isoDurationToSeconds(i.contentDetails.duration),
+        publishedAt: i.snippet.publishedAt ?? null,
+        language: i.snippet.defaultAudioLanguage ?? i.snippet.defaultLanguage ?? null,
+        embeddable: i.status.embeddable,
+        privacy: i.status.privacyStatus,
+      });
+    }
+  }
+
+  const byList: Record<string, number> = {};
+  const accepted: (typeof wanted)[number][] = [];
+  for (const w of wanted) {
+    const f = facts.get(w.id);
+    const reason = !f
+      ? "no such video on YouTube (the link may be made up)"
+      : !f.embeddable
+        ? "its owner does not allow playing it outside YouTube"
+        : f.privacy !== "public" && f.privacy !== "unlisted"
+          ? "the video is private"
+          : !inWantedLanguage(f.language, w.language)
+            ? `YouTube says it is in "${f.language}", not "${w.language}" (often another language's version of the same film song)`
+            : null;
+    if (reason) {
+      rejected.push({ url: w.url, reason });
+      continue;
+    }
+    accepted.push(w);
+    byList[`${w.language}:${w.list}`] = (byList[`${w.language}:${w.list}`] ?? 0) + 1;
+  }
+
+  if (!dryRun && accepted.length) {
+    // A fresh import replaces that list's old order rather than mixing with it.
+    for (const listKey of Object.keys(byList)) {
+      const [language, list] = listKey.split(":");
+      await query("UPDATE youtube_videos SET list = NULL, list_rank = NULL, listed_at = NULL WHERE language = $1 AND list = $2", [language, list]);
+    }
+    for (const w of accepted) {
+      const f = facts.get(w.id)!;
+      await query(
+        `INSERT INTO youtube_videos (video_id, title, channel, thumbnail, duration_seconds, language, mood, published_at, list, list_rank, listed_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, now())
+         ON CONFLICT (video_id) DO UPDATE SET
+           title = EXCLUDED.title, channel = EXCLUDED.channel, thumbnail = EXCLUDED.thumbnail,
+           duration_seconds = COALESCE(EXCLUDED.duration_seconds, youtube_videos.duration_seconds),
+           language = EXCLUDED.language, mood = COALESCE(EXCLUDED.mood, youtube_videos.mood),
+           published_at = COALESCE(EXCLUDED.published_at, youtube_videos.published_at),
+           list = EXCLUDED.list, list_rank = EXCLUDED.list_rank, listed_at = EXCLUDED.listed_at`,
+        [w.id, f.title, f.channel, f.thumbnail, f.duration, w.language, w.mood ?? null, f.publishedAt, w.list, w.rank],
+      );
+    }
+    // The home rows are cached; drop them for the languages just imported so the new lists show at once.
+    for (const key of [...trendCache.keys()]) {
+      if (accepted.some((a) => key.startsWith(`${a.language}:`))) trendCache.delete(key);
+    }
+  }
+  return { accepted: accepted.length, byList, rejected, dryRun };
+}
+
+/**
+ * An imported list for a home row, if one is fresh and full enough to stand on its own. The "latest" row
+ * takes imported latest videos; the "popular" row takes trending ones first, then popular.
+ */
+async function importedRow(lang: string, kind: "trending" | "popular") {
+  const lists = kind === "trending" ? ["latest"] : ["trending", "popular"];
+  const rows = await query<{
+    video_id: string;
+    title: string;
+    channel: string | null;
+    thumbnail: string | null;
+    duration_seconds: number | null;
+    published_at: Date | null;
+  }>(
+    `SELECT video_id, title, channel, thumbnail, duration_seconds, published_at FROM youtube_videos
+      WHERE language = $1 AND list = ANY($2::text[]) AND listed_at > now() - make_interval(days => $3)
+      ORDER BY array_position($2::text[], list), list_rank`,
+    [lang, lists, IMPORT_FRESH_DAYS],
+  );
+  if (rows.length < IMPORT_MIN_TO_SERVE) return null;
+  return rows.map((r) => ({
+    videoId: r.video_id,
+    title: r.title,
+    channel: r.channel,
+    thumbnail: r.thumbnail,
+    durationSeconds: r.duration_seconds,
+    publishedAt: r.published_at ? new Date(r.published_at).toISOString() : null,
+  }));
+}
+
+/** For the admin page: how many imported videos each language and list holds, and when they were imported. */
+export async function importedSummary() {
+  return query<{ language: string; list: string; videos: string; imported_at: Date }>(
+    `SELECT language, list, count(*) AS videos, max(listed_at) AS imported_at FROM youtube_videos
+      WHERE list IS NOT NULL AND listed_at > now() - make_interval(days => $1)
+      GROUP BY language, list ORDER BY language, list`,
+    [IMPORT_FRESH_DAYS],
+  );
 }
 
 // --- Songs from the music channels themselves ---------------------------------
@@ -887,6 +1098,11 @@ discoverRouter.get("/trending", async (req, res) => {
   if (!cfg) return res.status(400).json({ error: "Unsupported language" });
 
   const key = `${lang}:${kind}`;
+
+  // An admin's imported list comes first: it was asked for, it is checked, and it costs nothing to serve.
+  const imported = await importedRow(lang, kind);
+  if (imported) return res.json({ configured: true, results: imported });
+
   const hit = trendCache.get(key) ?? (await loadSaved(`trend:${key}`));
   const age = hit ? Date.now() - hit.at : Infinity;
   // A pull-to-refresh skips the cache, but not if it was refreshed in the last few minutes (protects the daily quota).
@@ -965,6 +1181,11 @@ discoverRouter.get("/trending", async (req, res) => {
  * a background top-up is not worth troubling a running server over.
  */
 export function startLibraryTopUp(): void {
+  // A server run for testing shares production's daily YouTube allowance, and each top-up spends part of it.
+  if (process.env.LIBRARY_TOPUP === "off") {
+    console.log("library top-up is off (LIBRARY_TOPUP=off)");
+    return;
+  }
   const run = () => {
     topUpLibrary().catch((e) => console.error("library top-up failed:", e instanceof Error ? e.message : e));
   };

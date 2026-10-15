@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Modal, Pressable, View } from 'react-native';
+import { Animated, AppState, Easing, Modal, Pressable, View } from 'react-native';
 import { AppText as Text } from './AppText';
 import { downloadUpdate, findUpdate, installUpdate, onDownloadProgress, Release } from '../native/appUpdate';
 import { colors, themedStyles } from '../theme/theme';
@@ -21,9 +21,21 @@ export function UpdatePrompt() {
   const fileUri = useRef<string | null>(null);
   const sweep = useRef(new Animated.Value(0)).current;
 
+  /**
+   * Look on opening, and again whenever the app is returned to. A version published while the app sat
+   * in the background would otherwise go unnoticed until it was next started from cold, which can be
+   * days. Nothing is shown while a download is already under way.
+   */
   useEffect(() => {
-    findUpdate().then(setRelease);
-  }, []);
+    const look = () => {
+      if (stage === 'offer') findUpdate().then(setRelease);
+    };
+    look();
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') look();
+    });
+    return () => sub.remove();
+  }, [stage]);
 
   // A bar that keeps moving while the download does, so a slow connection still looks alive.
   useEffect(() => {

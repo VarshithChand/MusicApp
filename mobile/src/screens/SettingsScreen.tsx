@@ -59,6 +59,15 @@ export function SettingsScreen() {
             <Icon name="back" size={20} color={colors.muted} />
           </View>
           </Pressable>
+          <Pressable style={styles.row} onPress={() => navigation.navigate('VideoImport')} accessibilityRole="button">
+            <View style={styles.rowText}>
+              <Text style={styles.rowTitle}>Video import</Text>
+              <Text style={styles.muted}>Fill the home rows with videos found by an AI</Text>
+            </View>
+            <View style={styles.chevron}>
+              <Icon name="back" size={20} color={colors.muted} />
+            </View>
+          </Pressable>
         </>
       )}
     </ScrollView>

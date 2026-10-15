@@ -7,6 +7,7 @@ import { approvePredictedLabels, rejectPrediction } from "../classifier/store";
 import { classifyExistingSong, reclassifyMovie } from "../classifier/rerun";
 import { suggest } from "../moodRules";
 import { saveUpload } from "../storage";
+import { IMPORT_LISTS, importedSummary, importVideos, LIBRARY_MOODS } from "./discover";
 
 export const adminRouter = Router();
 adminRouter.use(requireAuth, requireAdmin);
@@ -345,6 +346,62 @@ adminRouter.post("/movies/:id/classify", async (req, res) => {
 });
 
 /** Registered accounts, and how many were seen in the last 30 days (the rest are inactive). */
+// --- Video lists imported from elsewhere (usually an AI's answer) --------------------------------------
+
+const LANGUAGE_CODES = ["te", "hi", "ta", "kn", "ml", "en"] as const;
+const importSchema = z.object({
+  dryRun: z.boolean().optional(),
+  language: z.enum(LANGUAGE_CODES).optional(),
+  videos: z
+    .array(
+      z.object({
+        url: z.string().min(5).max(300),
+        list: z.enum(IMPORT_LISTS),
+        language: z.enum(LANGUAGE_CODES).optional(),
+        // An AI sometimes tags a mood the app does not offer; leave it out rather than reject the video.
+        mood: z.string().optional().nullable(),
+        title: z.string().optional(),
+      }),
+    )
+    .min(1)
+    .max(300),
+});
+
+/**
+ * POST /admin/videos/import -- check (dryRun) or import a list of videos. Every link is looked up on YouTube
+ * before anything is kept, so made-up or unplayable links are reported back instead of reaching listeners.
+ */
+adminRouter.post("/videos/import", async (req, res) => {
+  const parsed = importSchema.safeParse(req.body);
+  if (!parsed.success) {
+    const first = parsed.error.issues[0];
+    return res.status(400).json({ error: `The pasted list is not in the expected shape: ${first.path.join(".") || "top level"} ${first.message}.` });
+  }
+  const { videos, language, dryRun } = parsed.data;
+  const missingLanguage = videos.find((v) => !v.language && !language);
+  if (missingLanguage) return res.status(400).json({ error: `No language given for ${missingLanguage.url}.` });
+  const moods = new Set<string>(LIBRARY_MOODS);
+  try {
+    const report = await importVideos(
+      videos.map((v) => ({
+        url: v.url,
+        list: v.list,
+        language: (v.language ?? language)!,
+        mood: v.mood && moods.has(v.mood.toLowerCase()) ? v.mood.toLowerCase() : null,
+      })),
+      dryRun ?? false,
+    );
+    res.json(report);
+  } catch (e) {
+    res.status(502).json({ error: e instanceof Error ? e.message : "The import could not be completed." });
+  }
+});
+
+/** GET /admin/videos/imported -- what each language's imported lists currently hold. */
+adminRouter.get("/videos/imported", async (_req, res) => {
+  res.json(await importedSummary());
+});
+
 adminRouter.get("/user-stats", async (_req, res) => {
   const [row] = await query<{ total: number; active: number }>(
     "SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE last_seen_at >= now() - interval '30 days')::int AS active FROM users",

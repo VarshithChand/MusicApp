@@ -101,7 +101,9 @@ export function YouTubeScreen() {
     return [...results].sort((a, b) => (b.publishedAt ?? '').localeCompare(a.publishedAt ?? ''));
   }, [topHits.data?.results]);
   const popularTe = useTrending('popular', primary);
-  const latestTe = useYouTube(`${langName.toLowerCase()} songs`, 'date', primary);
+  // The same source as Home's Latest row: imported lists first, then the labels' newest uploads -- never a
+  // search, which costs a hundred of the day's allowance each time and ignores what an admin imported.
+  const latestTe = useTrending('trending', primary);
   const favorites = useYouTubeFavorites();
   const { add, remove } = useToggleYouTubeFavorite();
 
@@ -152,7 +154,8 @@ export function YouTubeScreen() {
       {!!status.error && <Text style={styles.error}>{videoErrorText(status.error)}</Text>}
       {!!status.note && isAdmin && <Text style={styles.muted}>{status.note}</Text>}
       {status.configured === false && <Text style={styles.error}>Video search isn't set up on the server yet.</Text>}
-      {list?.length === 0 && <Text style={styles.muted}>Nothing found.</Text>}
+      {/* An unconfigured server says so above; "nothing found" as well would suggest it searched. */}
+      {list?.length === 0 && status.configured !== false && <Text style={styles.muted}>Nothing found.</Text>}
       {list?.map((r, i) => (
         <Pressable
           key={r.videoId}

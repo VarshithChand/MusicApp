@@ -36,6 +36,35 @@ export const useAdminUserStats = () =>
     staleTime: 60_000,
   });
 
+/** What an import kept, how it split across lists, and every link turned away with the reason. */
+export interface VideoImportReport {
+  accepted: number;
+  byList: Record<string, number>;
+  rejected: { url: string; reason: string }[];
+  dryRun: boolean;
+}
+
+/** The video lists an admin has imported that are still fresh enough to be shown. */
+export const useImportedVideoSummary = () =>
+  useQuery({
+    queryKey: ['admin-imported-videos'],
+    queryFn: () => api<{ language: string; list: string; videos: string; imported_at: string }[]>('/admin/videos/imported'),
+  });
+
+/** Checks (dryRun) or imports a pasted list. A real import refreshes the home rows it feeds. */
+export function useImportVideos() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { language?: string; videos: unknown[]; dryRun: boolean }) =>
+      api<VideoImportReport>('/admin/videos/import', { method: 'POST', body }),
+    onSuccess: (report) => {
+      if (report.dryRun) return;
+      qc.invalidateQueries({ queryKey: ['admin-imported-videos'] });
+      qc.invalidateQueries({ queryKey: ['trending'] });
+    },
+  });
+}
+
 export const useLikedSongs = () =>
   useQuery({ queryKey: ['liked'], queryFn: () => api<Song[]>('/users/me/liked-songs') });
 

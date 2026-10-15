@@ -287,3 +287,10 @@ CREATE OR REPLACE FUNCTION sort_key(t text) RETURNS text LANGUAGE sql IMMUTABLE 
   SELECT translate(regexp_replace(t, '[ \t\n!-/:-@\[-`{-~]', '', 'g'),
                    'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz')
 $$;
+
+-- Videos an admin imported into one of the home lists (latest, trending, popular), in the order given, and
+-- when. An imported list is served ahead of anything that would spend YouTube searches, while it is recent.
+ALTER TABLE youtube_videos ADD COLUMN IF NOT EXISTS list TEXT;
+ALTER TABLE youtube_videos ADD COLUMN IF NOT EXISTS list_rank INT;
+ALTER TABLE youtube_videos ADD COLUMN IF NOT EXISTS listed_at TIMESTAMPTZ;
+CREATE INDEX IF NOT EXISTS youtube_videos_list ON youtube_videos (language, list, listed_at DESC);

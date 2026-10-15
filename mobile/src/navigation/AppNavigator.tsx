@@ -12,6 +12,7 @@ import { MovieDetailScreen } from '../screens/MovieDetailScreen';
 import { NowPlayingScreen } from '../screens/NowPlayingScreen';
 import { SearchScreen } from '../screens/SearchScreen';
 import { AdminScreen } from '../screens/AdminScreen';
+import { AdminVideoImportScreen } from '../screens/AdminVideoImportScreen';
 import { AppearanceScreen } from '../screens/AppearanceScreen';
 import { VolumeBoostScreen } from '../screens/VolumeBoostScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
@@ -54,6 +55,7 @@ export function AppNavigator() {
           <Stack.Screen name="Tabs" component={MainTabs} />
           <Stack.Screen name="Search" component={SearchScreen} />
           <Stack.Screen name="Admin" component={AdminScreen} />
+          <Stack.Screen name="VideoImport" component={AdminVideoImportScreen} />
           <Stack.Screen name="Appearance" component={AppearanceScreen} />
           <Stack.Screen name="VolumeBoost" component={VolumeBoostScreen} />
           <Stack.Screen name="SongList" component={SongListScreen} />
