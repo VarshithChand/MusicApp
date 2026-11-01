@@ -2086,6 +2086,41 @@ html {
   padding: 0 24px;
 }
 
+.yt-filter-chips-bar {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+  scrollbar-width: none;
+}
+.yt-filter-chips-bar::-webkit-scrollbar {
+  display: none;
+}
+.yt-filter-chip {
+  white-space: nowrap;
+  font-size: 13px;
+  min-height: 38px;
+  padding: 0 18px;
+  border-radius: 20px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.yt-filter-chip:hover {
+  background: var(--surface);
+  border-color: var(--muted);
+}
+.yt-filter-chip.active {
+  background: var(--accent);
+  color: #0b0f17;
+  border-color: var(--accent);
+  font-weight: 700;
+  box-shadow: 0 4px 14px rgba(234, 179, 8, 0.35);
+}
+
 .yt-moods-bar {
   display: flex;
   gap: 8px;

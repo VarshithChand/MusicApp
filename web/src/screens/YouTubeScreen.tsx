@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   usePreferredLanguages,
   useToggleYouTubeFavorite,
@@ -15,6 +16,15 @@ import { TASTES } from "../data/tastes";
 import { useAuth } from "../store/auth";
 import { usePlayer } from "../store/player";
 import { useVideo } from "../store/video";
+
+export type SearchFilterType = "all" | "series" | "movies" | "songs";
+
+const SEARCH_FILTERS: { key: SearchFilterType; label: string; suffix: string }[] = [
+  { key: "all", label: "All", suffix: "" },
+  { key: "series", label: "🎬 Web Series / Short Films", suffix: "short film web series" },
+  { key: "movies", label: "🍿 Movies & Trailers", suffix: "movie trailer" },
+  { key: "songs", label: "🎵 Music & Songs", suffix: "song" },
+];
 
 const VIDEO_ID_PATTERNS = [/[?&]v=([\w-]{11})/, /youtu\.be\/([\w-]{11})/, /\/shorts\/([\w-]{11})/];
 
@@ -37,11 +47,26 @@ const formatDuration = (seconds: number | null | undefined) => {
 const MOODS = ["Mass", "Class", "Riding", "Traveling", "Alone", "Sad", "Romantic", "Party"] as const;
 
 export function YouTubeScreen() {
-  const [text, setText] = useState("");
-  const [lookupId, setLookupId] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState<string | null>(null);
-  const [activeMood, setActiveMood] = useState<string | null>(null);
-  const [tab, setTab] = useState<"discover" | "favorites" | "recent">("discover");
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Read initial states from URL search params with local storage fallback
+  const tabParam = searchParams.get("tab");
+  const initialTab: "discover" | "favorites" | "recent" =
+    tabParam === "favorites" || tabParam === "recent"
+      ? tabParam
+      : (localStorage.getItem("music_yt_last_tab") as "favorites" | "recent") || "discover";
+
+  const initialQ = searchParams.get("q") ?? "";
+  const initialFilter = (searchParams.get("filter") as SearchFilterType) || "all";
+
+  const [text, setText] = useState(initialQ);
+  const [lookupId, setLookupId] = useState<string | null>(parseVideoId(initialQ));
+  const [searchTerm, setSearchTerm] = useState<string | null>(initialQ.length >= 2 ? initialQ : null);
+  const [contentFilter, setContentFilter] = useState<SearchFilterType>(
+    ["all", "series", "movies", "songs"].includes(initialFilter) ? initialFilter : "all"
+  );
+  const [activeMood, setActiveMood] = useState<string | null>(searchParams.get("mood") || null);
+  const [tab, setTabState] = useState<"discover" | "favorites" | "recent">(initialTab);
   const [badLink, setBadLink] = useState(false);
 
   const user = useAuth((s) => s.user);
@@ -49,9 +74,44 @@ export function YouTubeScreen() {
   const recent = useVideo((s) => s.recent);
   const pauseAudio = usePlayer((s) => s.pause);
 
-  // Set default mood from user tastes/genres on load
+  // Sync tab with URL and localStorage
+  const setTab = (newTab: "discover" | "favorites" | "recent") => {
+    setTabState(newTab);
+    localStorage.setItem("music_yt_last_tab", newTab);
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (newTab === "discover") {
+          next.delete("tab");
+        } else {
+          next.set("tab", newTab);
+        }
+        return next;
+      },
+      { replace: true }
+    );
+  };
+
+  // Listen to browser navigation (back/forward or external link)
   useEffect(() => {
-    if (!activeMood && user) {
+    const t = searchParams.get("tab");
+    if (t === "favorites" || t === "recent" || t === "discover") {
+      setTabState(t);
+    }
+    const qParam = searchParams.get("q");
+    if (qParam !== null && qParam !== text) {
+      setText(qParam);
+      setSearchTerm(qParam.length >= 2 ? qParam : null);
+    }
+    const fParam = searchParams.get("filter") as SearchFilterType;
+    if (fParam && ["all", "series", "movies", "songs"].includes(fParam)) {
+      setContentFilter(fParam);
+    }
+  }, [searchParams]);
+
+  // Set default mood from user tastes/genres on load if no search/mood is set
+  useEffect(() => {
+    if (!activeMood && !searchTerm && user) {
       const firstTaste = user.song_tastes?.[0];
       const firstGenre = user.genres?.[0];
       const def = firstTaste
@@ -61,21 +121,48 @@ export function YouTubeScreen() {
         : null;
       if (def) setActiveMood(def);
     }
-  }, [user, activeMood]);
+  }, [user, activeMood, searchTerm]);
 
   const { primary: accountLanguage } = usePreferredLanguages();
   const langName = languageLabel(accountLanguage);
 
   const isSearchActive = !!searchTerm && searchTerm.trim().length >= 2;
+  const activeFilterSuffix = SEARCH_FILTERS.find((f) => f.key === contentFilter)?.suffix || "";
+
+  // Combine query with category filter suffix (e.g. "Choosi Chudangane" + "short film web series")
   const query = isSearchActive
-    ? searchTerm.trim()
+    ? activeFilterSuffix
+      ? `${searchTerm.trim()} ${activeFilterSuffix}`
+      : searchTerm.trim()
     : activeMood
     ? `${activeMood.toLowerCase()} songs`
     : null;
 
-  const resultsLabel = isSearchActive ? searchTerm.trim() : (activeMood ?? "");
+  const resultsLabel = isSearchActive
+    ? contentFilter !== "all"
+      ? `${searchTerm.trim()} (${SEARCH_FILTERS.find((f) => f.key === contentFilter)?.label})`
+      : searchTerm.trim()
+    : (activeMood ?? "");
+
   const queryMood = isSearchActive ? null : (activeMood?.toLowerCase() ?? null);
   const queryLang = isSearchActive ? undefined : accountLanguage;
+
+  // Handle content filter change
+  const handleFilterChange = (filter: SearchFilterType) => {
+    setContentFilter(filter);
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (filter === "all") {
+          next.delete("filter");
+        } else {
+          next.set("filter", filter);
+        }
+        return next;
+      },
+      { replace: true }
+    );
+  };
 
   // Debounced search text
   useEffect(() => {
@@ -89,9 +176,21 @@ export function YouTubeScreen() {
         setLookupId(null);
         setSearchTerm(value.length >= 2 ? value : null);
       }
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          if (value.length >= 2) {
+            next.set("q", value);
+          } else {
+            next.delete("q");
+          }
+          return next;
+        },
+        { replace: true }
+      );
     }, 350);
     return () => clearTimeout(timer);
-  }, [text]);
+  }, [text, setSearchParams]);
 
   const topHits = useYouTube(query ?? "", "relevance", queryLang, queryMood);
   const latestResults = useMemo(() => {
@@ -283,6 +382,16 @@ export function YouTubeScreen() {
                 setText("");
                 setLookupId(null);
                 setSearchTerm(null);
+                setContentFilter("all");
+                setSearchParams(
+                  (prev) => {
+                    const next = new URLSearchParams(prev);
+                    next.delete("q");
+                    next.delete("filter");
+                    return next;
+                  },
+                  { replace: true }
+                );
               }}
               aria-label="Clear search"
             >
@@ -297,8 +406,28 @@ export function YouTubeScreen() {
 
       {badLink && <p className="error">Please enter at least 2 characters or paste a valid YouTube video link.</p>}
 
-      {/* Mood filter chips */}
-      {tab === "discover" && (
+      {/* Category / Content Filter chips when search is active */}
+      {tab === "discover" && isSearchActive && (
+        <div className="yt-filter-chips-bar" role="group" aria-label="Search content filters">
+          {SEARCH_FILTERS.map((f) => {
+            const on = contentFilter === f.key;
+            return (
+              <button
+                key={f.key}
+                type="button"
+                className={`chip yt-filter-chip ${on ? "active" : ""}`}
+                onClick={() => handleFilterChange(f.key)}
+                aria-pressed={on}
+              >
+                {f.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Mood filter chips when browse mode is active */}
+      {tab === "discover" && !isSearchActive && (
         <div className="yt-moods-bar">
           <button
             className={`chip yt-mood-chip ${!activeMood ? "active" : ""}`}

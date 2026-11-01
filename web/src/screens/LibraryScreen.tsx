@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAlbums, useArtists, useLikedSongs, usePlaylistMutations, usePlaylists } from "../api/hooks";
 import { Chip } from "../components/Chip";
 import { Cover } from "../components/Cover";
@@ -15,7 +15,34 @@ function listLink(title: string, path: string, extra: Record<string, string> = {
 
 export function LibraryScreen() {
   const navigate = useNavigate();
-  const [tab, setTab] = useState<Tab>("playlists");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get("tab") as Tab;
+  const initialTab: Tab = tabParam === "albums" || tabParam === "artists" ? tabParam : "playlists";
+  const [tab, setTabState] = useState<Tab>(initialTab);
+
+  const setTab = (newTab: Tab) => {
+    setTabState(newTab);
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (newTab === "playlists") {
+          next.delete("tab");
+        } else {
+          next.set("tab", newTab);
+        }
+        return next;
+      },
+      { replace: true }
+    );
+  };
+
+  useEffect(() => {
+    const t = searchParams.get("tab") as Tab;
+    if (t === "albums" || t === "artists" || t === "playlists") {
+      setTabState(t);
+    }
+  }, [searchParams]);
+
   const [creating, setCreating] = useState(false);
   const playlists = usePlaylists();
   const liked = useLikedSongs();

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useDiscover, useImportSong, useSearch, useYouTube } from "../api/hooks";
 import { Chip } from "../components/Chip";
 import { Cover } from "../components/Cover";
@@ -24,11 +24,51 @@ const listLink = (title: string, path: string) =>
 
 export function SearchScreen() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialQ = searchParams.get("q") ?? "";
+  const initialKind = (searchParams.get("kind") as Kind) || "songs";
+  const initialMood = searchParams.get("mood") || null;
+
   const playQueue = usePlayer((s) => s.playQueue);
-  const [text, setText] = useState("");
-  const [q, setQ] = useState("");
-  const [kind, setKind] = useState<Kind>("songs");
-  const [mood, setMood] = useState<string | null>(null);
+  const [text, setText] = useState(initialQ);
+  const [q, setQ] = useState(initialQ);
+  const [kind, setKindState] = useState<Kind>(
+    ["songs", "artists", "albums", "genres"].includes(initialKind) ? initialKind : "songs"
+  );
+  const [mood, setMoodState] = useState<string | null>(initialMood);
+
+  const setKind = (newKind: Kind) => {
+    setKindState(newKind);
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (newKind === "songs") {
+          next.delete("kind");
+        } else {
+          next.set("kind", newKind);
+        }
+        return next;
+      },
+      { replace: true }
+    );
+  };
+
+  const setMood = (newMood: string | null) => {
+    setMoodState(newMood);
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (!newMood) {
+          next.delete("mood");
+        } else {
+          next.set("mood", newMood);
+        }
+        return next;
+      },
+      { replace: true }
+    );
+  };
+
   const { data, isFetching, isError } = useSearch(q);
   const discover = useDiscover(q);
   const youtubeQuery = q
@@ -53,11 +93,26 @@ export function SearchScreen() {
     }
   };
 
-  // Wait for a pause in typing before hitting the API.
+  // Wait for a pause in typing before hitting the API & updating URL.
   useEffect(() => {
-    const t = setTimeout(() => setQ(text.trim()), 300);
+    const t = setTimeout(() => {
+      const trimmed = text.trim();
+      setQ(trimmed);
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          if (trimmed) {
+            next.set("q", trimmed);
+          } else {
+            next.delete("q");
+          }
+          return next;
+        },
+        { replace: true }
+      );
+    }, 300);
     return () => clearTimeout(t);
-  }, [text]);
+  }, [text, setSearchParams]);
 
   const empty = !!q && !isFetching && data && !data[kind].length;
 

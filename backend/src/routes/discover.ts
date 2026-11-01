@@ -381,6 +381,7 @@ async function searchPublicYouTube(q: string): Promise<LibraryVideo[]> {
       headers: {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
         "Accept-Language": "en-US,en;q=0.9",
+        Cookie: "PREF=f2=8000000; SOCS=CAISNQgDEitib3FfaWRlbnRpdHlmcm9udGVuZHVpc2VydmVyXzIwMjMwNjE5LjA3X3AwGgJlbiACGgJlbhgy;",
       },
     });
     if (!res.ok) return [];
@@ -432,6 +433,7 @@ async function searchYouTube(q: string, order: string, lang: string | null): Pro
     maxResults: "25",
     order,
     q,
+    safeSearch: "none",
     key: YT_KEY,
     ...(lang ? { relevanceLanguage: lang, regionCode: "IN" } : {}),
   }).toString();
@@ -472,6 +474,7 @@ discoverRouter.get("/youtube", async (req, res) => {
   const order = ["relevance", "viewCount", "date"].includes(String(req.query.order)) ? String(req.query.order) : "relevance";
   const lang = SEARCH_LANGUAGES[String(req.query.lang ?? "").toLowerCase()] ? String(req.query.lang).toLowerCase() : null;
   const mood = String(req.query.mood ?? "").trim().toLowerCase() || null;
+  const fresh = req.query.fresh === "1" || req.query.fresh === "true";
   const cacheKey = `${order}:${lang ?? "any"}:${q.toLowerCase()}`;
 
   // If this is a mood browse ONLY (no user search query), answer from stocked library
@@ -482,7 +485,7 @@ discoverRouter.get("/youtube", async (req, res) => {
 
   if (q.length < 2 && !mood) return res.json({ configured: true, results: [] });
 
-  const hit = ytCache.get(cacheKey) ?? (await loadSaved(`search:${cacheKey}`));
+  const hit = !fresh ? (ytCache.get(cacheKey) ?? (await loadSaved(`search:${cacheKey}`))) : null;
   if (hit && Date.now() - hit.at < SEARCH_TTL_MS) {
     if (mood) await saveVideos(hit.results as LibraryVideo[], lang, mood);
     return res.json({ configured: true, results: hit.results });
