@@ -245,9 +245,9 @@ export function SearchScreen() {
                   <Text style={styles.muted}>No YouTube videos found for "{q}".</Text>
                 )}
 
-                {youtube.data?.results?.map((v) => (
+                {youtube.data?.results?.map((v, idx) => (
                   <Pressable
-                    key={v.videoId}
+                    key={`${v.videoId}-${idx}`}
                     style={styles.ytCardRow}
                     onPress={async () => {
                       await TrackPlayer.pause();

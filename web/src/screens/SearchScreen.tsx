@@ -308,9 +308,9 @@ export function SearchScreen() {
                 </div>
               )}
 
-              {youtube.data?.results.map((v) => (
+              {youtube.data?.results.map((v, idx) => (
                 <button
-                  key={v.videoId}
+                  key={`${v.videoId}-${idx}`}
                   className="list-row yt-search-row"
                   onClick={() => {
                     pausePlayer();
