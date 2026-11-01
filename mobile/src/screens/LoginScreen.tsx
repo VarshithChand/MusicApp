@@ -25,8 +25,8 @@ export function LoginScreen() {
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [step, setStep] = useState<1 | 2>(1);
   const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('v.varshith.2004@gmail.com');
+  const [password, setPassword] = useState('VC150711$$');
   const [confirm, setConfirm] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [gender, setGender] = useState<'male' | 'female' | null>(null);
