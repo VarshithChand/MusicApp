@@ -91,7 +91,7 @@ export function LoginScreen() {
                 required
                 autoComplete="email"
                 placeholder="you@example.com"
-                defaultValue={isLogin ? "v.varshith.2004@gmail.com" : ""}
+                defaultValue=""
               />
             </label>
             <label className="field">
@@ -102,7 +102,7 @@ export function LoginScreen() {
                 minLength={isLogin ? 1 : 8}
                 autoComplete={isLogin ? "current-password" : "new-password"}
                 placeholder={isLogin ? "Your password" : "At least 8 characters"}
-                defaultValue={isLogin ? "VC150711$$" : ""}
+                defaultValue=""
               />
             </label>
             {error && (

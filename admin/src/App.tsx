@@ -44,11 +44,11 @@ function Login({ onDone }: { onDone: () => void }) {
       <form onSubmit={submit}>
         <label>
           Email
-          <input name="email" type="email" required autoComplete="username" defaultValue="v.varshith.2004@gmail.com" />
+          <input name="email" type="email" required autoComplete="username" defaultValue="" />
         </label>
         <label>
           Password
-          <PasswordInput name="password" autoComplete="current-password" defaultValue="VC150711$$" />
+          <PasswordInput name="password" autoComplete="current-password" defaultValue="" />
         </label>
         {error && (
           <span className="msg error" role="alert">
