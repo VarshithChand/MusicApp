@@ -66,15 +66,16 @@ export function YouTubeScreen() {
   const { primary: accountLanguage } = usePreferredLanguages();
   const langName = languageLabel(accountLanguage);
 
-  const query = searchTerm
-    ? activeMood
-      ? `${searchTerm} ${activeMood.toLowerCase()} songs`
-      : searchTerm
+  const isSearchActive = !!searchTerm && searchTerm.trim().length >= 2;
+  const query = isSearchActive
+    ? searchTerm.trim()
     : activeMood
     ? `${activeMood.toLowerCase()} songs`
     : null;
 
-  const resultsLabel = [activeMood, searchTerm].filter(Boolean).join(" · ");
+  const resultsLabel = isSearchActive ? searchTerm.trim() : (activeMood ?? "");
+  const queryMood = isSearchActive ? null : (activeMood?.toLowerCase() ?? null);
+  const queryLang = isSearchActive ? undefined : accountLanguage;
 
   // Debounced search text
   useEffect(() => {
@@ -92,7 +93,7 @@ export function YouTubeScreen() {
     return () => clearTimeout(timer);
   }, [text]);
 
-  const topHits = useYouTube(query ?? "", "viewCount", accountLanguage, activeMood?.toLowerCase() ?? null);
+  const topHits = useYouTube(query ?? "", "relevance", queryLang, queryMood);
   const latestResults = useMemo(() => {
     const results = topHits.data?.results;
     if (!results?.length) return results;

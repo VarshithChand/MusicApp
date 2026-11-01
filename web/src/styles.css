@@ -1214,15 +1214,15 @@ button.apk-link:disabled {
   position: fixed;
   left: var(--sidebar);
   right: 0;
-  bottom: var(--bar);
-  height: 56px;
+  bottom: 0;
+  height: 60px;
   background: var(--surface2);
   border-top: 2px solid var(--accent);
-  box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.55);
+  box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.65);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 16px;
+  padding: 0 20px;
   z-index: 990;
   cursor: pointer;
   transition: background 0.15s ease;
@@ -1233,7 +1233,7 @@ button.apk-link:disabled {
 @media (max-width: 800px) {
   .yt-mini-bar {
     left: 0;
-    bottom: calc(var(--bar) + var(--nav));
+    bottom: var(--nav);
   }
 }
 .yt-mini-bar-left {

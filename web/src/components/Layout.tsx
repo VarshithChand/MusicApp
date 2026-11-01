@@ -2,6 +2,7 @@ import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { DownloadApp } from "./DownloadApp";
 import { useAuth } from "../store/auth";
 import { useCurrentSong, usePlayer } from "../store/player";
+import { useVideo } from "../store/video";
 import { Cover } from "./Cover";
 import { Icon, IconName } from "./Icon";
 
@@ -28,8 +29,9 @@ function Tabs({ className }: { className: string }) {
 function PlayerBar() {
   const navigate = useNavigate();
   const song = useCurrentSong();
+  const activeVideo = useVideo((s) => s.video);
   const { playing, loading, position, duration, toggle, next, prev, skipBy } = usePlayer();
-  if (!song) return null;
+  if (!song || activeVideo) return null;
 
   return (
     <div className="playerbar">

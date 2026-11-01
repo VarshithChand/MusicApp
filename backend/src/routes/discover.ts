@@ -364,19 +364,74 @@ async function fetchVideoFacts(ids: string[], key: string) {
   return facts;
 }
 
+/** Parse duration text like "3:45" or "1:20:15" into seconds. */
+function parseDurationText(text?: string | null): number | null {
+  if (!text) return null;
+  const parts = text.split(":").map(Number);
+  if (parts.some(isNaN)) return null;
+  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  if (parts.length === 2) return parts[0] * 60 + parts[1];
+  return null;
+}
+
+/** Fallback extractor: searches public YouTube directly without quota costs. Works for any video, movie, trailer, or song. */
+async function searchPublicYouTube(q: string): Promise<LibraryVideo[]> {
+  try {
+    const res = await fetch("https://www.youtube.com/results?search_query=" + encodeURIComponent(q), {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        "Accept-Language": "en-US,en;q=0.9",
+      },
+    });
+    if (!res.ok) return [];
+    const html = await res.text();
+    const match = html.match(/ytInitialData\s*=\s*({.+?});<\/script>/);
+    if (!match) return [];
+    const json = JSON.parse(match[1]);
+    const contents =
+      json.contents?.twoColumnSearchResultsRenderer?.primaryContents?.sectionListRenderer?.contents?.[0]?.itemSectionRenderer?.contents;
+    if (!Array.isArray(contents)) return [];
+
+    const videos: LibraryVideo[] = [];
+    for (const item of contents) {
+      const vr = item.videoRenderer;
+      if (vr && vr.videoId && vr.title) {
+        const title = vr.title.runs?.map((r: any) => r.text).join("") || vr.title.simpleText || "Unknown Title";
+        const channel = vr.ownerText?.runs?.[0]?.text || vr.shortBylineText?.runs?.[0]?.text || "YouTube";
+        const thumb = vr.thumbnail?.thumbnails?.slice(-1)?.[0]?.url || `https://i.ytimg.com/vi/${vr.videoId}/hqdefault.jpg`;
+        const durStr = vr.lengthText?.simpleText;
+        videos.push({
+          videoId: vr.videoId,
+          title: decode(title),
+          channel: decode(channel),
+          thumbnail: thumb,
+          durationSeconds: parseDurationText(durStr),
+          publishedAt: vr.publishedTimeText?.simpleText ?? null,
+        });
+      }
+    }
+    return videos;
+  } catch (err) {
+    console.error("searchPublicYouTube failed:", err);
+    return [];
+  }
+}
+
 /** One search against YouTube. Returns null when it refuses, having already recorded why. */
 async function searchYouTube(q: string, order: string, lang: string | null): Promise<LibraryVideo[] | null> {
-  if (!YT_KEY) return null;
+  if (!YT_KEY) {
+    const pub = await searchPublicYouTube(q);
+    return pub.length ? pub : null;
+  }
   const url = new URL("https://www.googleapis.com/youtube/v3/search");
   url.search = new URLSearchParams({
     part: "snippet",
     type: "video",
-    videoCategoryId: "10", // Music
     videoEmbeddable: "true",
     videoSyndicated: "true", // plays outside youtube.com
-    maxResults: "25", // enough for the app to show both the most watched and the newest from one search
+    maxResults: "25",
     order,
-    q: lang ? `${q} ${SEARCH_LANGUAGES[lang]} song` : q,
+    q,
     key: YT_KEY,
     ...(lang ? { relevanceLanguage: lang, regionCode: "IN" } : {}),
   }).toString();
@@ -392,16 +447,15 @@ async function searchYouTube(q: string, order: string, lang: string | null): Pro
         error?: YtError;
       }
     | null;
-  if (!response.ok || !body?.items) {
+  if (!response.ok || !body?.items?.length) {
     noteFailure("search", response.status, body?.error);
+    const fallback = await searchPublicYouTube(q);
+    if (fallback.length) return fallback;
     return null;
   }
 
   const facts = await fetchVideoFacts(body.items.map((i) => i.id.videoId), YT_KEY);
   return body.items
-    // Asking YouTube for one language does not stop it answering in another, so drop anything that
-    // says it is something else. A video that declares nothing is kept, since most never do and
-    // throwing those away would empty the list.
     .filter((i) => !lang || inWantedLanguage(facts.get(i.id.videoId)?.language, lang))
     .map((i) => ({
       videoId: i.id.videoId,
@@ -414,49 +468,51 @@ async function searchYouTube(q: string, order: string, lang: string | null): Pro
 }
 
 discoverRouter.get("/youtube", async (req, res) => {
-  if (!YT_KEY) return res.json({ configured: false, results: [] });
   const q = String(req.query.q ?? "").trim();
-  if (q.length < 2) return res.json({ configured: true, results: [] });
-
   const order = ["relevance", "viewCount", "date"].includes(String(req.query.order)) ? String(req.query.order) : "relevance";
-  // A listener who picked languages gets results in one of them; the name is appended because
-  // relevanceLanguage alone only nudges the ranking, it does not keep other languages out.
   const lang = SEARCH_LANGUAGES[String(req.query.lang ?? "").toLowerCase()] ? String(req.query.lang).toLowerCase() : null;
   const mood = String(req.query.mood ?? "").trim().toLowerCase() || null;
   const cacheKey = `${order}:${lang ?? "any"}:${q.toLowerCase()}`;
 
-  // A filter asks the same handful of questions over and over, so answer it from the library.
-  // A few is better than a spinner: a half-stocked mood still plays, and the top-up fills the rest.
-  const stocked = mood ? await libraryVideos(lang, mood, order === "date" ? "newest" : "views") : [];
-  if (stocked.length >= ENOUGH_FOR_A_FILTER) return res.json({ configured: true, results: stocked });
+  // If this is a mood browse ONLY (no user search query), answer from stocked library
+  if (mood && q.length < 2) {
+    const stocked = await libraryVideos(lang, mood, order === "date" ? "newest" : "views");
+    if (stocked.length >= ENOUGH_FOR_A_FILTER) return res.json({ configured: true, results: stocked });
+  }
+
+  if (q.length < 2 && !mood) return res.json({ configured: true, results: [] });
 
   const hit = ytCache.get(cacheKey) ?? (await loadSaved(`search:${cacheKey}`));
   if (hit && Date.now() - hit.at < SEARCH_TTL_MS) {
-    // Answering from the cache still teaches the library, which is what the filters read from.
     if (mood) await saveVideos(hit.results as LibraryVideo[], lang, mood);
     return res.json({ configured: true, results: hit.results });
   }
 
-  // The day's searching is gone: serve what was saved, else the chart, rather than a call that will be refused.
-  if (quotaSpent()) {
-    if (hit) return res.json({ configured: true, results: hit.results, stale: true });
-    const chart = await fetchPopularChart(YT_KEY, lang, order === "date");
+  // If daily API quota is spent, use public YouTube extractor or cached chart
+  if (quotaSpent() && !hit) {
+    if (q) {
+      const pub = await searchPublicYouTube(q);
+      if (pub.length) {
+        ytCache.set(cacheKey, { at: Date.now(), results: pub });
+        return res.json({ configured: true, results: pub });
+      }
+    }
+    const chart = YT_KEY ? await fetchPopularChart(YT_KEY, lang, order === "date") : null;
     if (chart?.length) return res.json({ configured: true, results: chart, note: CHART_NOTE });
-    return res.status(502).json({ error: QUOTA_MESSAGE, reason: "quotaExceeded" });
   }
 
-  const results = await searchYouTube(q, order, lang);
-  if (!results) {
+  const results = await searchYouTube(q || (mood ? `${mood} songs` : ""), order, lang);
+  if (!results || !results.length) {
     if (hit) return res.json({ configured: true, results: hit.results, stale: true });
-    // Whatever the library holds for this mood beats an apology, however little of it there is.
-    if (stocked.length) return res.json({ configured: true, results: stocked });
-    const daily = quotaSpent();
-    if (daily) {
-      const chart = await fetchPopularChart(YT_KEY, lang, order === "date");
-      if (chart?.length) return res.json({ configured: true, results: chart, note: CHART_NOTE });
+    if (q) {
+      const pub = await searchPublicYouTube(q);
+      if (pub.length) {
+        ytCache.set(cacheKey, { at: Date.now(), results: pub });
+        return res.json({ configured: true, results: pub });
+      }
     }
     return res.status(502).json({
-      error: failureMessage(daily, "YouTube search is unavailable right now."),
+      error: failureMessage(quotaSpent(), "YouTube search is unavailable right now."),
       reason: lastFailure?.reason ?? null,
     });
   }
@@ -464,8 +520,7 @@ discoverRouter.get("/youtube", async (req, res) => {
   if (ytCache.size > 200) ytCache.clear();
   ytCache.set(cacheKey, { at: Date.now(), results });
   saveResults(`search:${cacheKey}`, results);
-  // Everything found goes to the library, so this question never costs a search again.
-  await saveVideos(results, lang, mood);
+  if (mood) await saveVideos(results, lang, mood);
   res.json({ configured: true, results });
 });
 
