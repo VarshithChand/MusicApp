@@ -1,4 +1,5 @@
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { useEffect, useRef } from "react";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { DownloadApp } from "./DownloadApp";
 import { useAuth } from "../store/auth";
 import { useCurrentSong, usePlayer } from "../store/player";
@@ -13,11 +14,17 @@ const TABS: { to: string; label: string; icon: IconName }[] = [
   { to: "/settings", label: "Settings", icon: "settings" },
 ];
 
-function Tabs({ className }: { className: string }) {
+function Tabs({ className, onTabClick }: { className: string; onTabClick?: () => void }) {
   return (
     <nav className={className} aria-label="Main Navigation">
       {TABS.map((t) => (
-        <NavLink key={t.to} to={t.to} end={t.to === "/"} className="tab-link">
+        <NavLink
+          key={t.to}
+          to={t.to}
+          end={t.to === "/"}
+          className="tab-link"
+          onClick={onTabClick}
+        >
           <Icon name={t.icon} size={20} />
           <span>{t.label}</span>
         </NavLink>
@@ -75,6 +82,28 @@ function PlayerBar() {
 export function Layout() {
   const user = useAuth((s) => s.user);
   const logout = useAuth((s) => s.logout);
+  const video = useVideo((s) => s.video);
+  const mode = useVideo((s) => s.mode);
+  const setMode = useVideo((s) => s.setMode);
+  const location = useLocation();
+
+  // Minimize video to mini player / pop up whenever user navigates or clicks any sidebar tab
+  const handleNavClick = () => {
+    if (video && mode !== "mini" && mode !== "popup") {
+      setMode("mini");
+    }
+  };
+
+  // Route change observer: automatically dock video to mini player when navigating between pages
+  const prevPathRef = useRef(location.pathname);
+  useEffect(() => {
+    if (prevPathRef.current !== location.pathname) {
+      prevPathRef.current = location.pathname;
+      if (video && mode !== "mini" && mode !== "popup") {
+        setMode("mini");
+      }
+    }
+  }, [location.pathname, video, mode, setMode]);
 
   return (
     <div className="app">
@@ -86,13 +115,13 @@ export function Layout() {
           <span className="brand-name">Music</span>
         </div>
 
-        <Tabs className="side-tabs" />
+        <Tabs className="side-tabs" onTabClick={handleNavClick} />
 
         <div className="sidebar-foot">
           <DownloadApp className="btn download-btn">
             <Icon name="download" size={18} /> Android App
           </DownloadApp>
-          <NavLink to="/settings" className="account-tile">
+          <NavLink to="/settings" className="account-tile" onClick={handleNavClick}>
             <div className="avatar-sm">
               {(user?.name ?? "?").trim().charAt(0).toUpperCase()}
             </div>
@@ -112,7 +141,7 @@ export function Layout() {
       </main>
 
       <PlayerBar />
-      <Tabs className="bottom-tabs" />
+      <Tabs className="bottom-tabs" onTabClick={handleNavClick} />
     </div>
   );
 }
