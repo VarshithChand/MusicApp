@@ -19,6 +19,15 @@ const KINDS: { key: Kind; label: string }[] = [
   { key: "genres", label: "Genres" },
 ];
 
+export type SearchFilterType = "all" | "series" | "movies" | "songs";
+
+const SEARCH_FILTERS: { key: SearchFilterType; label: string; suffix: string }[] = [
+  { key: "all", label: "All", suffix: "" },
+  { key: "series", label: "🎬 Web Series / Short Films", suffix: "short film web series" },
+  { key: "movies", label: "🍿 Movies & Trailers", suffix: "movie trailer" },
+  { key: "songs", label: "🎵 Music & Songs", suffix: "song" },
+];
+
 const MOODS = ["Mass", "Class", "Riding", "Traveling", "Alone", "Sad"];
 
 const TRENDING_SEARCHES = [
@@ -53,6 +62,7 @@ export function SearchScreen() {
     ["songs", "artists", "albums", "genres"].includes(initialKind) ? initialKind : "songs"
   );
   const [mood, setMoodState] = useState<string | null>(initialMood);
+  const [contentFilter, setContentFilter] = useState<SearchFilterType>("all");
 
   const setKind = (newKind: Kind) => {
     setKindState(newKind);
@@ -119,8 +129,11 @@ export function SearchScreen() {
 
   const { data, isFetching, isError } = useSearch(source === "web" ? q : "");
   const discover = useDiscover(source === "web" ? q : "");
+  const activeFilterSuffix = SEARCH_FILTERS.find((f) => f.key === contentFilter)?.suffix || "";
   const youtubeQuery = q
-    ? ["telugu", mood?.toLowerCase(), q].filter(Boolean).join(" ")
+    ? activeFilterSuffix
+      ? `${q} ${activeFilterSuffix}`
+      : q
     : mood
       ? `telugu ${mood.toLowerCase()} songs`
       : "";
@@ -293,6 +306,22 @@ export function SearchScreen() {
               <div className="search-section-header">
                 <h2>YouTube Results</h2>
                 <span className="badge">YouTube Mode</span>
+              </div>
+              <div className="yt-filter-chips-bar" role="group" aria-label="Search content filters">
+                {SEARCH_FILTERS.map((f) => {
+                  const on = contentFilter === f.key;
+                  return (
+                    <button
+                      key={f.key}
+                      type="button"
+                      className={`chip yt-filter-chip ${on ? "active" : ""}`}
+                      onClick={() => setContentFilter(f.key)}
+                      aria-pressed={on}
+                    >
+                      {f.label}
+                    </button>
+                  );
+                })}
               </div>
               <p className="muted small">Direct video search. Plays in YouTube's built-in player.</p>
 

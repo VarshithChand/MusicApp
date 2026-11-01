@@ -23,6 +23,15 @@ import { useSelection } from '../store/selection';
 import { useYouTubePlayer } from '../store/youtubePlayer';
 import { colors, themedStyles } from '../theme/theme';
 
+export type SearchFilterType = 'all' | 'series' | 'movies' | 'songs';
+
+export const SEARCH_FILTERS: { key: SearchFilterType; label: string; suffix: string }[] = [
+  { key: 'all', label: 'All', suffix: '' },
+  { key: 'series', label: '🎬 Web Series / Short Films', suffix: 'short film web series' },
+  { key: 'movies', label: '🍿 Movies & Trailers', suffix: 'movie trailer' },
+  { key: 'songs', label: '🎵 Music & Songs', suffix: 'song' },
+];
+
 /** Accepts watch?v=, youtu.be/, and /shorts/ links, with or without extra query params. */
 const VIDEO_ID_PATTERNS = [/[?&]v=([\w-]{11})/, /youtu\.be\/([\w-]{11})/, /\/shorts\/([\w-]{11})/];
 
@@ -32,8 +41,12 @@ function parseVideoId(input: string): string | null {
     const m = pattern.exec(text);
     if (m) return m[1];
   }
-  // A bare 11-character ID, pasted directly.
-  return /^[\w-]{11}$/.test(text) ? text : null;
+  // Only treat as raw 11-char ID if it contains digits or underscores/hyphens and no whitespace
+  // Normal words like "Narayanamma" or "ChoosiChuda" are search queries, not video IDs.
+  if (/^[A-Za-z0-9_-]{11}$/.test(text) && /[0-9_-]/.test(text) && !/\s/.test(text)) {
+    return text;
+  }
+  return null;
 }
 
 const formatDuration = (seconds: number | null | undefined) => {
@@ -50,6 +63,7 @@ export function YouTubeScreen() {
   const [text, setText] = useState('');
   const [lookupId, setLookupId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState<string | null>(null);
+  const [contentFilter, setContentFilter] = useState<SearchFilterType>('all');
   // Kept with the other choices, so what plays next can follow the filter the listener picked.
   const mood = useSelection((s) => s.mood);
   const setMood = useSelection((s) => s.setMood);
@@ -77,22 +91,50 @@ export function YouTubeScreen() {
   const playFromList = useYouTubePlayer((s) => s.playFromList);
   const recent = useYouTubePlayer((s) => s.recent);
   const video = useYouTubeVideo(lookupId);
-  // The server adds the chosen language to the search itself, so naming one here would both
-  // repeat it and, worse, pin every filter to Telugu whatever the listener picked.
-  const query = searchTerm
-    ? activeMood
-      ? `${searchTerm} ${activeMood.toLowerCase()} songs`
-      : searchTerm
+
+  // If a single video lookup fails or 404s, seamlessly fallback to search
+  useEffect(() => {
+    if (lookupId && video.isError) {
+      setLookupId(null);
+      const trimmed = text.trim();
+      if (trimmed.length >= 2) {
+        setSearchTerm(trimmed);
+      }
+    }
+  }, [lookupId, video.isError, text]);
+
+  const isSearchActive = !!searchTerm && searchTerm.trim().length >= 2;
+  const activeFilterSuffix = SEARCH_FILTERS.find((f) => f.key === contentFilter)?.suffix || '';
+
+  // Calculate search query with search intent filter suffix
+  const query = isSearchActive
+    ? activeFilterSuffix
+      ? `${searchTerm.trim()} ${activeFilterSuffix}`
+      : searchTerm.trim()
     : activeMood
       ? `${activeMood.toLowerCase()} songs`
       : null;
-  const resultsLabel = [activeMood, searchTerm].filter(Boolean).join(' · ');
+
+  const resultsLabel = isSearchActive
+    ? contentFilter !== 'all'
+      ? `${searchTerm.trim()} (${SEARCH_FILTERS.find((f) => f.key === contentFilter)?.label})`
+      : searchTerm.trim()
+    : (activeMood ?? '');
+
   const { primary: accountLanguage } = usePreferredLanguages();
   // Whatever was picked on Home, so the two pages never disagree about the language.
   const chosenLanguage = useSelection((s) => s.language);
   const primary = chosenLanguage ?? accountLanguage;
   const langName = languageLabel(primary);
-  const topHits = useYouTube(query ?? '', 'viewCount', primary, activeMood?.toLowerCase() ?? null);
+
+  // When search is active, use relevance and don't force mood to 'songs'
+  const topHits = useYouTube(
+    query ?? '',
+    isSearchActive ? 'relevance' : 'viewCount',
+    isSearchActive ? undefined : primary,
+    isSearchActive ? null : (activeMood?.toLowerCase() ?? null)
+  );
+
   // The newest come from the same search, sorted here. Asking YouTube a second time costs another
   // hundred of the day's allowance and would answer much the same question.
   const latestResults = useMemo(() => {
@@ -110,7 +152,16 @@ export function YouTubeScreen() {
   // Search as you type: a name waits briefly for a pause in typing; a link never triggers a name search.
   useEffect(() => {
     const value = text.trim();
-    const timer = setTimeout(() => setSearchTerm(value.length >= 2 && !parseVideoId(value) ? value : null), 350);
+    const timer = setTimeout(() => {
+      const id = parseVideoId(value);
+      if (id) {
+        setLookupId(id);
+        setSearchTerm(null);
+      } else {
+        setLookupId(null);
+        setSearchTerm(value.length >= 2 ? value : null);
+      }
+    }, 350);
     return () => clearTimeout(timer);
   }, [text]);
 
@@ -206,17 +257,27 @@ export function YouTubeScreen() {
               setBadLink(false);
             }}
             onFocus={autofillFromClipboard}
-            placeholder="Paste a link or type a song or movie name"
+            placeholder="Search web series, movies, songs, or paste link..."
             placeholderTextColor="#7C8391"
             style={[styles.input, styles.inputWithIcons]}
             autoCapitalize="none"
             autoCorrect={false}
             returnKeyType="search"
             onSubmitEditing={fetchDetails}
-            accessibilityLabel="YouTube link"
+            accessibilityLabel="YouTube search"
           />
           {!!text && (
-            <Pressable style={styles.clearX} onPress={() => setText('')} accessibilityLabel="Clear search" hitSlop={10}>
+            <Pressable
+              style={styles.clearX}
+              onPress={() => {
+                setText('');
+                setLookupId(null);
+                setSearchTerm(null);
+                setContentFilter('all');
+              }}
+              accessibilityLabel="Clear search"
+              hitSlop={10}
+            >
               <Icon name="close" size={18} color={colors.muted} />
             </Pressable>
           )}
@@ -224,20 +285,44 @@ export function YouTubeScreen() {
             <Icon name="search" size={20} color={colors.text} />
           </Pressable>
         </View>
+
+        {/* Content Intent Filters: All, Web Series / Short Films, Movies & Trailers, Music & Songs */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterChipsRow}>
+          {SEARCH_FILTERS.map((f) => {
+            const on = contentFilter === f.key;
+            return (
+              <Pressable
+                key={f.key}
+                style={[styles.filterChip, on && styles.filterChipOn]}
+                onPress={() => setContentFilter(f.key)}
+                accessibilityRole="button"
+                accessibilityLabel={f.label}
+                accessibilityState={{ selected: on }}
+              >
+                <Text style={[styles.filterChipText, on && styles.filterChipTextOn]}>{f.label}</Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+
         <View style={styles.row}>
           <Pressable
             style={[styles.panelBtn, panel === 'favorites' && styles.panelBtnOn]}
             onPress={() => setPanel(panel === 'favorites' ? null : 'favorites')}
             accessibilityState={{ selected: panel === 'favorites' }}
           >
-            <Text style={[styles.panelBtnText, panel === 'favorites' && styles.panelBtnTextOn]}>Favorites</Text>
+            <Text style={[styles.panelBtnText, panel === 'favorites' && styles.panelBtnTextOn]}>
+              Favorites {favorites.data?.length ? `(${favorites.data.length})` : ''}
+            </Text>
           </Pressable>
           <Pressable
             style={[styles.panelBtn, panel === 'recent' && styles.panelBtnOn]}
             onPress={() => setPanel(panel === 'recent' ? null : 'recent')}
             accessibilityState={{ selected: panel === 'recent' }}
           >
-            <Text style={[styles.panelBtnText, panel === 'recent' && styles.panelBtnTextOn]}>Recents</Text>
+            <Text style={[styles.panelBtnText, panel === 'recent' && styles.panelBtnTextOn]}>
+              Recents {recent.length ? `(${recent.length})` : ''}
+            </Text>
           </Pressable>
           <Pressable
             style={styles.panelBtn}
@@ -246,7 +331,7 @@ export function YouTubeScreen() {
             accessibilityState={{ expanded: filterOpen }}
           >
             <Text style={styles.panelBtnText} numberOfLines={1}>
-              {activeMood ? `Filter: ${activeMood}` : 'Filter'}
+              {activeMood ? `Mood: ${activeMood}` : 'Mood'}
             </Text>
           </Pressable>
         </View>
@@ -438,4 +523,18 @@ const styles = themedStyles(() => ({
   durBadge: { position: 'absolute', right: 4, bottom: 4, backgroundColor: 'rgba(0,0,0,0.8)', paddingHorizontal: 4, paddingVertical: 1, borderRadius: 4 },
   durText: { color: '#fff', fontSize: 11, fontWeight: '600' },
   rowTitle: { color: colors.text, fontSize: 15, fontWeight: '600' },
+  filterChipsRow: { flexDirection: 'row', gap: 8, paddingVertical: 10 },
+  filterChip: {
+    height: 36,
+    paddingHorizontal: 14,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  filterChipOn: { backgroundColor: colors.accent, borderColor: colors.accent },
+  filterChipText: { color: colors.text, fontSize: 13, fontWeight: '600' },
+  filterChipTextOn: { color: colors.onAccent },
 }));

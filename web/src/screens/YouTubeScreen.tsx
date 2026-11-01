@@ -34,7 +34,12 @@ function parseVideoId(input: string): string | null {
     const m = pattern.exec(text);
     if (m) return m[1];
   }
-  return /^[\w-]{11}$/.test(text) ? text : null;
+  // Only treat as raw 11-char ID if it contains digits or underscores/hyphens and no whitespace
+  // Normal words like "Narayanamma" or "ChoosiChuda" are search queries, not video IDs.
+  if (/^[A-Za-z0-9_-]{11}$/.test(text) && /[0-9_-]/.test(text) && !/\s/.test(text)) {
+    return text;
+  }
+  return null;
 }
 
 const formatDuration = (seconds: number | null | undefined) => {
@@ -134,6 +139,8 @@ export function YouTubeScreen() {
     ? activeFilterSuffix
       ? `${searchTerm.trim()} ${activeFilterSuffix}`
       : searchTerm.trim()
+    : activeFilterSuffix
+    ? `${langName} ${activeFilterSuffix}`
     : activeMood
     ? `${activeMood.toLowerCase()} songs`
     : null;
@@ -142,10 +149,27 @@ export function YouTubeScreen() {
     ? contentFilter !== "all"
       ? `${searchTerm.trim()} (${SEARCH_FILTERS.find((f) => f.key === contentFilter)?.label})`
       : searchTerm.trim()
+    : contentFilter !== "all"
+    ? `${langName} ${SEARCH_FILTERS.find((f) => f.key === contentFilter)?.label}`
     : (activeMood ?? "");
 
-  const queryMood = isSearchActive ? null : (activeMood?.toLowerCase() ?? null);
-  const queryLang = isSearchActive ? undefined : accountLanguage;
+  const queryMood = (isSearchActive || contentFilter !== "all") ? null : (activeMood?.toLowerCase() ?? null);
+  const queryLang = (isSearchActive && contentFilter !== "all") ? undefined : accountLanguage;
+
+  const favorites = useYouTubeFavorites();
+  const { add, remove } = useToggleYouTubeFavorite();
+  const video = useYouTubeVideo(lookupId);
+
+  // Fall back to searching for query if video lookup fails
+  useEffect(() => {
+    if (lookupId && video.isError) {
+      setLookupId(null);
+      const trimmed = text.trim();
+      if (trimmed.length >= 2) {
+        setSearchTerm(trimmed);
+      }
+    }
+  }, [lookupId, video.isError, text]);
 
   // Handle content filter change
   const handleFilterChange = (filter: SearchFilterType) => {
@@ -201,9 +225,6 @@ export function YouTubeScreen() {
 
   const popularTe = useTrending("popular", accountLanguage);
   const latestTe = useTrending("trending", accountLanguage);
-  const favorites = useYouTubeFavorites();
-  const { add, remove } = useToggleYouTubeFavorite();
-  const video = useYouTubeVideo(lookupId);
 
   const handleManualSearch = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -406,8 +427,8 @@ export function YouTubeScreen() {
 
       {badLink && <p className="error">Please enter at least 2 characters or paste a valid YouTube video link.</p>}
 
-      {/* Category / Content Filter chips when search is active */}
-      {tab === "discover" && isSearchActive && (
+      {/* Category / Content Filter chips: Always visible in discover view */}
+      {tab === "discover" && (
         <div className="yt-filter-chips-bar" role="group" aria-label="Search content filters">
           {SEARCH_FILTERS.map((f) => {
             const on = contentFilter === f.key;
@@ -427,7 +448,7 @@ export function YouTubeScreen() {
       )}
 
       {/* Mood filter chips when browse mode is active */}
-      {tab === "discover" && !isSearchActive && (
+      {tab === "discover" && !isSearchActive && contentFilter === "all" && (
         <div className="yt-moods-bar">
           <button
             className={`chip yt-mood-chip ${!activeMood ? "active" : ""}`}

@@ -26,6 +26,15 @@ const KINDS: { key: Kind; label: string }[] = [
   { key: 'genres', label: 'Genres' },
 ];
 
+export type SearchFilterType = 'all' | 'series' | 'movies' | 'songs';
+
+const SEARCH_FILTERS: { key: SearchFilterType; label: string; suffix: string }[] = [
+  { key: 'all', label: 'All', suffix: '' },
+  { key: 'series', label: '🎬 Web Series / Short Films', suffix: 'short film web series' },
+  { key: 'movies', label: '🍿 Movies & Trailers', suffix: 'movie trailer' },
+  { key: 'songs', label: '🎵 Music & Songs', suffix: 'song' },
+];
+
 const TRENDING_SEARCHES = [
   'Choosi Chudangane',
   'Anirudh',
@@ -49,11 +58,15 @@ export function SearchScreen() {
   const [text, setText] = useState('');
   const [q, setQ] = useState('');
   const [kind, setKind] = useState<Kind>('songs');
+  const [contentFilter, setContentFilter] = useState<SearchFilterType>('all');
 
   const { data, isFetching, isError } = useSearch(source === 'web' ? q : '');
   const movies = useMovies(source === 'web' && kind === 'movies' ? q : '');
   const discover = useDiscover(source === 'web' ? q : '');
-  const youtube = useYouTube(q);
+
+  const activeFilterSuffix = SEARCH_FILTERS.find((f) => f.key === contentFilter)?.suffix || '';
+  const ytSearchQuery = q ? (activeFilterSuffix ? `${q} ${activeFilterSuffix}` : q) : '';
+  const youtube = useYouTube(ytSearchQuery);
   const playYouTube = useYouTubePlayer((s) => s.play);
   const importSong = useImportSong();
   const [importingId, setImportingId] = useState<string | null>(null);
@@ -238,6 +251,25 @@ export function SearchScreen() {
                     <Text style={styles.muted}>{youtube.data.results.length} videos found</Text>
                   ) : null}
                 </View>
+
+                {/* Content Intent Filters: All, Web Series / Short Films, Movies & Trailers, Music & Songs */}
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterChipsRow}>
+                  {SEARCH_FILTERS.map((f) => {
+                    const on = contentFilter === f.key;
+                    return (
+                      <Pressable
+                        key={f.key}
+                        style={[styles.filterChip, on && styles.filterChipOn]}
+                        onPress={() => setContentFilter(f.key)}
+                        accessibilityRole="button"
+                        accessibilityLabel={f.label}
+                        accessibilityState={{ selected: on }}
+                      >
+                        <Text style={[styles.filterChipText, on && styles.filterChipTextOn]}>{f.label}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </ScrollView>
 
                 {youtube.isFetching && <LoadingBars />}
                 {youtube.isError && <Text style={styles.muted}>YouTube search is unavailable right now.</Text>}
@@ -497,6 +529,20 @@ const styles = themedStyles(() => ({
 
   // Search Results Response Container
   resultsContainer: { gap: 16 },
+  filterChipsRow: { flexDirection: 'row', gap: 8, paddingBottom: 4 },
+  filterChip: {
+    height: 36,
+    paddingHorizontal: 14,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  filterChipOn: { backgroundColor: colors.accent, borderColor: colors.accent },
+  filterChipText: { color: colors.text, fontSize: 13, fontWeight: '600' },
+  filterChipTextOn: { color: colors.onAccent },
   youtubeDirectSection: { gap: 12 },
   youtubeDirectHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   ytCardRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 64, backgroundColor: colors.surface, padding: 8, borderRadius: 12, borderWidth: 1, borderColor: colors.border },
