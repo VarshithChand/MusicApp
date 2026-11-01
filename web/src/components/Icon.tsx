@@ -64,6 +64,20 @@ const ICONS = {
       "M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3",
     ],
   },
+  rewind: {
+    solid: true,
+    d: ["M11 5L2 12l9 7V5z", "M20 5l-9 7 9 7V5z"],
+  },
+  fastForward: {
+    solid: true,
+    d: ["M4 5l9 7-9 7V5z", "M13 5l9 7-9 7V5z"],
+  },
+  rotateCcw: {
+    d: ["M1 4v6h6", "M3.51 15a9 9 0 1 0 2.13-9.36L1 10"],
+  },
+  rotateCw: {
+    d: ["M23 4v6h-6", "M20.49 15a9 9 0 1 1-2.12-9.36L23 10"],
+  },
 } as const;
 
 export type IconName = keyof typeof ICONS;

@@ -28,7 +28,7 @@ function Tabs({ className }: { className: string }) {
 function PlayerBar() {
   const navigate = useNavigate();
   const song = useCurrentSong();
-  const { playing, loading, position, duration, toggle, next, prev } = usePlayer();
+  const { playing, loading, position, duration, toggle, next, prev, skipBy } = usePlayer();
   if (!song) return null;
 
   return (
@@ -41,8 +41,11 @@ function PlayerBar() {
         </span>
       </button>
       <div className="playerbar-controls">
-        <button className="icon-btn hide-sm" onClick={prev} aria-label="Previous song">
+        <button className="icon-btn hide-sm" onClick={prev} aria-label="Previous song" title="Previous song">
           <Icon name="prev" size={20} />
+        </button>
+        <button className="icon-btn hide-xs" onClick={() => skipBy(-10)} aria-label="Rewind 10 seconds" title="Rewind 10s">
+          <Icon name="rewind" size={17} />
         </button>
         <button
           className="play-btn small"
@@ -52,7 +55,10 @@ function PlayerBar() {
         >
           {loading ? <span className="spinner" aria-hidden="true" /> : <Icon name={playing ? "pause" : "play"} size={20} />}
         </button>
-        <button className="icon-btn" onClick={next} aria-label="Next song">
+        <button className="icon-btn hide-xs" onClick={() => skipBy(10)} aria-label="Forward 10 seconds" title="Forward 10s">
+          <Icon name="fastForward" size={17} />
+        </button>
+        <button className="icon-btn" onClick={next} aria-label="Next song" title="Next song">
           <Icon name="next" size={20} />
         </button>
       </div>

@@ -92,11 +92,11 @@ export function NowPlayingScreen() {
           </div>
 
           <div className="skip-row">
-            <button className="skip-btn" onClick={() => p.skipBy(-5)} aria-label="Back 5 seconds">
-              <Icon name="back" size={18} /> 5s
+            <button className="skip-btn" onClick={() => p.skipBy(-10)} aria-label="Back 10 seconds">
+              <Icon name="back" size={18} /> 10s
             </button>
-            <button className="skip-btn" onClick={() => p.skipBy(5)} aria-label="Forward 5 seconds">
-              5s <span className="flip"><Icon name="back" size={18} /></span>
+            <button className="skip-btn" onClick={() => p.skipBy(10)} aria-label="Forward 10 seconds">
+              10s <span className="flip"><Icon name="back" size={18} /></span>
             </button>
           </div>
 
