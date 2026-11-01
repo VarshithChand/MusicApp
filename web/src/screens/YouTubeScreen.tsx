@@ -63,10 +63,13 @@ export function YouTubeScreen() {
 
   const initialQ = searchParams.get("q") ?? "";
   const initialFilter = (searchParams.get("filter") as SearchFilterType) || "all";
+  const initialId = parseVideoId(initialQ);
 
   const [text, setText] = useState(initialQ);
-  const [lookupId, setLookupId] = useState<string | null>(parseVideoId(initialQ));
-  const [searchTerm, setSearchTerm] = useState<string | null>(initialQ.length >= 2 ? initialQ : null);
+  const [lookupId, setLookupId] = useState<string | null>(initialId);
+  const [searchTerm, setSearchTerm] = useState<string | null>(
+    !initialId && initialQ.trim().length >= 2 ? initialQ.trim() : null
+  );
   const [contentFilter, setContentFilter] = useState<SearchFilterType>(
     ["all", "series", "movies", "songs"].includes(initialFilter) ? initialFilter : "all"
   );
@@ -105,8 +108,15 @@ export function YouTubeScreen() {
     }
     const qParam = searchParams.get("q");
     if (qParam !== null && qParam !== text) {
+      const id = parseVideoId(qParam);
       setText(qParam);
-      setSearchTerm(qParam.length >= 2 ? qParam : null);
+      if (id) {
+        setLookupId(id);
+        setSearchTerm(null);
+      } else {
+        setLookupId(null);
+        setSearchTerm(qParam.trim().length >= 2 ? qParam.trim() : null);
+      }
     }
     const fParam = searchParams.get("filter") as SearchFilterType;
     if (fParam && ["all", "series", "movies", "songs"].includes(fParam)) {
@@ -153,8 +163,8 @@ export function YouTubeScreen() {
     ? `${langName} ${SEARCH_FILTERS.find((f) => f.key === contentFilter)?.label}`
     : (activeMood ?? "");
 
-  const queryMood = (isSearchActive || contentFilter !== "all") ? null : (activeMood?.toLowerCase() ?? null);
-  const queryLang = (isSearchActive && contentFilter !== "all") ? undefined : accountLanguage;
+  const queryMood = isSearchActive ? null : (activeMood?.toLowerCase() ?? null);
+  const queryLang = isSearchActive ? undefined : accountLanguage;
 
   const favorites = useYouTubeFavorites();
   const { add, remove } = useToggleYouTubeFavorite();
