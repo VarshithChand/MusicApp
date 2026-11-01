@@ -47,6 +47,23 @@ const ICONS = {
   sliders: { d: ["M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"] },
   male: { d: ["M10 14a5 5 0 1 0 0-10 5 5 0 0 0 0 10z", "M19 5l-5.4 5.4", "M14 5h5v5"] },
   female: { d: ["M12 14a5 5 0 1 0 0-10 5 5 0 0 0 0 10z", "M12 14v7", "M9 18h6"] },
+  popup: {
+    d: [
+      "M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5z",
+      "M12 11h7v7h-7z",
+    ],
+  },
+  halfScreen: {
+    d: [
+      "M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5z",
+      "M3 13h18",
+    ],
+  },
+  fullScreen: {
+    d: [
+      "M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3",
+    ],
+  },
 } as const;
 
 export type IconName = keyof typeof ICONS;

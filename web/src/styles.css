@@ -1199,53 +1199,243 @@ button.apk-link:disabled {
   border: 0;
 }
 
-/* --- docked YouTube player ---------------------------------------------- */
+/* --- 3-mode YouTube Player (Popup, Half Screen, Full Screen) ------------ */
+
+.yt-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(16px);
+  z-index: 1999;
+  animation: fadeIn 0.2s ease;
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
 
 .yt-dock {
-  position: fixed;
-  right: 16px;
-  bottom: calc(var(--bar) + 16px);
-  width: min(360px, calc(100vw - 32px));
-  z-index: 40;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 16px;
-  overflow: hidden;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  flex-direction: column;
 }
+
 .yt-dock-head {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px 4px 2px 14px;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--surface2);
+  border-bottom: 1px solid var(--border);
+  min-height: 48px;
+}
+
+.yt-dock-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+.yt-dock-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: #ff0000;
+  color: #fff;
+  flex-shrink: 0;
+}
+.yt-dock-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
 }
 .yt-dock-title {
-  flex: 1;
-  min-width: 0;
   font-size: 13px;
   font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  color: var(--text);
 }
-.yt-dock-head .icon-btn svg {
-  transform: rotate(45deg); /* the plus icon turned into an x */
+.yt-dock-channel {
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-/* YouTube's embedded player must stay at least 200x200 px, so the frame never gets smaller than that */
+
+.yt-dock-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.yt-mode-selector {
+  display: inline-flex;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 2px;
+  gap: 2px;
+}
+.yt-mode-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 9px;
+  border-radius: 8px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.yt-mode-btn:hover {
+  color: var(--text);
+}
+.yt-mode-btn.active {
+  background: var(--accent);
+  color: var(--on-accent);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+.yt-mode-label {
+  display: inline-block;
+}
+@media (max-width: 600px) {
+  .yt-mode-label {
+    display: none;
+  }
+}
+
+.yt-dock-fav {
+  width: 34px;
+  height: 34px;
+}
+.yt-dock-close {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+}
+.yt-dock-close:hover {
+  color: var(--danger);
+  background: rgba(255, 122, 122, 0.15);
+}
+
 .yt-dock-frame {
   width: 100%;
-  height: 203px;
   background: #000;
+  position: relative;
 }
 .yt-dock-frame iframe {
   width: 100%;
   height: 100%;
   border: 0;
+  display: block;
+}
+
+/* 1. Popup Mode (Corner PiP Dock) */
+.yt-dock.mode-popup {
+  position: fixed;
+  right: 20px;
+  bottom: calc(var(--bar) + 16px);
+  width: min(390px, calc(100vw - 32px));
+  z-index: 100;
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: 0 16px 44px rgba(0, 0, 0, 0.65);
+}
+.yt-dock.mode-popup .yt-dock-frame {
+  height: 220px;
 }
 @media (max-width: 800px) {
-  .yt-dock {
-    bottom: calc(var(--bar) + var(--nav) + 24px);
+  .yt-dock.mode-popup {
+    bottom: calc(var(--bar) + var(--nav) + 16px);
+    right: 12px;
+    width: min(340px, calc(100vw - 24px));
   }
+  .yt-dock.mode-popup .yt-dock-frame {
+    height: 190px;
+  }
+}
+
+/* 2. Half Screen Mode (Split / Theater View) */
+.yt-dock.mode-half {
+  position: fixed;
+  left: var(--sidebar);
+  right: 0;
+  bottom: var(--bar);
+  height: 52vh;
+  min-height: 320px;
+  max-height: 600px;
+  z-index: 950;
+  border-top: 2px solid var(--accent);
+  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.7);
+}
+.yt-dock.mode-half .yt-dock-frame {
+  flex: 1;
+  height: calc(100% - 48px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.yt-dock.mode-half .yt-dock-frame iframe {
+  width: 100%;
+  max-width: 960px;
+  height: 100%;
+}
+@media (max-width: 800px) {
+  .yt-dock.mode-half {
+    left: 0;
+    bottom: calc(var(--bar) + var(--nav));
+    height: 48vh;
+  }
+}
+
+/* 3. Full Screen Mode (Maximized Theater Overlay) */
+.yt-dock.mode-full {
+  position: fixed;
+  inset: 0;
+  z-index: 2005;
+  background: rgba(8, 10, 15, 0.96);
+  border: 0;
+  border-radius: 0;
+  display: flex;
+  flex-direction: column;
+}
+.yt-dock.mode-full .yt-dock-head {
+  padding: 14px 28px;
+  background: rgba(23, 26, 33, 0.85);
+  backdrop-filter: blur(12px);
+}
+.yt-dock.mode-full .yt-dock-title {
+  font-size: 16px;
+}
+.yt-dock.mode-full .yt-dock-frame {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.yt-dock.mode-full .yt-dock-frame iframe {
+  width: 100%;
+  max-width: 1300px;
+  max-height: calc(100vh - 120px);
+  aspect-ratio: 16 / 9;
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.9);
 }
 
 /* --- movies and moods --------------------------------------------------- */
