@@ -27,15 +27,36 @@ const ICONS = {
   },
   download: { d: ["M12 4v11M7 11l5 5 5-5M5 20h14"] },
   logout: { d: ["M9 4H5a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h4M16 8l4 4-4 4M20 12H9"] },
+  youtube: {
+    d: [
+      "M22.54 6.42a2.78 2.78 0 0 0-1.95-1.96C18.88 4 12 4 12 4s-6.88 0-8.59.46a2.78 2.78 0 0 0-1.95 1.96A29.94 29.94 0 0 0 1 12a29.94 29.94 0 0 0 .46 5.58 2.78 2.78 0 0 0 1.95 1.96c1.71.46 8.59.46 8.59.46s6.88 0 8.59-.46a2.78 2.78 0 0 0 1.95-1.96A29.94 29.94 0 0 0 23 12a29.94 29.94 0 0 0-.46-5.58z",
+      "M9.75 15.02l5.75-3.27-5.75-3.27v6.54z",
+    ],
+  },
+  settings: {
+    d: [
+      "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z",
+      "M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z",
+    ],
+  },
+  close: { d: ["M18 6L6 18", "M6 6l12 12"] },
+  check: { d: ["M20 6L9 17l-5-5"] },
+  external: { d: ["M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6", "M15 3h6v6", "M10 14L21 3"] },
+  shield: { d: ["M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"] },
+  sparkles: { d: ["M12 3v3m0 12v3M3 12h3m12 0h3M5.6 5.6l2.1 2.1m8.6 8.6l2.1 2.1M5.6 18.4l2.1-2.1m8.6-8.6l2.1-2.1"] },
+  sliders: { d: ["M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"] },
+  male: { d: ["M10 14a5 5 0 1 0 0-10 5 5 0 0 0 0 10z", "M19 5l-5.4 5.4", "M14 5h5v5"] },
+  female: { d: ["M12 14a5 5 0 1 0 0-10 5 5 0 0 0 0 10z", "M12 14v7", "M9 18h6"] },
 } as const;
 
 export type IconName = keyof typeof ICONS;
 
 /** Inline stroke icon that takes its colour from the surrounding text colour. */
-export function Icon({ name, size = 24, filled }: { name: IconName; size?: number; filled?: boolean }) {
-  const icon = ICONS[name] as { solid?: boolean; d: readonly string[] };
+export function Icon({ name, size = 24, filled, className }: { name: IconName; size?: number; filled?: boolean; className?: string }) {
+  const icon = ICONS[name] as { solid?: boolean; d: readonly string[] } | undefined;
+  if (!icon) return null;
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" className={className}>
       {icon.d.map((d) => (
         <path
           key={d}

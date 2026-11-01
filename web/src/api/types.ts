@@ -3,6 +3,12 @@ export interface User {
   name: string;
   email: string;
   is_admin?: boolean;
+  gender?: 'male' | 'female' | null;
+  song_tastes?: string[];
+  taste_changes?: number;
+  date_of_birth?: string | null;
+  genres?: string[];
+  languages?: string[];
 }
 
 export interface Song {
@@ -95,6 +101,13 @@ export interface YouTubeResult {
   title: string;
   channel: string;
   thumbnail: string | null;
+  durationSeconds?: number | null;
+  publishedAt?: string;
+}
+
+export interface YouTubeVideoResponse {
+  configured: boolean;
+  video?: YouTubeResult | null;
 }
 
 export interface FavoriteYouTubeVideo {
@@ -107,6 +120,7 @@ export interface FavoriteYouTubeVideo {
 export interface YouTubeResponse {
   configured: boolean;
   results: YouTubeResult[];
+  note?: string;
 }
 
 /** A published movie soundtrack (an album with extra details). */

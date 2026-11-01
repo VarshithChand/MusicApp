@@ -1,6 +1,21 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './index';
-import { Album, Artist, DiscoverResponse, FavoriteYouTubeVideo, MoodCount, Movie, MovieDetail, Playlist, SearchResults, Song, YouTubeResponse } from './types';
+import {
+  Album,
+  Artist,
+  DiscoverResponse,
+  FavoriteYouTubeVideo,
+  MoodCount,
+  Movie,
+  MovieDetail,
+  Playlist,
+  SearchResults,
+  Song,
+  User,
+  YouTubeResponse,
+  YouTubeVideoResponse,
+} from './types';
+import { useAuth } from '../store/auth';
 
 export const useSongs = (sort?: 'popular') =>
   useQuery({ queryKey: ['songs', sort], queryFn: () => api<Song[]>(`/songs${sort ? `?sort=${sort}` : ''}`) });
@@ -88,13 +103,65 @@ export function useImportSong() {
 }
 
 /** Searches YouTube's Music category (empty until the server has a YouTube key). */
-export function useYouTube(q: string) {
+export function useYouTube(
+  q: string,
+  order: 'relevance' | 'viewCount' | 'date' = 'relevance',
+  lang?: string,
+  mood?: string | null,
+) {
   return useQuery({
-    queryKey: ['youtube', q],
-    queryFn: () => api<YouTubeResponse>(`/discover/youtube?q=${encodeURIComponent(q)}`),
+    queryKey: ['youtube', q, order, lang ?? 'any', mood ?? 'any'],
+    queryFn: () =>
+      api<YouTubeResponse>(
+        `/discover/youtube?q=${encodeURIComponent(q)}&order=${order}${lang ? `&lang=${lang}` : ''}${
+          mood ? `&mood=${encodeURIComponent(mood)}` : ''
+        }`,
+      ),
     enabled: q.trim().length > 1,
     staleTime: 10 * 60_000,
   });
+}
+
+/** Looks up one YouTube video by its ID (the Video page: paste a URL, fetch its details). */
+export function useYouTubeVideo(videoId: string | null) {
+  return useQuery({
+    queryKey: ['youtube-video', videoId],
+    queryFn: () => api<YouTubeVideoResponse>(`/discover/youtube-video?id=${encodeURIComponent(videoId!)}`),
+    enabled: !!videoId,
+    retry: false,
+    staleTime: 60 * 60_000,
+  });
+}
+
+/** YouTube videos the user has saved from the Video page. Synced to the account. */
+export const useYouTubeFavorites = () =>
+  useQuery({ queryKey: ['youtube-favorites'], queryFn: () => api<FavoriteYouTubeVideo[]>('/discover/youtube-video/favorites') });
+
+export function useToggleYouTubeFavorite() {
+  const qc = useQueryClient();
+  const refresh = () => qc.invalidateQueries({ queryKey: ['youtube-favorites'] });
+  return {
+    add: useMutation({
+      mutationFn: (v: FavoriteYouTubeVideo) =>
+        api<void>(`/discover/youtube-video/${v.videoId}/favorite`, {
+          method: 'POST',
+          body: { title: v.title, channel: v.channel, thumbnail: v.thumbnail },
+        }),
+      onSuccess: refresh,
+    }),
+    remove: useMutation({
+      mutationFn: (videoId: string) => api<void>(`/discover/youtube-video/${videoId}/favorite`, { method: 'DELETE' }),
+      onSuccess: refresh,
+    }),
+  };
+}
+
+const NO_LANGUAGES: string[] = [];
+
+/** The languages the signed-in listener picked, and the one to lead with. */
+export function usePreferredLanguages() {
+  const languages = useAuth((s) => s.user?.languages) ?? NO_LANGUAGES;
+  return { languages, primary: languages[0] ?? 'te' };
 }
 
 /** Published movie soundtracks, optionally filtered by a search text and language. */
@@ -129,9 +196,6 @@ export function useFilteredSongs(filters: { labels?: string[]; language?: string
 }
 
 /** Trending (last 30 days) or all-time popular music videos in a language, played only in YouTube's own player. */
-export const useYouTubeFavorites = () =>
-  useQuery({ queryKey: ['youtube-favorites'], queryFn: () => api<FavoriteYouTubeVideo[]>('/discover/youtube-video/favorites') });
-
 export function useTrending(kind: 'trending' | 'popular', lang = 'te') {
   return useQuery({
     queryKey: ['trending', kind, lang],

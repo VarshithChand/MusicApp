@@ -5,7 +5,8 @@ import { AddToPlaylistSheet } from "./components/AddToPlaylistSheet";
 import { Layout } from "./components/Layout";
 import { YouTubeDock } from "./components/YouTubeDock";
 import { HomeScreen } from "./screens/HomeScreen";
-import { AccountScreen } from "./screens/AccountScreen";
+import { YouTubeScreen } from "./screens/YouTubeScreen";
+import { SettingsScreen } from "./screens/SettingsScreen";
 import { LibraryScreen } from "./screens/LibraryScreen";
 import { MovieScreen } from "./screens/MovieScreen";
 import { LoginScreen } from "./screens/LoginScreen";
@@ -30,10 +31,12 @@ export default function App() {
           <Routes>
             <Route element={<Layout />}>
               <Route index element={<HomeScreen />} />
+              <Route path="youtube" element={<YouTubeScreen />} />
               <Route path="search" element={<SearchScreen />} />
               <Route path="library" element={<LibraryScreen />} />
+              <Route path="settings" element={<SettingsScreen />} />
+              <Route path="account" element={<SettingsScreen />} />
               <Route path="list" element={<SongListScreen />} />
-              <Route path="account" element={<AccountScreen />} />
               <Route path="movie/:id" element={<MovieScreen />} />
             </Route>
             <Route path="now-playing" element={<NowPlayingScreen />} />

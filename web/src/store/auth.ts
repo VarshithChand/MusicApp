@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
+import { api } from "../api";
 import { request } from "../api/http";
 import { AuthResponse, User } from "../api/types";
 
@@ -10,6 +11,13 @@ interface AuthState {
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<void>;
   loginWithGoogle: (idToken: string) => Promise<void>;
+  updatePreferences: (prefs: {
+    gender?: 'male' | 'female';
+    songTastes?: string[];
+    dateOfBirth?: string;
+    genres?: string[];
+    languages?: string[];
+  }) => Promise<void>;
   setTokens: (accessToken: string, refreshToken: string) => void;
   logout: () => void;
 }
@@ -34,6 +42,10 @@ export const useAuth = create<AuthState>()(
             }),
           ),
         loginWithGoogle: async (idToken) => save(await request<AuthResponse>("/auth/google", { method: "POST", body: { idToken } })),
+        updatePreferences: async (prefs) => {
+          const user = await api<User>('/auth/me/preferences', { method: 'PUT', body: prefs });
+          set((s) => ({ user: s.user ? { ...s.user, ...user } : user }));
+        },
         setTokens: (accessToken, refreshToken) => set({ accessToken, refreshToken }),
         logout: () => set({ user: null, accessToken: null, refreshToken: null }),
       };

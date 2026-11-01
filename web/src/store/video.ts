@@ -1,14 +1,41 @@
 import { create } from "zustand";
+import { createJSONStorage, persist } from "zustand/middleware";
 
-/** The YouTube video currently shown in the docked player (null = closed). */
+export interface YouTubeVideoItem {
+  videoId: string;
+  title: string;
+  channel?: string | null;
+  thumbnail?: string | null;
+}
+
 interface VideoState {
-  video: { videoId: string; title: string } | null;
-  open: (video: { videoId: string; title: string }) => void;
+  video: YouTubeVideoItem | null;
+  recent: YouTubeVideoItem[];
+  open: (video: YouTubeVideoItem) => void;
   close: () => void;
 }
 
-export const useVideo = create<VideoState>((set) => ({
-  video: null,
-  open: (video) => set({ video }),
-  close: () => set({ video: null }),
-}));
+const RECENT_LIMIT = 20;
+
+export const useVideo = create<VideoState>()(
+  persist(
+    (set) => ({
+      video: null,
+      recent: [],
+      open: (video) =>
+        set((s) => ({
+          video,
+          recent: [
+            video,
+            ...s.recent.filter((v) => v.videoId !== video.videoId),
+          ].slice(0, RECENT_LIMIT),
+        })),
+      close: () => set({ video: null }),
+    }),
+    {
+      name: "music-web-yt-recent",
+      storage: createJSONStorage(() => localStorage),
+      partialize: (s) => ({ recent: s.recent }),
+    },
+  ),
+);
