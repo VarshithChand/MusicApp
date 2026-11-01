@@ -1,3 +1,4 @@
+import { useSettings } from "../store/settings";
 import { PermissionsAndroid, Platform } from 'react-native';
 import TrackPlayer, { AppKilledPlaybackBehavior, Capability, Track } from 'react-native-track-player';
 import { mediaUrl } from '../api/http';
@@ -99,6 +100,8 @@ export async function playQueue(songs: Song[], index = 0) {
   await TrackPlayer.reset();
   await TrackPlayer.add(songs.map(toTrack));
   await TrackPlayer.skip(index);
+  const currentBoost = useSettings.getState().boost ?? 100;
+  await TrackPlayer.setVolume(currentBoost / 100).catch(() => {});
   await TrackPlayer.play();
 }
 

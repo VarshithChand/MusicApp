@@ -4,6 +4,7 @@ import { GENRES } from "../data/genres";
 import { LANGUAGES } from "../data/languages";
 import { TASTES } from "../data/tastes";
 import { useAuth } from "../store/auth";
+import { usePlayer } from "../store/player";
 
 const MONTHS_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -24,9 +25,8 @@ export function SettingsScreen() {
   const [dob, setDob] = useState<string>(user?.date_of_birth ?? "");
   const [genres, setGenres] = useState<string[]>(user?.genres ?? []);
   const [languages, setLanguages] = useState<string[]>(user?.languages ?? []);
-  const [volumeBoost, setVolumeBoost] = useState<number>(() => {
-    return Number(localStorage.getItem("music-vol-boost") || "100");
-  });
+  const boost = usePlayer((s) => s.boost);
+  const setBoost = usePlayer((s) => s.setBoost);
   const [saving, setSaving] = useState(false);
   const [savedMessage, setSavedMessage] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -91,8 +91,7 @@ export function SettingsScreen() {
   };
 
   const handleVolumeChange = (pct: number) => {
-    setVolumeBoost(pct);
-    localStorage.setItem("music-vol-boost", String(pct));
+    setBoost(pct);
   };
 
   const confirmLogout = () => {
@@ -297,12 +296,13 @@ export function SettingsScreen() {
           {[
             { label: "Normal (100%)", pct: 100 },
             { label: "Boosted (125%)", pct: 125 },
-            { label: "Max Boost (150%)", pct: 150 },
+            { label: "High Boost (150%)", pct: 150 },
+            { label: "Max Boost (200%)", pct: 200 },
           ].map((opt) => (
             <button
               key={opt.pct}
               type="button"
-              className={`vol-boost-btn ${volumeBoost === opt.pct ? "active" : ""}`}
+              className={`vol-boost-btn ${boost === opt.pct ? "active" : ""}`}
               onClick={() => handleVolumeChange(opt.pct)}
             >
               <Icon name="volume" size={20} />

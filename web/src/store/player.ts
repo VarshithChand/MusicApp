@@ -13,6 +13,7 @@ interface PlayerState {
   position: number;
   duration: number;
   volume: number;
+  boost: number; // Volume boost percent (100 = 100% normal, 125 = 125%, 150 = 150%, 200 = 200%)
   repeat: boolean;
   playQueue: (songs: Song[], index?: number) => void;
   toggle: () => void;
@@ -23,12 +24,69 @@ interface PlayerState {
   /** Jumps forward (positive) or back (negative) by `sec` seconds, staying inside the song. */
   skipBy: (sec: number) => void;
   setVolume: (v: number) => void;
+  setBoost: (b: number) => void;
   toggleRepeat: () => void;
   shuffleUpNext: () => void;
 }
 
 const audio = new Audio();
 audio.preload = "metadata";
+audio.crossOrigin = "anonymous";
+
+// Web Audio API Graph for real volume boosting above 100%
+let audioCtx: AudioContext | null = null;
+let sourceNode: MediaElementAudioSourceNode | null = null;
+let gainNode: GainNode | null = null;
+let compressorNode: DynamicsCompressorNode | null = null;
+
+function ensureAudioGraph() {
+  if (typeof window === "undefined") return;
+  const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+  if (!AudioCtx) return;
+
+  if (!audioCtx) {
+    audioCtx = new AudioCtx();
+  }
+
+  if (audioCtx.state === "suspended") {
+    audioCtx.resume().catch(() => {});
+  }
+
+  if (!sourceNode && audioCtx) {
+    try {
+      sourceNode = audioCtx.createMediaElementSource(audio);
+      gainNode = audioCtx.createGain();
+      compressorNode = audioCtx.createDynamicsCompressor();
+
+      // Soft limiting compressor to prevent harsh digital clipping when boosted above 100%
+      compressorNode.threshold.setValueAtTime(-4, audioCtx.currentTime);
+      compressorNode.knee.setValueAtTime(24, audioCtx.currentTime);
+      compressorNode.ratio.setValueAtTime(14, audioCtx.currentTime);
+      compressorNode.attack.setValueAtTime(0.003, audioCtx.currentTime);
+      compressorNode.release.setValueAtTime(0.2, audioCtx.currentTime);
+
+      sourceNode.connect(gainNode);
+      gainNode.connect(compressorNode);
+      compressorNode.connect(audioCtx.destination);
+    } catch (e) {
+      console.warn("Web Audio GainNode setup:", e);
+    }
+  }
+}
+
+function applyVolume(vol: number, boostPct: number) {
+  ensureAudioGraph();
+  if (gainNode && audioCtx) {
+    // Volume: 0..1, Boost: 100..200 (100% -> 1.0x, 125% -> 1.25x, 150% -> 1.5x, 200% -> 2.0x)
+    const multiplier = Math.max(0, vol * (boostPct / 100));
+    gainNode.gain.setValueAtTime(multiplier, audioCtx.currentTime);
+    audio.volume = 1;
+  } else {
+    audio.volume = Math.min(1, Math.max(0, vol));
+  }
+}
+
+const initialBoost = typeof window !== "undefined" ? Number(localStorage.getItem("music-vol-boost") || "100") : 100;
 
 export const usePlayer = create<PlayerState>((set, get) => {
   /** Loads and starts the song at `i` in the current queue. */
@@ -37,6 +95,10 @@ export const usePlayer = create<PlayerState>((set, get) => {
     if (!song) return;
     set({ index: i, position: 0, duration: song.duration, loading: true });
     audio.src = mediaUrl(song.audio_url) ?? "";
+    
+    ensureAudioGraph();
+    applyVolume(get().volume, get().boost);
+
     audio.play().catch(() => set({ playing: false, loading: false }));
 
     if (useAuth.getState().accessToken) api(`/songs/${song.id}/played`, { method: "POST" }).catch(() => {});
@@ -55,8 +117,11 @@ export const usePlayer = create<PlayerState>((set, get) => {
   audio.addEventListener("loadedmetadata", () => {
     if (Number.isFinite(audio.duration)) set({ duration: audio.duration });
   });
-  audio.addEventListener("play", () => set({ playing: true }));
-  // Loading starts when the browser begins fetching or runs out of data, and ends once playback can continue.
+  audio.addEventListener("play", () => {
+    ensureAudioGraph();
+    applyVolume(get().volume, get().boost);
+    set({ playing: true });
+  });
   audio.addEventListener("loadstart", () => set({ loading: true }));
   audio.addEventListener("waiting", () => set({ loading: true }));
   audio.addEventListener("stalled", () => set({ loading: true }));
@@ -84,6 +149,7 @@ export const usePlayer = create<PlayerState>((set, get) => {
     position: 0,
     duration: 0,
     volume: 1,
+    boost: initialBoost,
     repeat: false,
 
     playQueue: (songs, index = 0) => {
@@ -94,6 +160,8 @@ export const usePlayer = create<PlayerState>((set, get) => {
     pause: () => audio.pause(),
     toggle: () => {
       if (!get().queue.length) return;
+      ensureAudioGraph();
+      applyVolume(get().volume, get().boost);
       if (audio.paused) audio.play().catch(() => {});
       else audio.pause();
     },
@@ -117,8 +185,15 @@ export const usePlayer = create<PlayerState>((set, get) => {
       get().seek(Math.min(Math.max(audio.currentTime + sec, 0), max || 0));
     },
     setVolume: (v) => {
-      audio.volume = v;
       set({ volume: v });
+      applyVolume(v, get().boost);
+    },
+    setBoost: (b) => {
+      set({ boost: b });
+      if (typeof window !== "undefined") {
+        localStorage.setItem("music-vol-boost", String(b));
+      }
+      applyVolume(get().volume, b);
     },
     toggleRepeat: () => set((s) => ({ repeat: !s.repeat })),
     shuffleUpNext: () => {

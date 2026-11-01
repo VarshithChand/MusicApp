@@ -1,3 +1,4 @@
+import TrackPlayer from "react-native-track-player";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useColorScheme } from 'react-native';
 import { create } from 'zustand';
@@ -38,7 +39,12 @@ export const useSettings = create<SettingsState>()(
       font: 'system',
       textSize: 'normal',
       boost: 100,
-      update: (patch) => set(patch),
+      update: (patch) => {
+        set(patch);
+        if (patch.boost !== undefined) {
+          TrackPlayer.setVolume(patch.boost / 100).catch(() => {});
+        }
+      },
     }),
     {
       name: 'app-settings',
