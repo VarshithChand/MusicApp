@@ -63,7 +63,14 @@ export function SearchScreen() {
 
   return (
     <div className="page">
-      <h1>Search</h1>
+      <div className="page-head">
+        <div className="row">
+          <button className="icon-btn" onClick={() => navigate(-1)} aria-label="Back">
+            <Icon name="back" size={24} />
+          </button>
+          <h1>Search</h1>
+        </div>
+      </div>
 
       <div className="searchbox">
         <Icon name="search" size={20} />

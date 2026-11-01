@@ -101,10 +101,13 @@ export function HomeScreen() {
           {name ? `, ${name}` : ""}
         </h1>
         <div className="row">
+          <button className="icon-btn filled" onClick={() => navigate("/search")} aria-label="Search" title="Search songs, artists, albums">
+            <Icon name="search" size={20} />
+          </button>
           <button className="btn" onClick={refresh} disabled={refreshing}>
             {refreshing ? "Refreshing…" : "Refresh"}
           </button>
-          <button className="icon-btn filled" onClick={() => navigate("/account")} aria-label="Account">
+          <button className="icon-btn filled" onClick={() => navigate("/settings")} aria-label="Settings" title="Settings">
             <Icon name="user" size={22} />
           </button>
         </div>
