@@ -440,6 +440,95 @@ input::placeholder {
   animation: fadeIn 0.18s ease;
 }
 
+.search-youtube-direct-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.yt-search-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  text-align: left;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 10px 14px;
+  border-radius: 14px;
+  transition: all 0.15s ease;
+}
+.yt-search-row:hover {
+  background: var(--surface2);
+  border-color: rgba(255, 197, 61, 0.35);
+  transform: translateY(-1px);
+}
+.yt-search-row .row-action-icon {
+  margin-left: auto;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--surface2);
+  transition: all 0.15s ease;
+}
+.yt-search-row:hover .row-action-icon {
+  color: #0b0f17;
+  background: var(--accent);
+}
+
+/* --- Persistent Bottom 2-Option Selector Bar (YouTube vs Search from Web) --- */
+.source-bar-wrap {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 32px;
+  padding: 12px 0 20px;
+}
+
+.source-segmented-bar {
+  display: flex;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 30px;
+  padding: 4px;
+  width: 100%;
+  max-width: 400px;
+  gap: 4px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+}
+
+.source-segment-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-radius: 26px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+  cursor: pointer;
+}
+
+.source-segment-btn:hover {
+  background: var(--surface2);
+}
+
+.source-segment-btn.active {
+  background: var(--accent);
+  color: #0b0f17;
+  font-weight: 700;
+  box-shadow: 0 2px 10px rgba(255, 197, 61, 0.35);
+}
+
 /* --- app layout --------------------------------------------------------- */
 
 .app {

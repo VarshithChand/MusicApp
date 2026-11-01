@@ -8,6 +8,7 @@ import { Icon } from "../components/Icon";
 import { SongRow } from "../components/SongRow";
 import { usePlayer } from "../store/player";
 import { useSearchHistory } from "../store/searchHistory";
+import { useSearchSource } from "../store/searchSource";
 import { useVideo } from "../store/video";
 
 type Kind = "songs" | "artists" | "albums" | "genres";
@@ -43,6 +44,8 @@ export function SearchScreen() {
 
   const playQueue = usePlayer((s) => s.playQueue);
   const { history, add: addHistory, remove: removeHistory, clear: clearHistory } = useSearchHistory();
+  const source = useSearchSource((s) => s.source);
+  const setSource = useSearchSource((s) => s.setSource);
 
   const [text, setText] = useState(initialQ);
   const [q, setQ] = useState(initialQ);
@@ -114,8 +117,8 @@ export function SearchScreen() {
     );
   };
 
-  const { data, isFetching, isError } = useSearch(q);
-  const discover = useDiscover(q);
+  const { data, isFetching, isError } = useSearch(source === "web" ? q : "");
+  const discover = useDiscover(source === "web" ? q : "");
   const youtubeQuery = q
     ? ["telugu", mood?.toLowerCase(), q].filter(Boolean).join(" ")
     : mood
@@ -282,95 +285,46 @@ export function SearchScreen() {
           ========================================================================= */}
       {isSearchActive && (
         <div className="search-results-container">
-          {/* Result Type Tabs */}
-          <div className="chips" role="group" aria-label="Result type">
-            {KINDS.map((k) => (
-              <Chip key={k.key} label={k.label} active={kind === k.key} onClick={() => setKind(k.key)} />
-            ))}
-          </div>
+          {/* =========================================================================
+              SOURCE 1: YOUTUBE DIRECT RESULTS (When YouTube is selected)
+              ========================================================================= */}
+          {source === "youtube" && (
+            <section className="search-youtube-direct-section">
+              <div className="search-section-header">
+                <h2>YouTube Results</h2>
+                <span className="badge">YouTube Mode</span>
+              </div>
+              <p className="muted small">Direct video search. Plays in YouTube's built-in player.</p>
 
-          {/* Mood Filters for Songs */}
-          {kind === "songs" && (
-            <div className="chips" role="group" aria-label="Mood">
-              {MOODS.map((m) => (
-                <Chip key={m} label={m} active={mood === m} onClick={() => setMood(mood === m ? null : m)} />
-              ))}
-            </div>
-          )}
-
-          {/* Movies Result Grid */}
-          <MovieResults q={q} />
-
-          {/* Status Indicators */}
-          {isFetching && <p className="muted">Searching…</p>}
-          {isError && <p className="error">Search failed. Check your connection.</p>}
-          {empty && (
-            <p className="muted">
-              No {kind} found for “{q}”. Try another search term.
-            </p>
-          )}
-
-          {/* Songs Results List */}
-          {data && kind === "songs" &&
-            data.songs.map((s, i) => (
-              <SongRow
-                key={s.id}
-                song={s}
-                subtitle={[s.artist_name, s.album_title].filter(Boolean).join(" · ")}
-                onPlay={() => playQueue(data.songs, i)}
-              />
-            ))}
-
-          {/* Creative Commons Web Catalogue */}
-          {kind === "songs" && !!q && discover.data?.configured && (
-            <section className="web-results">
-              <h2>From the web</h2>
-              <p className="muted small">Free, Creative Commons music. Tap a song to listen — it's also saved to your library.</p>
-              {discover.isFetching && <p className="muted">Searching the web…</p>}
-              {discover.isError && <p className="error">The web catalogue is unavailable right now.</p>}
-              {discover.data.results.length === 0 && !discover.isFetching && <p className="muted">No free songs found on the web.</p>}
-              {importSong.isError && <p className="error">Couldn't add that song. Try another.</p>}
-              {discover.data.results.map((t) => (
-                <div key={t.externalId} className="song-row">
-                  <button className="song-main" onClick={() => playFromWeb(t.externalId)} disabled={importingId !== null} aria-label={`Play ${t.title}`}>
-                    <span className="cover-wrap">
-                      <Cover id={Number(t.externalId)} uri={t.cover} size={52} radius={12} />
-                      {importingId === t.externalId && (
-                        <span className="cover-loading" role="status" aria-label="Loading">
-                          <span className="spinner" />
-                        </span>
-                      )}
-                    </span>
-                    <span className="song-text">
-                      <span className="song-title">{t.title}</span>
-                      <span className="song-sub">{[t.artist, t.album].filter(Boolean).join(" · ")}</span>
-                    </span>
-                  </button>
-                  {t.licenseUrl && (
-                    <a className="license" href={t.licenseUrl} target="_blank" rel="noreferrer" title="Creative Commons licence">
-                      CC
-                    </a>
-                  )}
-                </div>
-              ))}
-            </section>
-          )}
-
-          {/* YouTube Video Results */}
-          {kind === "songs" && !!youtubeQuery && youtube.data?.configured && (
-            <section className="web-results">
-              <h2>On YouTube</h2>
-              <p className="muted small">Plays in YouTube's own player. Nothing is saved to your library.</p>
               {youtube.isFetching && <p className="muted">Searching YouTube…</p>}
               {youtube.isError && <p className="error">YouTube search is unavailable right now.</p>}
-              {youtube.data.results.length === 0 && !youtube.isFetching && <p className="muted">No videos found.</p>}
-              {youtube.data.results.map((v) => (
+              {youtube.data?.results.length === 0 && !youtube.isFetching && (
+                <div className="search-history-empty">
+                  <span className="search-empty-icon">
+                    <Icon name="youtube" size={32} />
+                  </span>
+                  <p>No videos found for "{q}"</p>
+                  <span className="muted small">Try searching another title or artist name.</span>
+                </div>
+              )}
+
+              {youtube.data?.results.map((v) => (
                 <button
                   key={v.videoId}
-                  className="list-row"
+                  className="list-row yt-search-row"
                   onClick={() => {
                     pausePlayer();
-                    openVideo({ videoId: v.videoId, title: v.title });
+                    openVideo(
+                      { videoId: v.videoId, title: v.title, channel: v.channel, thumbnail: v.thumbnail },
+                      youtube.data?.results.map((item) => ({
+                        videoId: item.videoId,
+                        title: item.title,
+                        channel: item.channel,
+                        thumbnail: item.thumbnail,
+                        durationSeconds: item.durationSeconds ?? null,
+                      })),
+                      "half"
+                    );
                   }}
                   aria-label={`Play ${v.title} on YouTube`}
                 >
@@ -379,48 +333,158 @@ export function SearchScreen() {
                     <span className="song-title">{v.title}</span>
                     <span className="song-sub">{v.channel}</span>
                   </span>
+                  <span className="row-action-icon" aria-hidden="true">
+                    <Icon name="play" size={18} />
+                  </span>
                 </button>
               ))}
             </section>
           )}
 
-          {/* Artists Results */}
-          {data && kind === "artists" &&
-            data.artists.map((a) => (
-              <button key={a.id} className="list-row" onClick={() => navigate(listLink(a.name, `/artists/${a.id}/songs`))}>
-                <Cover id={a.id} uri={a.image_url} size={52} radius={26} />
-                <span className="song-title">{a.name}</span>
-              </button>
-            ))}
+          {/* =========================================================================
+              SOURCE 2: SEARCH FROM WEB RESULTS (When Search from Web is selected)
+              ========================================================================= */}
+          {source === "web" && (
+            <>
+              {/* Result Type Tabs */}
+              <div className="chips" role="group" aria-label="Result type">
+                {KINDS.map((k) => (
+                  <Chip key={k.key} label={k.label} active={kind === k.key} onClick={() => setKind(k.key)} />
+                ))}
+              </div>
 
-          {/* Albums Results */}
-          {data && kind === "albums" &&
-            data.albums.map((al) => (
-              <button key={al.id} className="list-row" onClick={() => navigate(listLink(al.title, `/albums/${al.id}/songs`))}>
-                <Cover id={al.id} uri={al.cover_url} size={52} radius={12} />
-                <span className="song-text">
-                  <span className="song-title">{al.title}</span>
-                  <span className="song-sub">{al.artist_name}</span>
-                </span>
-              </button>
-            ))}
+              {/* Mood Filters for Songs */}
+              {kind === "songs" && (
+                <div className="chips" role="group" aria-label="Mood">
+                  {MOODS.map((m) => (
+                    <Chip key={m} label={m} active={mood === m} onClick={() => setMood(mood === m ? null : m)} />
+                  ))}
+                </div>
+              )}
 
-          {/* Genres Results */}
-          {data && kind === "genres" &&
-            data.genres.map((g) => (
-              <button
-                key={g.id}
-                className="list-row"
-                onClick={() => {
-                  setText(g.name);
-                  setKind("songs");
-                }}
-              >
-                <span className="song-title">{g.name}</span>
-              </button>
-            ))}
+              {/* Movies Result Grid */}
+              <MovieResults q={q} />
+
+              {/* Status Indicators */}
+              {isFetching && <p className="muted">Searching…</p>}
+              {isError && <p className="error">Search failed. Check your connection.</p>}
+              {empty && (
+                <p className="muted">
+                  No {kind} found for “{q}”. Try another search term.
+                </p>
+              )}
+
+              {/* Songs Results List */}
+              {data && kind === "songs" &&
+                data.songs.map((s, i) => (
+                  <SongRow
+                    key={s.id}
+                    song={s}
+                    subtitle={[s.artist_name, s.album_title].filter(Boolean).join(" · ")}
+                    onPlay={() => playQueue(data.songs, i)}
+                  />
+                ))}
+
+              {/* Creative Commons Web Catalogue */}
+              {kind === "songs" && !!q && discover.data?.configured && (
+                <section className="web-results">
+                  <h2>From the web</h2>
+                  <p className="muted small">Free, Creative Commons music. Tap a song to listen — it's also saved to your library.</p>
+                  {discover.isFetching && <p className="muted">Searching the web…</p>}
+                  {discover.isError && <p className="error">The web catalogue is unavailable right now.</p>}
+                  {discover.data.results.length === 0 && !discover.isFetching && <p className="muted">No free songs found on the web.</p>}
+                  {importSong.isError && <p className="error">Couldn't add that song. Try another.</p>}
+                  {discover.data.results.map((t) => (
+                    <div key={t.externalId} className="song-row">
+                      <button className="song-main" onClick={() => playFromWeb(t.externalId)} disabled={importingId !== null} aria-label={`Play ${t.title}`}>
+                        <span className="cover-wrap">
+                          <Cover id={Number(t.externalId)} uri={t.cover} size={52} radius={12} />
+                          {importingId === t.externalId && (
+                            <span className="cover-loading" role="status" aria-label="Loading">
+                              <span className="spinner" />
+                            </span>
+                          )}
+                        </span>
+                        <span className="song-text">
+                          <span className="song-title">{t.title}</span>
+                          <span className="song-sub">{[t.artist, t.album].filter(Boolean).join(" · ")}</span>
+                        </span>
+                      </button>
+                      {t.licenseUrl && (
+                        <a className="license" href={t.licenseUrl} target="_blank" rel="noreferrer" title="Creative Commons licence">
+                          CC
+                        </a>
+                      )}
+                    </div>
+                  ))}
+                </section>
+              )}
+
+              {/* Artists Results */}
+              {data && kind === "artists" &&
+                data.artists.map((a) => (
+                  <button key={a.id} className="list-row" onClick={() => navigate(listLink(a.name, `/artists/${a.id}/songs`))}>
+                    <Cover id={a.id} uri={a.image_url} size={52} radius={26} />
+                    <span className="song-title">{a.name}</span>
+                  </button>
+                ))}
+
+              {/* Albums Results */}
+              {data && kind === "albums" &&
+                data.albums.map((al) => (
+                  <button key={al.id} className="list-row" onClick={() => navigate(listLink(al.title, `/albums/${al.id}/songs`))}>
+                    <Cover id={al.id} uri={al.cover_url} size={52} radius={12} />
+                    <span className="song-text">
+                      <span className="song-title">{al.title}</span>
+                      <span className="song-sub">{al.artist_name}</span>
+                    </span>
+                  </button>
+                ))}
+
+              {/* Genres Results */}
+              {data && kind === "genres" &&
+                data.genres.map((g) => (
+                  <button
+                    key={g.id}
+                    className="list-row"
+                    onClick={() => {
+                      setText(g.name);
+                      setKind("songs");
+                    }}
+                  >
+                    <span className="song-title">{g.name}</span>
+                  </button>
+                ))}
+            </>
+          )}
         </div>
       )}
+
+      {/* =========================================================================
+          PERSISTENT 2-OPTION SELECTOR (AT BOTTOM): 1. YouTube  2. Search from Web
+          ========================================================================= */}
+      <div className="source-bar-wrap">
+        <div className="source-segmented-bar" role="group" aria-label="Default search source">
+          <button
+            type="button"
+            className={`source-segment-btn ${source === "youtube" ? "active" : ""}`}
+            onClick={() => setSource("youtube")}
+            aria-pressed={source === "youtube"}
+          >
+            <Icon name="youtube" size={17} />
+            <span>YouTube</span>
+          </button>
+          <button
+            type="button"
+            className={`source-segment-btn ${source === "web" ? "active" : ""}`}
+            onClick={() => setSource("web")}
+            aria-pressed={source === "web"}
+          >
+            <Icon name="search" size={17} />
+            <span>Search from Web</span>
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

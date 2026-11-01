@@ -26,6 +26,7 @@ import { SongRow } from '../components/SongRow';
 import { Song, YouTubeResponse, YouTubeResult } from '../api/types';
 import { playQueue } from '../player/controls';
 import { useAuth } from '../store/auth';
+import { useSearchSource } from '../store/searchSource';
 import { useSelection } from '../store/selection';
 import { useYouTubePlayer } from '../store/youtubePlayer';
 import { colors, themedStyles } from '../theme/theme';
@@ -79,6 +80,8 @@ function greeting() {
 export function HomeScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
+  const source = useSearchSource((s) => s.source);
+  const setSource = useSearchSource((s) => s.setSource);
   const recent = useRecentlyPlayed();
   const popular = useSongs('popular');
   const artists = useArtists();
@@ -285,13 +288,44 @@ export function HomeScreen() {
           </ScrollView>
         </View>
       )}
+
+      {/* Persistent Bottom 2-Option Selector: 1. YouTube  2. Search from Web */}
+      <View style={styles.bottomBarSection}>
+        <View style={styles.segmentedBar}>
+          <Pressable
+            style={[styles.segmentBtn, source === 'youtube' && styles.segmentBtnActive]}
+            onPress={() => setSource('youtube')}
+            accessibilityRole="button"
+            accessibilityLabel="YouTube mode"
+            accessibilityState={{ selected: source === 'youtube' }}
+          >
+            <Icon name="video" size={17} color={source === 'youtube' ? '#0b0f17' : colors.text} />
+            <Text style={[styles.segmentBtnText, source === 'youtube' && styles.segmentBtnTextActive]}>
+              YouTube
+            </Text>
+          </Pressable>
+
+          <Pressable
+            style={[styles.segmentBtn, source === 'web' && styles.segmentBtnActive]}
+            onPress={() => setSource('web')}
+            accessibilityRole="button"
+            accessibilityLabel="Search from web mode"
+            accessibilityState={{ selected: source === 'web' }}
+          >
+            <Icon name="search" size={17} color={source === 'web' ? '#0b0f17' : colors.text} />
+            <Text style={[styles.segmentBtnText, source === 'web' && styles.segmentBtnTextActive]}>
+              Search from Web
+            </Text>
+          </Pressable>
+        </View>
+      </View>
     </ScrollView>
   );
 }
 
 const styles = themedStyles(() => ({
   flex: { flex: 1, backgroundColor: colors.bg },
-  content: { paddingHorizontal: 20, paddingBottom: 24, gap: 28 },
+  content: { paddingHorizontal: 20, paddingBottom: 32, gap: 28 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   h1: { color: colors.text, fontSize: 30, fontWeight: '700', letterSpacing: -0.5 },
   headerActions: { flexDirection: 'row', gap: 10 },
@@ -314,4 +348,43 @@ const styles = themedStyles(() => ({
   artist: { width: 76, alignItems: 'center', gap: 8 },
   artistName: { color: colors.text, fontSize: 13, fontWeight: '500' },
   error: { color: colors.danger, fontSize: 14 },
+
+  // Bottom 2-Option Selector Bar
+  bottomBarSection: { marginTop: 8, alignItems: 'center', paddingBottom: 12 },
+  segmentedBar: {
+    flexDirection: 'row',
+    backgroundColor: colors.surface,
+    borderRadius: 24,
+    padding: 4,
+    borderWidth: 1,
+    borderColor: colors.border,
+    width: '100%',
+    maxWidth: 380,
+  },
+  segmentBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 10,
+    borderRadius: 20,
+  },
+  segmentBtnActive: {
+    backgroundColor: colors.accent,
+    shadowColor: colors.accent,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  segmentBtnText: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  segmentBtnTextActive: {
+    color: '#0b0f17',
+    fontWeight: '700',
+  },
 }));

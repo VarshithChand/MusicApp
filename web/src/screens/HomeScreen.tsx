@@ -14,6 +14,7 @@ import { isAndroid } from "../config";
 import { useAuth } from "../store/auth";
 import { usePlayer } from "../store/player";
 import { useSheet } from "../store/sheet";
+import { useSearchSource } from "../store/searchSource";
 import { useVideo } from "../store/video";
 
 function greeting() {
@@ -71,6 +72,8 @@ export function HomeScreen() {
   const name = useAuth((s) => s.user?.name?.split(" ")[0]);
   const playQueue = usePlayer((s) => s.playQueue);
   const openSheet = useSheet((s) => s.open);
+  const source = useSearchSource((s) => s.source);
+  const setSource = useSearchSource((s) => s.setSource);
   const recent = useRecentlyPlayed();
   const popular = useSongs("popular");
   const artists = useArtists();
@@ -275,6 +278,32 @@ export function HomeScreen() {
           </ScrollRow>
         </section>
       )}
+
+      {/* =========================================================================
+          PERSISTENT 2-OPTION SELECTOR (DOCKED AT BOTTOM): 1. YouTube  2. Search from Web
+          ========================================================================= */}
+      <section className="source-bar-wrap">
+        <div className="source-segmented-bar" role="group" aria-label="Default search and media source">
+          <button
+            type="button"
+            className={`source-segment-btn ${source === "youtube" ? "active" : ""}`}
+            onClick={() => setSource("youtube")}
+            aria-pressed={source === "youtube"}
+          >
+            <Icon name="youtube" size={17} />
+            <span>YouTube</span>
+          </button>
+          <button
+            type="button"
+            className={`source-segment-btn ${source === "web" ? "active" : ""}`}
+            onClick={() => setSource("web")}
+            aria-pressed={source === "web"}
+          >
+            <Icon name="search" size={17} />
+            <span>Search from Web</span>
+          </button>
+        </div>
+      </section>
     </div>
   );
 }
