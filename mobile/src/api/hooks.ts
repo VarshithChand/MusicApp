@@ -36,6 +36,37 @@ export const useAdminUserStats = () =>
     staleTime: 60_000,
   });
 
+/** Current admin's name, public IP, and geo-location resolved from the IP. */
+export const useAdminMyInfo = () =>
+  useQuery({
+    queryKey: ['admin-my-info-v3'],
+    queryFn: async () => {
+      // 1. Try server endpoint first
+      try {
+        const res = await api<{ name: string; email: string; ip: string; location: string }>('/admin/my-info');
+        if (res?.ip && res.ip !== 'unknown' && res.location !== 'Could not determine location') return res;
+      } catch {
+        // Fall through to client-side geo lookup if backend is redeploying
+      }
+
+      // 2. Direct client-side lookup fallback (guarantees immediate IP & location on device via HTTPS)
+      try {
+        const geoRes = await fetch('https://ipwho.is/');
+        const geo = await geoRes.json();
+        const loc = [geo.city, geo.region, geo.country].filter(Boolean).join(', ');
+        return {
+          name: '',
+          email: '',
+          ip: (geo.ip as string) || 'Unknown',
+          location: loc || 'Unknown',
+        };
+      } catch {
+        return { name: '', email: '', ip: 'Unknown', location: 'Unknown' };
+      }
+    },
+    staleTime: 60_000,
+  });
+
 /** What an import kept, how it split across lists, and every link turned away with the reason. */
 export interface VideoImportReport {
   accepted: number;

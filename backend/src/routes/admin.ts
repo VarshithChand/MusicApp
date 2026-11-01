@@ -1,7 +1,7 @@
 import { Router } from "express";
 import multer from "multer";
 import { z } from "zod";
-import { requireAdmin, requireAuth } from "../auth";
+import { AuthedRequest, requireAdmin, requireAuth } from "../auth";
 import { query } from "../db";
 import { approvePredictedLabels, rejectPrediction } from "../classifier/store";
 import { classifyExistingSong, reclassifyMovie } from "../classifier/rerun";
@@ -412,4 +412,49 @@ adminRouter.get("/user-stats", async (_req, res) => {
 /** The label vocabulary, grouped by kind, for the review screen. */
 adminRouter.get("/labels", async (_req, res) => {
   res.json(await query("SELECT slug, name, kind FROM moods ORDER BY CASE kind WHEN 'style' THEN 0 WHEN 'mood' THEN 1 ELSE 2 END, sort_key(name) COLLATE \"C\", name COLLATE \"C\""));
+});
+
+
+// ============================================================================
+// Admin "my info": current user name, public IP, and geo-location from IP.
+// ============================================================================
+
+/** Simple in-memory cache for IP → location lookups (ip-api.com allows 45 req/min). */
+const geoCache = new Map<string, { location: string; at: number }>();
+const GEO_TTL = 10 * 60_000; // 10 minutes
+
+async function geoFromIp(ip: string): Promise<string> {
+  const cached = geoCache.get(ip);
+  if (cached && Date.now() - cached.at < GEO_TTL) return cached.location;
+
+  try {
+    const res = await fetch(`https://ipwho.is/${encodeURIComponent(ip)}`);
+    const data = (await res.json()) as { success?: boolean; city?: string; region?: string; country?: string };
+    if (data.success !== false) {
+      const parts = [data.city, data.region, data.country].filter(Boolean);
+      const location = parts.join(", ") || "Unknown";
+      geoCache.set(ip, { location, at: Date.now() });
+      return location;
+    }
+  } catch {
+    // service unreachable; fall through
+  }
+  return "Could not determine location";
+}
+
+adminRouter.get("/my-info", async (req: AuthedRequest, res) => {
+  const userId = req.userId!;
+  const [user] = await query<{ name: string; email: string }>(
+    "SELECT name, email FROM users WHERE id = $1",
+    [userId],
+  );
+  if (!user) return res.status(404).json({ error: "User not found" });
+
+  // req.ip is the client's public IP (trust proxy is enabled)
+  const ip = req.ip ?? req.socket.remoteAddress ?? "unknown";
+  const location = ip !== "unknown" && ip !== "::1" && ip !== "127.0.0.1"
+    ? await geoFromIp(ip)
+    : "Localhost (development)";
+
+  res.json({ name: user.name, email: user.email, ip, location });
 });
