@@ -27,7 +27,12 @@ export const useAuth = create<AuthState>()(
         login: async (email, password) =>
           save(await request<AuthResponse>("/auth/login", { method: "POST", body: { email, password } })),
         register: async (name, email, password) =>
-          save(await request<AuthResponse>("/auth/register", { method: "POST", body: { name, email, password } })),
+          save(
+            await request<AuthResponse>("/auth/register", {
+              method: "POST",
+              body: { name, email, password, gender: "male", dateOfBirth: "2000-01-01" },
+            }),
+          ),
         loginWithGoogle: async (idToken) => save(await request<AuthResponse>("/auth/google", { method: "POST", body: { idToken } })),
         setTokens: (accessToken, refreshToken) => set({ accessToken, refreshToken }),
         logout: () => set({ user: null, accessToken: null, refreshToken: null }),

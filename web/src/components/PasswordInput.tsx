@@ -6,6 +6,7 @@ interface Props {
   autoComplete?: string;
   minLength?: number;
   placeholder?: string;
+  defaultValue?: string;
 }
 
 /** Password field with an eye button that reveals what was typed. */

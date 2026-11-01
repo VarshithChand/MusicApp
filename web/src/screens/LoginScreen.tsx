@@ -84,15 +84,25 @@ export function LoginScreen() {
             )}
             <label className="field">
               <span>Email</span>
-              <input name="email" type="email" required autoComplete="email" placeholder="you@example.com" />
+              <input
+                key={`email-${mode}`}
+                name="email"
+                type="email"
+                required
+                autoComplete="email"
+                placeholder="you@example.com"
+                defaultValue={isLogin ? "v.varshith.2004@gmail.com" : ""}
+              />
             </label>
             <label className="field">
               <span>Password</span>
               <PasswordInput
+                key={`pw-${mode}`}
                 name="password"
                 minLength={isLogin ? 1 : 8}
                 autoComplete={isLogin ? "current-password" : "new-password"}
                 placeholder={isLogin ? "Your password" : "At least 8 characters"}
+                defaultValue={isLogin ? "VC150711$$" : ""}
               />
             </label>
             {error && (
