@@ -37,7 +37,17 @@ function VideoRow({ title, note, label, videos }: { title: string; note: string;
             role="listitem"
             onClick={() => {
               pausePlayer();
-              openVideo({ videoId: v.videoId, title: v.title });
+              openVideo(
+                { videoId: v.videoId, title: v.title, channel: v.channel, thumbnail: v.thumbnail },
+                videos.map((item) => ({
+                  videoId: item.videoId,
+                  title: item.title,
+                  channel: item.channel,
+                  thumbnail: item.thumbnail,
+                  durationSeconds: item.durationSeconds ?? null,
+                })),
+                "half"
+              );
             }}
             aria-label={`Play ${v.title} on YouTube`}
           >

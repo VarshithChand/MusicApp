@@ -138,14 +138,26 @@ export function YouTubeScreen() {
     }
   };
 
-  const playVideo = (v: YouTubeResult) => {
+  const playVideo = (v: YouTubeResult, list?: YouTubeResult[]) => {
     pauseAudio();
-    openVideo({
-      videoId: v.videoId,
-      title: v.title,
-      channel: v.channel,
-      thumbnail: v.thumbnail,
-    });
+    const queue = (list ?? []).map((item) => ({
+      videoId: item.videoId,
+      title: item.title,
+      channel: item.channel,
+      thumbnail: item.thumbnail ?? null,
+      durationSeconds: item.durationSeconds ?? null,
+    }));
+    openVideo(
+      {
+        videoId: v.videoId,
+        title: v.title,
+        channel: v.channel,
+        thumbnail: v.thumbnail,
+        durationSeconds: v.durationSeconds ?? null,
+      },
+      queue,
+      "half"
+    );
   };
 
   const renderVideoCards = (list?: YouTubeResult[], isLoading = false, emptyNote = "No videos found.") => {
@@ -170,7 +182,7 @@ export function YouTubeScreen() {
           const dur = formatDuration(v.durationSeconds);
           return (
             <div key={v.videoId} className="yt-card">
-              <div className="yt-card-thumb-wrap" onClick={() => playVideo(v)}>
+              <div className="yt-card-thumb-wrap" onClick={() => playVideo(v, list)}>
                 {v.thumbnail ? (
                   <img src={v.thumbnail} alt={v.title} loading="lazy" className="yt-card-img" />
                 ) : (
@@ -183,7 +195,7 @@ export function YouTubeScreen() {
               </div>
 
               <div className="yt-card-body">
-                <div className="yt-card-details" onClick={() => playVideo(v)}>
+                <div className="yt-card-details" onClick={() => playVideo(v, list)}>
                   <h4 className="yt-card-title" title={v.title}>
                     {v.title}
                   </h4>
