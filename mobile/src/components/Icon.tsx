@@ -4,6 +4,7 @@ import Svg, { Path } from 'react-native-svg';
 const ICONS = {
   home: { d: ['M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z'] },
   search: { d: ['M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14z', 'M21 21l-4.5-4.5'] },
+  history: { d: ['M12 8v4l3 3', 'M3.05 11a9 9 0 1 1 .5 4m-.5 5v-5h5'] },
   library: { d: ['M4 4v16M9 4v16M14 6l5 14'] },
   user: { d: ['M12 4a4 4 0 1 0 0 8 4 4 0 0 0 0-8z', 'M4 21a8 8 0 0 1 16 0'] },
   more: {
