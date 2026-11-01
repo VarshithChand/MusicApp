@@ -41,6 +41,17 @@ export function YouTubeDock() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [mode, setMode]);
 
+  // Lock body scroll while watch overlay is open so background cards never leak or scroll underneath
+  useEffect(() => {
+    if (video && (mode === "half" || mode === "full")) {
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.body.style.overflow = prev;
+      };
+    }
+  }, [video, mode]);
+
   // Combined mix/up-next list: queue if provided, or trending songs as recommended mix
   const mixList = useMemo(() => {
     if (queue.length > 1) return queue;

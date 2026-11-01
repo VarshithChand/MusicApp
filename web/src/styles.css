@@ -1293,19 +1293,19 @@ button.apk-link:disabled {
 /* 2. YouTube Split Watch Overlay (Desktop Half Screen Layout) */
 .yt-watch-overlay {
   position: fixed;
-  inset: 0 0 var(--bar) var(--sidebar);
+  inset: 0 0 0 var(--sidebar);
   background: var(--bg);
   z-index: 1020;
   overflow-y: auto;
-  padding: 24px 32px;
+  padding: 24px 32px 48px;
   display: flex;
   justify-content: center;
   animation: fadeIn 0.2s ease;
 }
 @media (max-width: 800px) {
   .yt-watch-overlay {
-    inset: 0 0 calc(var(--bar) + var(--nav)) 0;
-    padding: 16px;
+    inset: 0;
+    padding: 16px 16px 40px;
   }
 }
 
