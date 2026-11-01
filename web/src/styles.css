@@ -338,13 +338,18 @@ input::placeholder {
 
 .main {
   margin-left: var(--sidebar);
-  padding: 32px 32px calc(var(--bar) + 32px);
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 32px 40px calc(var(--bar) + 32px);
 }
 .page {
-  max-width: 820px;
+  width: 100%;
+  max-width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 28px;
+  min-width: 0;
+  box-sizing: border-box;
 }
 .page-head {
   display: flex;
@@ -499,7 +504,8 @@ input::placeholder {
 /* --- home polish -------------------------------------------------------- */
 
 .page.wide {
-  max-width: 1040px;
+  max-width: 100%;
+  width: 100%;
 }
 
 .feature {
@@ -1099,7 +1105,9 @@ button.apk-link:disabled {
 /* --- account page ------------------------------------------------------- */
 
 .account {
-  max-width: 480px;
+  max-width: 520px;
+  margin: 0 auto;
+  width: 100%;
 }
 .profile {
   display: flex;
@@ -1313,7 +1321,7 @@ button.apk-link:disabled {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 380px;
   gap: 28px;
-  max-width: 1440px;
+  max-width: 1600px;
   width: 100%;
 }
 @media (max-width: 1040px) {
@@ -1848,7 +1856,8 @@ html {
 /* --- YouTube Screen Styles ------------------------------------------------ */
 
 .yt-page {
-  max-width: 1100px;
+  max-width: 100%;
+  width: 100%;
 }
 
 .yt-header {
@@ -2192,7 +2201,8 @@ html {
 /* --- Settings Screen Styles ---------------------------------------------- */
 
 .settings-page {
-  max-width: 860px;
+  max-width: 1200px;
+  width: 100%;
 }
 
 .settings-header {
